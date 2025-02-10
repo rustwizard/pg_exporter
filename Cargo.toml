@@ -2,5 +2,7 @@
 name = "pg_exporter"
 version = "0.1.0"
 edition = "2021"
+authors = ["Rust Wizard <rustwizard.0@gmail.com>"]
 
 [dependencies]
+actix-web = "4"
