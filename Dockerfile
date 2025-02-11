@@ -16,6 +16,6 @@ WORKDIR /home/pg_exporter/bin/
 
 COPY --from=cargo-build /usr/src/pg_exporter/target/release/pg_exporter .
 
-EXPOSE 8080
+EXPOSE 61488
 
 ENTRYPOINT ["./pg_exporter"]
