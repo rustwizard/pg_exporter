@@ -1,0 +1,5 @@
+services:
+  pg_exporter:
+    build: .
+    ports:
+      - "127.0.0.1:61488:61488"
