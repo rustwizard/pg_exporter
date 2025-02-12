@@ -1,7 +1,10 @@
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 
+mod config;
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let config = config::Config::from_config_file("/etc/myconfig.toml").unwrap();
     HttpServer::new(|| {
         App::new()
             .service(hello)
