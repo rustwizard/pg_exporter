@@ -6,4 +6,4 @@ authors = ["Rust Wizard <rustwizard.0@gmail.com>"]
 
 [dependencies]
 actix-web = "4"
-config_file = "0.2.3"
+config-file = "0.2.3"
