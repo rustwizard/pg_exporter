@@ -12,7 +12,7 @@ async fn main() -> std::io::Result<()> {
         // Add in `./pg_exporter.yml`
         .add_source(config::File::with_name("./pg_exporter.yml"))
         // Add in settings from the environment (with a prefix of PGE)
-        // Eg.. `APP_DEBUG=1 ./target/app` would set the `debug` key
+        // Eg.. `PGE_DEBUG=1 ./target/app` would set the `debug` key
         .add_source(config::Environment::with_prefix("PGE"))
         .build()
         .unwrap();
