@@ -7,3 +7,5 @@ authors = ["Rust Wizard <rustwizard.0@gmail.com>"]
 [dependencies]
 actix-web = "4"
 config = "0.15.8"
+serde_derive = "1.0"
+serde = "1.0"

@@ -1,16 +1,31 @@
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use config::Config;
 
-mod config;
+#[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
+struct PGEConfig {
+    listen_addr: String,
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let config = config::Config::from_config_file("/etc/myconfig.toml").unwrap();
+    let settings = Config::builder()
+        // Add in `./pg_exporter.yml`
+        .add_source(config::File::with_name("./pg_exporter.yml"))
+        // Add in settings from the environment (with a prefix of PGE)
+        // Eg.. `APP_DEBUG=1 ./target/app` would set the `debug` key
+        .add_source(config::Environment::with_prefix("PGE"))
+        .build()
+        .unwrap();
+   
+
+            let pge_config: PGEConfig = settings.try_deserialize().unwrap();
+
     HttpServer::new(|| {
         App::new()
             .service(hello)
             .route("/metrics", web::get().to(metrics))
     })
-    .bind(("0.0.0.0", 61488))?
+    .bind(pge_config.listen_addr)?
     .run()
     .await
 }
