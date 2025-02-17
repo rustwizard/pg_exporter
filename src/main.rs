@@ -16,9 +16,8 @@ async fn main() -> std::io::Result<()> {
         .add_source(config::Environment::with_prefix("PGE"))
         .build()
         .unwrap();
-   
 
-            let pge_config: PGEConfig = settings.try_deserialize().unwrap();
+    let pge_config: PGEConfig = settings.try_deserialize().unwrap();
 
     HttpServer::new(|| {
         App::new()
@@ -29,9 +28,6 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
-
-
-
 
 #[get("/")]
 async fn hello() -> impl Responder {
