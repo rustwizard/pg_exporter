@@ -19,6 +19,8 @@ async fn main() -> std::io::Result<()> {
 
     let pge_config: PGEConfig = settings.try_deserialize().unwrap();
 
+    println!("starting pg_exporter at {:?}", pge_config.listen_addr);
+
     HttpServer::new(|| {
         App::new()
             .service(hello)
