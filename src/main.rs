@@ -1,4 +1,4 @@
-use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{get, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use config::Config;
 
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
@@ -36,6 +36,7 @@ async fn hello() -> impl Responder {
     HttpResponse::Ok().body("This is a pg_exporter for Prometheus written in Rust")
 }
 
-async fn metrics() -> impl Responder {
+async fn metrics(req: HttpRequest) -> impl Responder {
+    println!("processing the request ua {:?}", req.headers().get("user-agent").expect("should be user-agent string"));
     HttpResponse::Ok().body("This is metrics endpoint!")
 }
