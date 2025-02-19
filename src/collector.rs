@@ -14,8 +14,8 @@ const LOCKSQUERY: &str = "SELECT  \
 		count(*) AS total \
 		FROM pg_locks";
 
-/// 11 metrics per PGLocksCollector.
-const METRICS_NUMBER: usize = 11;
+/// 10 metrics per PGLocksCollector.
+const METRICS_NUMBER: usize = 10;
 #[derive(Debug)]
 pub struct PGLocksCollector {
     descs: Vec<Desc>,
