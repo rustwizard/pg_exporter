@@ -14,6 +14,7 @@ const LOCKSQUERY: &str = "SELECT  \
 		count(*) AS total \
 		FROM pg_locks";
 
+#[derive(Debug)]
 pub struct PGLocksCollector {
     descs: Vec<Desc>,
     access_share_lock: IntCounter,
