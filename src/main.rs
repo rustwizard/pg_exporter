@@ -1,3 +1,5 @@
+mod collector;
+
 use actix_web::{get, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use config::Config;
 
