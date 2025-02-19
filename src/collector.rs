@@ -28,7 +28,7 @@ pub struct PGLocksCollector {
     exclusive_lock: IntGauge,
     access_exclusive_lock: IntGauge,
     not_granted: IntGauge,
-    total: IntCounter,
+    total: IntGauge,
 }
 
 impl PGLocksCollector {
@@ -126,7 +126,7 @@ impl PGLocksCollector {
         .unwrap();
         descs.extend(not_granted.desc().into_iter().cloned());
 
-        let total = IntCounter::with_opts(
+        let total = IntGauge::with_opts(
             Opts::new(
                 "total",
                 "Total locks",
