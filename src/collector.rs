@@ -1,5 +1,5 @@
 use prometheus::core::{Desc, Opts, Collector};
-use prometheus::IntCounter;
+use prometheus::{IntCounter, IntGauge};
 
 const LOCKSQUERY: &str = "SELECT  \
 		count(*) FILTER (WHERE mode = 'AccessShareLock') AS access_share_lock,  \
@@ -17,15 +17,15 @@ const LOCKSQUERY: &str = "SELECT  \
 #[derive(Debug)]
 pub struct PGLocksCollector {
     descs: Vec<Desc>,
-    access_share_lock: IntCounter,
-    row_share_lock: IntCounter,
-    row_exclusive_lock: IntCounter,
-    share_update_exclusive_lock: IntCounter,
-    share_lock: IntCounter,
-    share_row_exclusive_lock: IntCounter,
-    exclusive_lock: IntCounter,
-    access_exclusive_lock: IntCounter,
-    not_granted: IntCounter,
+    access_share_lock: IntGauge,
+    row_share_lock: IntGauge,
+    row_exclusive_lock: IntGauge,
+    share_update_exclusive_lock: IntGauge,
+    share_lock: IntGauge,
+    share_row_exclusive_lock: IntGauge,
+    exclusive_lock: IntGauge,
+    access_exclusive_lock: IntGauge,
+    not_granted: IntGauge,
     total: IntCounter,
 }
 
@@ -34,7 +34,7 @@ impl PGLocksCollector {
         let namespace = namespace.into();
         let mut descs = Vec::new();
 
-        let access_share_lock = IntCounter::with_opts(
+        let access_share_lock = IntGauge::with_opts(
             Opts::new(
                 "access_share_lock",
                 "Total AccessShareLock",
@@ -44,7 +44,7 @@ impl PGLocksCollector {
         .unwrap();
         descs.extend(access_share_lock.desc().into_iter().cloned());
 
-        let row_share_lock = IntCounter::with_opts(
+        let row_share_lock = IntGauge::with_opts(
             Opts::new(
                 "row_share_lock",
                 "Total RowShareLock",
@@ -54,7 +54,7 @@ impl PGLocksCollector {
         .unwrap();
         descs.extend(row_share_lock.desc().into_iter().cloned());
 
-        let row_exclusive_lock = IntCounter::with_opts(
+        let row_exclusive_lock = IntGauge::with_opts(
             Opts::new(
                 "row_exclusive_lock",
                 "Total RowExclusiveLock",
@@ -64,7 +64,7 @@ impl PGLocksCollector {
         .unwrap();
         descs.extend(row_exclusive_lock.desc().into_iter().cloned());
 
-        let share_update_exclusive_lock = IntCounter::with_opts(
+        let share_update_exclusive_lock = IntGauge::with_opts(
             Opts::new(
                 "share_update_exclusive_lock",
                 "Total ShareUpdateExclusiveLock",
@@ -74,7 +74,7 @@ impl PGLocksCollector {
         .unwrap();
         descs.extend(share_update_exclusive_lock.desc().into_iter().cloned());
 
-        let share_lock = IntCounter::with_opts(
+        let share_lock = IntGauge::with_opts(
             Opts::new(
                 "share_lock",
                 "Total ShareLock",
@@ -84,7 +84,7 @@ impl PGLocksCollector {
         .unwrap();
         descs.extend(share_lock.desc().into_iter().cloned());
 
-        let share_row_exclusive_lock = IntCounter::with_opts(
+        let share_row_exclusive_lock = IntGauge::with_opts(
             Opts::new(
                 "share_row_exclusive_lock",
                 "Total ShareRowExclusiveLock",
@@ -94,7 +94,7 @@ impl PGLocksCollector {
         .unwrap();
         descs.extend(share_row_exclusive_lock.desc().into_iter().cloned());
 
-        let exclusive_lock = IntCounter::with_opts(
+        let exclusive_lock = IntGauge::with_opts(
             Opts::new(
                 "exclusive_lock",
                 "Total ExclusiveLock",
@@ -104,7 +104,7 @@ impl PGLocksCollector {
         .unwrap();
         descs.extend(exclusive_lock.desc().into_iter().cloned());
 
-        let access_exclusive_lock = IntCounter::with_opts(
+        let access_exclusive_lock = IntGauge::with_opts(
             Opts::new(
                 "access_exclusive_lock",
                 "Total AccessExclusiveLock",
@@ -114,7 +114,7 @@ impl PGLocksCollector {
         .unwrap();
         descs.extend(access_exclusive_lock.desc().into_iter().cloned());
 
-        let not_granted = IntCounter::with_opts(
+        let not_granted = IntGauge::with_opts(
             Opts::new(
                 "not_granted",
                 "Total not granted",
