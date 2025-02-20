@@ -1,5 +1,6 @@
 use prometheus::core::{Desc, Opts, Collector};
-use prometheus::{IntCounter, IntGauge};
+use prometheus::IntGauge;
+use prometheus::proto;
 
 const LOCKSQUERY: &str = "SELECT  \
 		count(*) FILTER (WHERE mode = 'AccessShareLock') AS access_share_lock,  \
@@ -154,5 +155,65 @@ impl PGLocksCollector {
     /// Return a `ProcessCollector` of the calling process.
     pub fn for_self() -> PGLocksCollector {
         PGLocksCollector::new("")
+    }
+}
+
+impl Collector for PGLocksCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        self.descs.iter().collect()
+    }
+
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        // collect MetricFamilys.
+        let mut mfs = Vec::with_capacity(METRICS_NUMBER);
+        
+        // TODO: query postgres and set metics       
+        self.access_share_lock.set(11 as i64);
+        self.access_exclusive_lock.set(12 as i64);
+        self.exclusive_lock.set(13 as i64);
+        self.row_exclusive_lock.set(14 as i64);
+        self.row_share_lock.set(15 as i64);
+        self.not_granted.set(16 as i64);
+        self.share_lock.set(17 as i64);
+        self.share_row_exclusive_lock.set(18 as i64);
+        self.share_update_exclusive_lock.set(19 as i64);
+        self.total.set(20 as i64);
+
+        mfs.extend(self.access_exclusive_lock.collect());
+        mfs.extend(self.access_share_lock.collect());
+        mfs.extend(self.exclusive_lock.collect());
+        mfs.extend(self.row_exclusive_lock.collect());
+        mfs.extend(self.row_share_lock.collect());
+        mfs.extend(self.not_granted.collect());
+        mfs.extend(self.share_lock.collect());
+        mfs.extend(self.share_row_exclusive_lock.collect());
+        mfs.extend(self.share_update_exclusive_lock.collect());
+        mfs.extend(self.total.collect());
+        
+        mfs
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use prometheus::core::Collector;
+    use prometheus::Registry;
+
+    #[test]
+    fn test_pg_locks_collector() {
+        let pc = PGLocksCollector::for_self();
+        {
+            let descs = pc.desc();
+            assert_eq!(descs.len(), super::METRICS_NUMBER);
+  
+            let mfs = pc.collect();
+            assert_eq!(mfs.len(), super::METRICS_NUMBER);
+        }
+
+        let r = Registry::new();
+        let res = r.register(Box::new(pc));
+        assert!(res.is_ok());
     }
 }
