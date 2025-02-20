@@ -199,7 +199,7 @@ impl Collector for PGLocksCollector {
 mod tests {
     use super::*;
     use prometheus::core::Collector;
-    use prometheus::Registry;
+    use prometheus::{Registry, Encoder};
 
     #[test]
     fn test_pg_locks_collector() {
@@ -215,5 +215,14 @@ mod tests {
         let r = Registry::new();
         let res = r.register(Box::new(pc));
         assert!(res.is_ok());
+
+        let mut buffer = Vec::new();
+        let encoder = prometheus::TextEncoder::new();
+
+        let metric_families = r.gather();
+        encoder.encode(&metric_families, &mut buffer).unwrap();
+
+        // Output to the standard output.
+        println!("test encoder: {:?}", String::from_utf8(buffer.clone()).unwrap());
     }
 }
