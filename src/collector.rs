@@ -1,5 +1,5 @@
 use prometheus::core::{Desc, Opts, Collector};
-use prometheus::{IntCounter, IntGauge};
+use prometheus::IntGauge;
 use prometheus::proto;
 
 const LOCKSQUERY: &str = "SELECT  \
