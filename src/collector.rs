@@ -1,5 +1,6 @@
 use prometheus::core::{Desc, Opts, Collector};
 use prometheus::{IntCounter, IntGauge};
+use prometheus::proto;
 
 const LOCKSQUERY: &str = "SELECT  \
 		count(*) FILTER (WHERE mode = 'AccessShareLock') AS access_share_lock,  \
@@ -154,5 +155,17 @@ impl PGLocksCollector {
     /// Return a `ProcessCollector` of the calling process.
     pub fn for_self() -> PGLocksCollector {
         PGLocksCollector::new("")
+    }
+}
+
+impl Collector for PGLocksCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        self.descs.iter().collect()
+    }
+
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        // collect MetricFamilys.
+        let mut mfs = Vec::with_capacity(METRICS_NUMBER);
+        mfs
     }
 }
