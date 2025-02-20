@@ -166,6 +166,30 @@ impl Collector for PGLocksCollector {
     fn collect(&self) -> Vec<proto::MetricFamily> {
         // collect MetricFamilys.
         let mut mfs = Vec::with_capacity(METRICS_NUMBER);
+        
+        // TODO: query postgres and set metics       
+        self.access_share_lock.set(11 as i64);
+        self.access_exclusive_lock.set(12 as i64);
+        self.exclusive_lock.set(13 as i64);
+        self.row_exclusive_lock.set(14 as i64);
+        self.row_share_lock.set(15 as i64);
+        self.not_granted.set(16 as i64);
+        self.share_lock.set(17 as i64);
+        self.share_row_exclusive_lock.set(18 as i64);
+        self.share_update_exclusive_lock.set(19 as i64);
+        self.total.set(20 as i64);
+
+        mfs.extend(self.access_exclusive_lock.collect());
+        mfs.extend(self.access_share_lock.collect());
+        mfs.extend(self.exclusive_lock.collect());
+        mfs.extend(self.row_exclusive_lock.collect());
+        mfs.extend(self.row_share_lock.collect());
+        mfs.extend(self.not_granted.collect());
+        mfs.extend(self.share_lock.collect());
+        mfs.extend(self.share_row_exclusive_lock.collect());
+        mfs.extend(self.share_update_exclusive_lock.collect());
+        mfs.extend(self.total.collect());
+        
         mfs
     }
 }
