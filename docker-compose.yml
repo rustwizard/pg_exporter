@@ -27,3 +27,18 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
+
+  pg:
+    image: postgres:15-bullseye
+    container_name: pg
+    restart: always
+    volumes:
+      - ./monitoring/postgresql/data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: db1
+    expose:
+      - "5432"
+    ports:
+      - "5432:5432"
