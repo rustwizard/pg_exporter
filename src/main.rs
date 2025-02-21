@@ -1,7 +1,9 @@
 mod collector;
 
-use actix_web::{get, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use actix_web::{get, http::header::ContentType, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use collector::PGLocksCollector;
 use config::Config;
+use prometheus::{Registry, Encoder};
 
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
 struct PGEConfig {
@@ -40,5 +42,22 @@ async fn hello() -> impl Responder {
 
 async fn metrics(req: HttpRequest) -> impl Responder {
     println!("processing the request ua {:?}", req.headers().get("user-agent").expect("should be user-agent string"));
-    HttpResponse::Ok().body("This is metrics endpoint!")
+
+    let pc = PGLocksCollector::new("test_ns");
+
+    let r = Registry::new();
+    let _res = r.register(Box::new(pc)).unwrap();
+
+    let mut buffer = Vec::new();
+    let encoder = prometheus::TextEncoder::new();
+
+    let metric_families = r.gather();
+    encoder.encode(&metric_families, &mut buffer).unwrap();
+
+    let response = String::from_utf8(buffer.clone()).expect("Failed to convert bytes to string");
+    buffer.clear();
+
+    Ok::<HttpResponse, std::io::Error>(HttpResponse::Ok()
+    .insert_header(ContentType::plaintext())
+    .body(response))
 }
