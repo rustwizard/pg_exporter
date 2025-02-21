@@ -2,7 +2,7 @@ use prometheus::core::{Desc, Opts, Collector};
 use prometheus::IntGauge;
 use prometheus::proto;
 
-const LOCKSQUERY: &str = "SELECT  \
+pub const LOCKSQUERY: &str = "SELECT  \
 		count(*) FILTER (WHERE mode = 'AccessShareLock') AS access_share_lock,  \
 		count(*) FILTER (WHERE mode = 'RowShareLock') AS row_share_lock, \
 		count(*) FILTER (WHERE mode = 'RowExclusiveLock') AS row_exclusive_lock, \
@@ -30,6 +30,20 @@ pub struct PGLocksCollector {
     access_exclusive_lock: IntGauge,
     not_granted: IntGauge,
     total: IntGauge,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct LocksStat {
+    access_share_lock: i64,
+    row_share_lock: i64,
+    row_exclusive_lock: i64,
+    share_update_exclusive_lock: i64,
+    share_lock: i64,
+    share_row_exclusive_lock: i64,
+    exclusive_lock: i64,
+    access_exclusive_lock: i64,
+    not_granted: i64,
+    total: i64,
 }
 
 impl PGLocksCollector {
