@@ -9,8 +9,6 @@ use prometheus::{Encoder, Registry};
 
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 
-use serde_json::json;
-
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
 struct PGEConfig {
     listen_addr: String,
