@@ -72,15 +72,10 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
             .expect("should be user-agent string")
     );
 
-    let query_result = sqlx::query(collector::LOCKSQUERY).execute(&data.db).await;
-
-    if query_result.is_err() {
-        let message = "Something bad happened while fetching all note items";
-        return HttpResponse::InternalServerError()
-            .insert_header(ContentType::plaintext()).body(message)
-    }
-
-    let pc = PGLocksCollector::new("test_ns");
+    let pc = PGLocksCollector::new("test_ns", data.db.clone());
+    
+    let res = pc.update().await;
+    res.unwrap();
 
     let r = Registry::new();
     let _res = r.register(Box::new(pc)).unwrap();
