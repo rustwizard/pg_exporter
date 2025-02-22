@@ -1,13 +1,21 @@
 mod collector;
 
-use actix_web::{get, http::header::ContentType, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use actix_web::{
+    get, http::header::ContentType, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
+};
 use collector::PGLocksCollector;
 use config::Config;
-use prometheus::{Registry, Encoder};
+use prometheus::{Encoder, Registry};
+
+use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
 struct PGEConfig {
     listen_addr: String,
+}
+
+struct PGEApp {
+    db: Pool<Postgres>,
 }
 
 #[actix_web::main]
@@ -25,8 +33,24 @@ async fn main() -> std::io::Result<()> {
 
     println!("starting pg_exporter at {:?}", pge_config.listen_addr);
 
-    HttpServer::new(|| {
+    let pool = match PgPoolOptions::new()
+        .max_connections(10)
+        .connect("postgres://postgres_exporter:postgres_exporter@pg:5432/db1")
+        .await
+    {
+        Ok(pool) => {
+            println!("✅Connection to the database is successful!");
+            pool
+        }
+        Err(err) => {
+            println!("🔥 Failed to connect to the database: {:?}", err);
+            std::process::exit(1);
+        }
+    };
+
+    HttpServer::new(move || {
         App::new()
+            .app_data(web::Data::new(PGEApp { db: pool.clone() }))
             .service(hello)
             .route("/metrics", web::get().to(metrics))
     })
@@ -40,10 +64,18 @@ async fn hello() -> impl Responder {
     HttpResponse::Ok().body("This is a pg_exporter for Prometheus written in Rust")
 }
 
-async fn metrics(req: HttpRequest) -> impl Responder {
-    println!("processing the request ua {:?}", req.headers().get("user-agent").expect("should be user-agent string"));
+async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
+    println!(
+        "processing the request ua {:?}",
+        req.headers()
+            .get("user-agent")
+            .expect("should be user-agent string")
+    );
 
-    let pc = PGLocksCollector::new("test_ns");
+    let pc = PGLocksCollector::new("test_ns", data.db.clone());
+    
+    let res = pc.update().await;
+    res.unwrap();
 
     let r = Registry::new();
     let _res = r.register(Box::new(pc)).unwrap();
@@ -57,7 +89,7 @@ async fn metrics(req: HttpRequest) -> impl Responder {
     let response = String::from_utf8(buffer.clone()).expect("Failed to convert bytes to string");
     buffer.clear();
 
-    Ok::<HttpResponse, std::io::Error>(HttpResponse::Ok()
-    .insert_header(ContentType::plaintext())
-    .body(response))
+    HttpResponse::Ok()
+            .insert_header(ContentType::plaintext())
+            .body(response)
 }
