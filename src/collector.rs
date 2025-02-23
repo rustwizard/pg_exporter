@@ -207,8 +207,6 @@ impl PGLocksCollector {
             data_lock.total                         = locks_stats.total;
         }
     
-     
-        
         Ok(())
     }
 
