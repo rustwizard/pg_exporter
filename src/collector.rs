@@ -191,20 +191,20 @@ impl PGLocksCollector {
     }
 
     pub async fn update(&self) -> Result<(), anyhow::Error> {
-        let locks_stats = sqlx::query_as::<_, LocksStat>(LOCKSQUERY).fetch_all(&self.db).await?;
+        let myabe_locks_stats = sqlx::query_as::<_, LocksStat>(LOCKSQUERY).fetch_optional(&self.db).await?;
 
-        if locks_stats.len() == 1 {
+        if let Some(locks_stats) = myabe_locks_stats {
             let mut data_lock = self.data.lock().unwrap();
-            data_lock.access_exclusive_lock         = locks_stats[0].access_exclusive_lock;
-            data_lock.access_share_lock             = locks_stats[0].access_share_lock;
-            data_lock.exclusive_lock                = locks_stats[0].exclusive_lock;
-            data_lock.not_granted                   = locks_stats[0].not_granted;
-            data_lock.row_exclusive_lock            = locks_stats[0].row_exclusive_lock;
-            data_lock.row_share_lock                = locks_stats[0].row_share_lock;
-            data_lock.share_lock                    = locks_stats[0].share_lock;
-            data_lock.share_row_exclusive_lock      = locks_stats[0].share_row_exclusive_lock;
-            data_lock.share_update_exclusive_lock   = locks_stats[0].share_update_exclusive_lock;
-            data_lock.total                         = locks_stats[0].total;
+            data_lock.access_exclusive_lock         = locks_stats.access_exclusive_lock;
+            data_lock.access_share_lock             = locks_stats.access_share_lock;
+            data_lock.exclusive_lock                = locks_stats.exclusive_lock;
+            data_lock.not_granted                   = locks_stats.not_granted;
+            data_lock.row_exclusive_lock            = locks_stats.row_exclusive_lock;
+            data_lock.row_share_lock                = locks_stats.row_share_lock;
+            data_lock.share_lock                    = locks_stats.share_lock;
+            data_lock.share_row_exclusive_lock      = locks_stats.share_row_exclusive_lock;
+            data_lock.share_update_exclusive_lock   = locks_stats.share_update_exclusive_lock;
+            data_lock.total                         = locks_stats.total;
         }
     
      
