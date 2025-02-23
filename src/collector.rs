@@ -249,36 +249,3 @@ impl Collector for PGLocksCollector {
         mfs
     }
 }
-
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use prometheus::core::Collector;
-//     use prometheus::{Registry, Encoder};
-
-//     #[test]
-//     fn test_pg_locks_collector() {
-//         let pc = PGLocksCollector::for_self();
-//         {
-//             let descs = pc.desc();
-//             assert_eq!(descs.len(), super::METRICS_NUMBER);
-  
-//             let mfs = pc.collect();
-//             assert_eq!(mfs.len(), super::METRICS_NUMBER);
-//         }
-
-//         let r = Registry::new();
-//         let res = r.register(Box::new(pc));
-//         assert!(res.is_ok());
-
-//         let mut buffer = Vec::new();
-//         let encoder = prometheus::TextEncoder::new();
-
-//         let metric_families = r.gather();
-//         encoder.encode(&metric_families, &mut buffer).unwrap();
-
-//         // Output to the standard output.
-//         println!("test encoder: {:?}", String::from_utf8(buffer.clone()).unwrap());
-//     }
-// }
