@@ -18,7 +18,7 @@ const LOCKSQUERY: &str = "SELECT  \
 		count(*) AS total \
 		FROM pg_locks";
 
-const POSTMASTER_QUERY: &str = "SELECT extract(epoch from pg_postmaster_start_time) from pg_postmaster_start_time()";
+const POSTMASTER_QUERY: &str = "SELECT extract(epoch from pg_postmaster_start_time) as start_time_seconds from pg_postmaster_start_time()";
 
 /// 10 metrics per PGLocksCollector.
 const LOCKS_METRICS_NUMBER: usize = 10;
@@ -40,13 +40,28 @@ pub struct PGLocksCollector {
     total: IntGauge,
 }
 
+#[derive(sqlx::FromRow, Debug)]
+pub struct PGPostmasterStats {
+    start_time_seconds: i64
+}
+
+impl PGPostmasterStats {
+    pub fn new() -> PGPostmasterStats {
+        PGPostmasterStats{
+            start_time_seconds: (0),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct PGPostmasterCollector {
     db: PgPool,
-    data: Arc<Mutex<LocksStat>>,
+    data: Arc<Mutex<PGPostmasterStats>>,
     descs: Vec<Desc>,
     start_time_seconds: IntGauge,
 }
+
+
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct LocksStat {
@@ -97,10 +112,21 @@ impl PGPostmasterCollector {
 
         PGPostmasterCollector{
             db: db,
-            data: Arc::new(Mutex::new(LocksStat::new())),
+            data: Arc::new(Mutex::new(PGPostmasterStats::new())),
             descs: descs,
             start_time_seconds: start_time_seconds,
         }
+    }
+
+    pub async fn update(&self) -> Result<(), anyhow::Error> {
+        let myabe_stats = sqlx::query_as::<_, PGPostmasterStats>(POSTMASTER_QUERY).fetch_optional(&self.db).await?;
+
+        if let Some(stats) = myabe_stats {
+            let mut data_lock = self.data.lock().unwrap();
+            data_lock.start_time_seconds         = stats.start_time_seconds;
+        }
+    
+        Ok(())
     }
 }
 
@@ -295,7 +321,7 @@ impl Collector for PGPostmasterCollector {
         let mut mfs = Vec::with_capacity(1);
         
         let data_lock = self.data.lock().unwrap();
-        self.start_time_seconds.set(data_lock.access_share_lock);
+        self.start_time_seconds.set(data_lock.start_time_seconds);
 
         mfs.extend(self.start_time_seconds.collect());
         mfs
