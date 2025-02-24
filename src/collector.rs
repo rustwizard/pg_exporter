@@ -40,6 +40,14 @@ pub struct PGLocksCollector {
     total: IntGauge,
 }
 
+#[derive(Debug)]
+pub struct PGPostmasterCollector {
+    db: PgPool,
+    data: Arc<Mutex<LocksStat>>,
+    descs: Vec<Desc>,
+    start_time_seconds: IntGauge,
+}
+
 #[derive(sqlx::FromRow, Debug)]
 pub struct LocksStat {
     access_share_lock: i64,
@@ -67,6 +75,31 @@ impl LocksStat {
             access_exclusive_lock: (0), 
             not_granted: (0), 
             total: (0) 
+        }
+    }
+}
+
+impl PGPostmasterCollector {
+    pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGPostmasterCollector {
+        let namespace = namespace.into();
+        
+        let start_time_seconds = IntGauge::with_opts(
+            Opts::new(
+                "start_time_seconds",
+                "Time at which postmaster started",
+            )
+            .namespace(namespace.clone()),
+        )
+        .unwrap();
+
+        let mut descs = Vec::new();
+        descs.extend(start_time_seconds.desc().into_iter().cloned());
+
+        PGPostmasterCollector{
+            db: db,
+            data: Arc::new(Mutex::new(LocksStat::new())),
+            descs: descs,
+            start_time_seconds: start_time_seconds,
         }
     }
 }
