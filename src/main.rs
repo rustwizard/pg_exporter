@@ -3,7 +3,7 @@ mod collector;
 use actix_web::{
     get, http::header::ContentType, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
-use collector::PGLocksCollector;
+use collector::{PGLocksCollector, PGPostmasterCollector};
 use config::Config;
 use prometheus::{Encoder, Registry};
 
@@ -79,6 +79,12 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
 
     let r = Registry::new();
     let _res = r.register(Box::new(pc)).unwrap();
+
+    let pc_pstm = PGPostmasterCollector::new("test_ns", data.db.clone());
+
+    let res2 = pc_pstm.update().await;
+    res2.unwrap();
+    let _res2 = r.register(Box::new(pc_pstm)).unwrap();
 
     let mut buffer = Vec::new();
     let encoder = prometheus::TextEncoder::new();
