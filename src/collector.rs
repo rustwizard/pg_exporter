@@ -1,11 +1,11 @@
 use std::sync::{Arc, Mutex};
 
 use prometheus::core::{Desc, Opts, Collector};
-use prometheus::IntGauge;
+use prometheus::{Gauge, IntGauge};
 use prometheus::proto;
 use sqlx::PgPool;
 
-pub const LOCKSQUERY: &str = "SELECT  \
+const LOCKSQUERY: &str = "SELECT  \
 		count(*) FILTER (WHERE mode = 'AccessShareLock') AS access_share_lock,  \
 		count(*) FILTER (WHERE mode = 'RowShareLock') AS row_share_lock, \
 		count(*) FILTER (WHERE mode = 'RowExclusiveLock') AS row_exclusive_lock, \
@@ -18,8 +18,11 @@ pub const LOCKSQUERY: &str = "SELECT  \
 		count(*) AS total \
 		FROM pg_locks";
 
+const POSTMASTER_QUERY: &str = "SELECT extract(epoch from pg_postmaster_start_time)::FLOAT8 as start_time_seconds from pg_postmaster_start_time()";
+
 /// 10 metrics per PGLocksCollector.
-const METRICS_NUMBER: usize = 10;
+const LOCKS_METRICS_NUMBER: usize = 10;
+
 #[derive(Debug)]
 pub struct PGLocksCollector {
     db: PgPool,
@@ -36,6 +39,29 @@ pub struct PGLocksCollector {
     not_granted: IntGauge,
     total: IntGauge,
 }
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct PGPostmasterStats {
+    start_time_seconds: f64
+}
+
+impl PGPostmasterStats {
+    pub fn new() -> PGPostmasterStats {
+        PGPostmasterStats{
+            start_time_seconds: (0.0),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct PGPostmasterCollector {
+    db: PgPool,
+    data: Arc<Mutex<PGPostmasterStats>>,
+    descs: Vec<Desc>,
+    start_time_seconds: Gauge,
+}
+
+
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct LocksStat {
@@ -65,6 +91,42 @@ impl LocksStat {
             not_granted: (0), 
             total: (0) 
         }
+    }
+}
+
+impl PGPostmasterCollector {
+    pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGPostmasterCollector {
+        let namespace = namespace.into();
+
+        let start_time_seconds = Gauge::with_opts(
+            Opts::new(
+                "start_time_seconds",
+                "Time at which postmaster started",
+            )
+            .namespace(namespace.clone()),
+        )
+        .unwrap();
+
+        let mut descs = Vec::new();
+        descs.extend(start_time_seconds.desc().into_iter().cloned());
+
+        PGPostmasterCollector{
+            db: db,
+            data: Arc::new(Mutex::new(PGPostmasterStats::new())),
+            descs: descs,
+            start_time_seconds: start_time_seconds,
+        }
+    }
+
+    pub async fn update(&self) -> Result<(), anyhow::Error> {
+        let myabe_stats = sqlx::query_as::<_, PGPostmasterStats>(POSTMASTER_QUERY).fetch_optional(&self.db).await?;
+       
+        if let Some(stats) = myabe_stats {
+            let mut data_lock = self.data.lock().unwrap();
+            data_lock.start_time_seconds         = stats.start_time_seconds;
+        }
+    
+        Ok(())
     }
 }
 
@@ -191,24 +253,22 @@ impl PGLocksCollector {
     }
 
     pub async fn update(&self) -> Result<(), anyhow::Error> {
-        let locks_stats = sqlx::query_as::<_, LocksStat>(LOCKSQUERY).fetch_all(&self.db).await?;
+        let myabe_locks_stats = sqlx::query_as::<_, LocksStat>(LOCKSQUERY).fetch_optional(&self.db).await?;
 
-        if locks_stats.len() == 1 {
+        if let Some(locks_stats) = myabe_locks_stats {
             let mut data_lock = self.data.lock().unwrap();
-            data_lock.access_exclusive_lock         = locks_stats[0].access_exclusive_lock;
-            data_lock.access_share_lock             = locks_stats[0].access_share_lock;
-            data_lock.exclusive_lock                = locks_stats[0].exclusive_lock;
-            data_lock.not_granted                   = locks_stats[0].not_granted;
-            data_lock.row_exclusive_lock            = locks_stats[0].row_exclusive_lock;
-            data_lock.row_share_lock                = locks_stats[0].row_share_lock;
-            data_lock.share_lock                    = locks_stats[0].share_lock;
-            data_lock.share_row_exclusive_lock      = locks_stats[0].share_row_exclusive_lock;
-            data_lock.share_update_exclusive_lock   = locks_stats[0].share_update_exclusive_lock;
-            data_lock.total                         = locks_stats[0].total;
+            data_lock.access_exclusive_lock         = locks_stats.access_exclusive_lock;
+            data_lock.access_share_lock             = locks_stats.access_share_lock;
+            data_lock.exclusive_lock                = locks_stats.exclusive_lock;
+            data_lock.not_granted                   = locks_stats.not_granted;
+            data_lock.row_exclusive_lock            = locks_stats.row_exclusive_lock;
+            data_lock.row_share_lock                = locks_stats.row_share_lock;
+            data_lock.share_lock                    = locks_stats.share_lock;
+            data_lock.share_row_exclusive_lock      = locks_stats.share_row_exclusive_lock;
+            data_lock.share_update_exclusive_lock   = locks_stats.share_update_exclusive_lock;
+            data_lock.total                         = locks_stats.total;
         }
     
-     
-        
         Ok(())
     }
 
@@ -221,9 +281,8 @@ impl Collector for PGLocksCollector {
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
         // collect MetricFamilys.
-        let mut mfs = Vec::with_capacity(METRICS_NUMBER);
+        let mut mfs = Vec::with_capacity(LOCKS_METRICS_NUMBER);
         
-        // TODO: query postgres and set metics
         let data_lock = self.data.lock().unwrap();
 
         self.access_share_lock.set(data_lock.access_share_lock);
@@ -252,35 +311,20 @@ impl Collector for PGLocksCollector {
     }
 }
 
+impl Collector for PGPostmasterCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        self.descs.iter().collect()
+    }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use prometheus::core::Collector;
-//     use prometheus::{Registry, Encoder};
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        // collect MetricFamilys.
+        let mut mfs = Vec::with_capacity(1);
+        
+        let data_lock = self.data.lock().unwrap();
+        self.start_time_seconds.set(data_lock.start_time_seconds);
 
-//     #[test]
-//     fn test_pg_locks_collector() {
-//         let pc = PGLocksCollector::for_self();
-//         {
-//             let descs = pc.desc();
-//             assert_eq!(descs.len(), super::METRICS_NUMBER);
-  
-//             let mfs = pc.collect();
-//             assert_eq!(mfs.len(), super::METRICS_NUMBER);
-//         }
+        mfs.extend(self.start_time_seconds.collect());
+        mfs
 
-//         let r = Registry::new();
-//         let res = r.register(Box::new(pc));
-//         assert!(res.is_ok());
-
-//         let mut buffer = Vec::new();
-//         let encoder = prometheus::TextEncoder::new();
-
-//         let metric_families = r.gather();
-//         encoder.encode(&metric_families, &mut buffer).unwrap();
-
-//         // Output to the standard output.
-//         println!("test encoder: {:?}", String::from_utf8(buffer.clone()).unwrap());
-//     }
-// }
+    }
+}
