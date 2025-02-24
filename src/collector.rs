@@ -5,7 +5,7 @@ use prometheus::IntGauge;
 use prometheus::proto;
 use sqlx::PgPool;
 
-pub const LOCKSQUERY: &str = "SELECT  \
+const LOCKSQUERY: &str = "SELECT  \
 		count(*) FILTER (WHERE mode = 'AccessShareLock') AS access_share_lock,  \
 		count(*) FILTER (WHERE mode = 'RowShareLock') AS row_share_lock, \
 		count(*) FILTER (WHERE mode = 'RowExclusiveLock') AS row_exclusive_lock, \
@@ -18,8 +18,11 @@ pub const LOCKSQUERY: &str = "SELECT  \
 		count(*) AS total \
 		FROM pg_locks";
 
+const POSTMASTER_QUERY: &str = "SELECT extract(epoch from pg_postmaster_start_time) from pg_postmaster_start_time()";
+
 /// 10 metrics per PGLocksCollector.
 const METRICS_NUMBER: usize = 10;
+
 #[derive(Debug)]
 pub struct PGLocksCollector {
     db: PgPool,
