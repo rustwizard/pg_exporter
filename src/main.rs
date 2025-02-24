@@ -66,7 +66,7 @@ async fn hello() -> impl Responder {
 
 async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
     println!(
-        "processing the request ua {:?}",
+        "processing the request from {:?}",
         req.headers()
             .get("user-agent")
             .expect("should be user-agent string")
