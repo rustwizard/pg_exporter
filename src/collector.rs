@@ -21,7 +21,7 @@ const LOCKSQUERY: &str = "SELECT  \
 const POSTMASTER_QUERY: &str = "SELECT extract(epoch from pg_postmaster_start_time) from pg_postmaster_start_time()";
 
 /// 10 metrics per PGLocksCollector.
-const METRICS_NUMBER: usize = 10;
+const LOCKS_METRICS_NUMBER: usize = 10;
 
 #[derive(Debug)]
 pub struct PGLocksCollector {
@@ -82,7 +82,7 @@ impl LocksStat {
 impl PGPostmasterCollector {
     pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGPostmasterCollector {
         let namespace = namespace.into();
-        
+
         let start_time_seconds = IntGauge::with_opts(
             Opts::new(
                 "start_time_seconds",
@@ -255,9 +255,8 @@ impl Collector for PGLocksCollector {
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
         // collect MetricFamilys.
-        let mut mfs = Vec::with_capacity(METRICS_NUMBER);
+        let mut mfs = Vec::with_capacity(LOCKS_METRICS_NUMBER);
         
-        // TODO: query postgres and set metics
         let data_lock = self.data.lock().unwrap();
 
         self.access_share_lock.set(data_lock.access_share_lock);
@@ -283,5 +282,23 @@ impl Collector for PGLocksCollector {
         mfs.extend(self.total.collect());
         
         mfs
+    }
+}
+
+impl Collector for PGPostmasterCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        self.descs.iter().collect()
+    }
+
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        // collect MetricFamilys.
+        let mut mfs = Vec::with_capacity(1);
+        
+        let data_lock = self.data.lock().unwrap();
+        self.start_time_seconds.set(data_lock.access_share_lock);
+
+        mfs.extend(self.start_time_seconds.collect());
+        mfs
+
     }
 }
