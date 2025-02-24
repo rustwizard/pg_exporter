@@ -80,7 +80,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
     let r = Registry::new();
     let _res = r.register(Box::new(pc)).unwrap();
 
-    let pc_pstm = collectors::pg_postmaster::PGPostmasterCollector::new("test_ns", data.db.clone());
+    let pc_pstm = collectors::pg_postmaster::new("test_ns", data.db.clone());
 
     let res2 = pc_pstm.update().await;
     res2.unwrap();

@@ -31,7 +31,9 @@ pub struct PGPostmasterCollector {
 }
 
 
-
+pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGPostmasterCollector {
+    PGPostmasterCollector::new(namespace, db)
+}
 
 
 impl PGPostmasterCollector {
