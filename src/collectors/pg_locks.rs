@@ -68,6 +68,10 @@ impl LocksStat {
     }
 }
 
+pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGLocksCollector {
+    PGLocksCollector::new(namespace, db)
+}
+
 impl PGLocksCollector {
     pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGLocksCollector {
         let namespace = namespace.into();

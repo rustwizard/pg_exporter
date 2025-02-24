@@ -72,7 +72,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
             .expect("should be user-agent string")
     );
 
-    let pc = collectors::pg_locks::PGLocksCollector::new("test_ns", data.db.clone());
+    let pc = collectors::pg_locks::new("test_ns", data.db.clone());
     
     let res = pc.update().await;
     res.unwrap();
