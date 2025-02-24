@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
-
 use prometheus::core::{Desc, Opts, Collector};
-use prometheus::{Gauge, IntGauge};
+use prometheus::IntGauge;
 use prometheus::proto;
 use sqlx::PgPool;
 
@@ -17,8 +16,6 @@ const LOCKSQUERY: &str = "SELECT  \
 		count(*) FILTER (WHERE not granted) AS not_granted, \
 		count(*) AS total \
 		FROM pg_locks";
-
-const POSTMASTER_QUERY: &str = "SELECT extract(epoch from pg_postmaster_start_time)::FLOAT8 as start_time_seconds from pg_postmaster_start_time()";
 
 /// 10 metrics per PGLocksCollector.
 const LOCKS_METRICS_NUMBER: usize = 10;
@@ -39,29 +36,6 @@ pub struct PGLocksCollector {
     not_granted: IntGauge,
     total: IntGauge,
 }
-
-#[derive(sqlx::FromRow, Debug)]
-pub struct PGPostmasterStats {
-    start_time_seconds: f64
-}
-
-impl PGPostmasterStats {
-    pub fn new() -> PGPostmasterStats {
-        PGPostmasterStats{
-            start_time_seconds: (0.0),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct PGPostmasterCollector {
-    db: PgPool,
-    data: Arc<Mutex<PGPostmasterStats>>,
-    descs: Vec<Desc>,
-    start_time_seconds: Gauge,
-}
-
-
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct LocksStat {
@@ -91,42 +65,6 @@ impl LocksStat {
             not_granted: (0), 
             total: (0) 
         }
-    }
-}
-
-impl PGPostmasterCollector {
-    pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGPostmasterCollector {
-        let namespace = namespace.into();
-
-        let start_time_seconds = Gauge::with_opts(
-            Opts::new(
-                "start_time_seconds",
-                "Time at which postmaster started",
-            )
-            .namespace(namespace.clone()),
-        )
-        .unwrap();
-
-        let mut descs = Vec::new();
-        descs.extend(start_time_seconds.desc().into_iter().cloned());
-
-        PGPostmasterCollector{
-            db: db,
-            data: Arc::new(Mutex::new(PGPostmasterStats::new())),
-            descs: descs,
-            start_time_seconds: start_time_seconds,
-        }
-    }
-
-    pub async fn update(&self) -> Result<(), anyhow::Error> {
-        let myabe_stats = sqlx::query_as::<_, PGPostmasterStats>(POSTMASTER_QUERY).fetch_optional(&self.db).await?;
-       
-        if let Some(stats) = myabe_stats {
-            let mut data_lock = self.data.lock().unwrap();
-            data_lock.start_time_seconds         = stats.start_time_seconds;
-        }
-    
-        Ok(())
     }
 }
 
@@ -308,23 +246,5 @@ impl Collector for PGLocksCollector {
         mfs.extend(self.total.collect());
         
         mfs
-    }
-}
-
-impl Collector for PGPostmasterCollector {
-    fn desc(&self) -> Vec<&Desc> {
-        self.descs.iter().collect()
-    }
-
-    fn collect(&self) -> Vec<proto::MetricFamily> {
-        // collect MetricFamilys.
-        let mut mfs = Vec::with_capacity(1);
-        
-        let data_lock = self.data.lock().unwrap();
-        self.start_time_seconds.set(data_lock.start_time_seconds);
-
-        mfs.extend(self.start_time_seconds.collect());
-        mfs
-
     }
 }
