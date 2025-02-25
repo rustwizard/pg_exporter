@@ -13,7 +13,7 @@ use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
 struct InstanceConfig {
-    connstring: String,
+    dsn: String,
     exclude_db_names: Vec<String>,
 }
 
@@ -59,7 +59,7 @@ async fn main() -> std::io::Result<()> {
 
         let pool = match PgPoolOptions::new()
             .max_connections(10)
-            .connect(&instance.1.connstring)
+            .connect(&instance.1.dsn)
             .await
         {
             Ok(pool) => {
