@@ -1,5 +1,7 @@
 mod collectors;
 
+use std::collections::HashMap;
+
 use actix_web::{
     get, http::header::ContentType, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
@@ -10,8 +12,21 @@ use prometheus::{Encoder, Registry};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
+struct InstanceConfig {
+    connstring: String,
+    exclude_db_names: Vec<String>,
+}
+
+#[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
 struct PGEConfig {
     listen_addr: String,
+    instances: HashMap<String, InstanceConfig>,
+}
+
+struct Instances {
+    db: Pool<Postgres>,
+    exclude_db_names: Vec<String>,
+    labels: HashMap<String, InstanceConfig>,
 }
 
 struct PGEApp {
@@ -32,6 +47,10 @@ async fn main() -> std::io::Result<()> {
     let pge_config: PGEConfig = settings.try_deserialize().unwrap();
 
     println!("starting pg_exporter at {:?}", pge_config.listen_addr);
+
+    for instance in pge_config.instances {
+        println!("starting gather metrics for instance: {:?}", instance.0);
+    } 
 
     let pool = match PgPoolOptions::new()
         .max_connections(10)
