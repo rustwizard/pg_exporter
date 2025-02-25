@@ -195,9 +195,9 @@ impl PGLocksCollector {
     }
 
     pub async fn update(&self) -> Result<(), anyhow::Error> {
-        let myabe_locks_stats = sqlx::query_as::<_, LocksStat>(LOCKSQUERY).fetch_optional(&self.db).await?;
+        let maybe_locks_stats = sqlx::query_as::<_, LocksStat>(LOCKSQUERY).fetch_optional(&self.db).await?;
 
-        if let Some(locks_stats) = myabe_locks_stats {
+        if let Some(locks_stats) = maybe_locks_stats {
             let mut data_lock = self.data.lock().unwrap();
             data_lock.access_exclusive_lock         = locks_stats.access_exclusive_lock;
             data_lock.access_share_lock             = locks_stats.access_share_lock;

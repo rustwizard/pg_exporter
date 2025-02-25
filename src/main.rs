@@ -6,6 +6,7 @@ use actix_web::{
     get, http::header::ContentType, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 
+
 use config::Config;
 use prometheus::{Encoder, Registry};
 
@@ -92,6 +93,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
     );
 
     let pc = collectors::pg_locks::new("test_ns", data.db.clone());
+    let pc = collectors::pg_locks::new("test_ns", data.db.clone());
     
     let res = pc.update().await;
     res.unwrap();
@@ -99,6 +101,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
     let r = Registry::new();
     let _res = r.register(Box::new(pc)).unwrap();
 
+    let pc_pstm = collectors::pg_postmaster::new("test_ns", data.db.clone());
     let pc_pstm = collectors::pg_postmaster::new("test_ns", data.db.clone());
 
     let res2 = pc_pstm.update().await;

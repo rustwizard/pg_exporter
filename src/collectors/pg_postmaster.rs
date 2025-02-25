@@ -61,9 +61,9 @@ impl PGPostmasterCollector {
     }
 
     pub async fn update(&self) -> Result<(), anyhow::Error> {
-        let myabe_stats = sqlx::query_as::<_, PGPostmasterStats>(POSTMASTER_QUERY).fetch_optional(&self.db).await?;
+        let maybe_stats = sqlx::query_as::<_, PGPostmasterStats>(POSTMASTER_QUERY).fetch_optional(&self.db).await?;
        
-        if let Some(stats) = myabe_stats {
+        if let Some(stats) = maybe_stats {
             let mut data_lock = self.data.lock().unwrap();
             data_lock.start_time_seconds         = stats.start_time_seconds;
         }
