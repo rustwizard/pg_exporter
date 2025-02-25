@@ -103,7 +103,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
     );
 
     let r = Registry::new();
-    for instance in data.instances.clone() {
+    for instance in &data.instances {
         let pc = collectors::pg_locks::new("test_ns", instance.db.clone());
 
         let res = pc.update().await;
