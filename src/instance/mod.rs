@@ -30,11 +30,7 @@ pub async fn new(dsn: String, excluded_dbnames:  Vec<String>, labels: HashMap<St
             }
         };
 
-        PostgresDB {
-            db: pool,
-            exclude_db_names: excluded_dbnames,
-            labels: labels,
-        }
+        PostgresDB::new(pool, excluded_dbnames, labels)
 }
 
 impl PostgresDB {
