@@ -10,8 +10,6 @@ use actix_web::{
 use config::Config;
 use prometheus::{Encoder, Registry};
 
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
-
 
 
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
