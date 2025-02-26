@@ -1,4 +1,5 @@
 mod collectors;
+mod instance;
 
 use std::collections::HashMap;
 
@@ -9,30 +10,17 @@ use actix_web::{
 use config::Config;
 use prometheus::{Encoder, Registry};
 
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
-
-#[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
-struct InstanceConfig {
-    dsn: String,
-    exclude_db_names: Vec<String>,
-}
-
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
 struct PGEConfig {
     listen_addr: String,
-    instances: HashMap<String, InstanceConfig>,
+    instances: HashMap<String, instance::Config>,
 }
 
-#[derive(Debug, Clone)]
-struct Instance {
-    db: Pool<Postgres>,
-    exclude_db_names: Vec<String>,
-    labels: HashMap<String, String>,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct PGEApp {
-    instances: Vec<Instance>,
+    instances: Vec<instance::PostgresDB>,
+    collectors: Vec<Box<dyn collectors::PG>>,
+    registry: Registry,
 }
 
 #[actix_web::main]
@@ -51,31 +39,31 @@ async fn main() -> std::io::Result<()> {
     println!("starting pg_exporter at {:?}", pge_config.listen_addr);
 
     let mut app = PGEApp {
-        instances: Vec::<Instance>::new(),
+        instances: Vec::<instance::PostgresDB>::new(),
+        collectors: Vec::new(),
+        registry: Registry::new(),
     };
 
     for instance in pge_config.instances {
         println!("starting connection for instance: {:?}", instance.0);
+        let mut labels  = HashMap::<String, String>::new();
+        
+        labels.insert("namespace".to_string(), "test_ns".to_string());
+        labels.insert("instance".to_string(), instance.0);
 
-        let pool = match PgPoolOptions::new()
-            .max_connections(10)
-            .connect(&instance.1.dsn)
-            .await
-        {
-            Ok(pool) => {
-                println!("✅Connection to the database is successful!");
-                pool
-            }
-            Err(err) => {
-                println!("🔥 Failed to connect to the database: {:?}", err);
-                std::process::exit(1);
-            }
-        };
-        app.instances.push(Instance {
-            db: pool,
-            exclude_db_names: instance.1.exclude_db_names,
-            labels: HashMap::new(),
-        });
+        let pg_instance = instance::new(instance.1.dsn, instance.1.exclude_db_names, labels);
+        let pgi = pg_instance.await;
+
+        let pc = collectors::pg_locks::new("test_ns", pgi.db.clone());
+        let _res = app.registry.register(Box::new(pc.clone())).unwrap();
+
+        let pc_pstm = collectors::pg_postmaster::new("test_ns", pgi.db.clone());
+        let _res2 = app.registry.register(Box::new(pc_pstm.clone())).unwrap();
+
+        app.collectors.push(Box::new(pc));
+        app.collectors.push(Box::new(pc_pstm));
+
+        app.instances.push(pgi);
     }
 
     HttpServer::new(move || {
@@ -102,26 +90,15 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
             .expect("should be user-agent string")
     );
 
-    let r = Registry::new();
-    for instance in &data.instances {
-        let pc = collectors::pg_locks::new("test_ns", instance.db.clone());
-
-        let res = pc.update().await;
-        res.unwrap();
-
-        let _res = r.register(Box::new(pc)).unwrap();
-
-        let pc_pstm = collectors::pg_postmaster::new("test_ns", instance.db.clone());
-
-        let res2 = pc_pstm.update().await;
-        res2.unwrap();
-        let _res2 = r.register(Box::new(pc_pstm)).unwrap();
+    for col in &data.collectors {
+        let res = col.update().await;
+        res.unwrap()
     }
 
     let mut buffer = Vec::new();
     let encoder = prometheus::TextEncoder::new();
 
-    let metric_families = r.gather();
+    let metric_families = data.registry.gather();
     encoder.encode(&metric_families, &mut buffer).unwrap();
 
     let response = String::from_utf8(buffer.clone()).expect("Failed to convert bytes to string");

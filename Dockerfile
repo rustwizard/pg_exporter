@@ -1,4 +1,4 @@
-FROM rust:1.84-bookworm AS cargo-build
+FROM rust:1.85-bookworm AS cargo-build
 
 RUN apt-get update && apt-get -y install libssl-dev pkg-config ca-certificates
 
