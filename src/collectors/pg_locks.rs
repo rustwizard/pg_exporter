@@ -37,7 +37,7 @@ pub struct PGLocksCollector {
     total: IntGauge,
 }
 
-#[derive(sqlx::FromRow, Debug)]
+#[derive(sqlx::FromRow, Debug, Default)]
 pub struct LocksStat {
     access_share_lock: i64,
     row_share_lock: i64,

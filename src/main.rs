@@ -1,4 +1,5 @@
 mod collectors;
+mod instance;
 
 use std::collections::HashMap;
 
@@ -11,28 +12,19 @@ use prometheus::{Encoder, Registry};
 
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 
-#[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
-struct InstanceConfig {
-    dsn: String,
-    exclude_db_names: Vec<String>,
-}
+
 
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
 struct PGEConfig {
     listen_addr: String,
-    instances: HashMap<String, InstanceConfig>,
+    instances: HashMap<String, instance::Config>,
 }
 
-#[derive(Debug, Clone)]
-struct Instance {
-    db: Pool<Postgres>,
-    exclude_db_names: Vec<String>,
-    labels: HashMap<String, String>,
-}
+
 
 #[derive(Debug, Clone)]
 struct PGEApp {
-    instances: Vec<Instance>,
+    instances: Vec<instance::PostgresDB>,
 }
 
 #[actix_web::main]
@@ -51,31 +43,20 @@ async fn main() -> std::io::Result<()> {
     println!("starting pg_exporter at {:?}", pge_config.listen_addr);
 
     let mut app = PGEApp {
-        instances: Vec::<Instance>::new(),
+        instances: Vec::<instance::PostgresDB>::new(),
     };
 
     for instance in pge_config.instances {
         println!("starting connection for instance: {:?}", instance.0);
+        let mut labels  = HashMap::<String, String>::new();
+        
+        labels.insert("namespace".to_string(), "test_ns".to_string());
+        labels.insert("instance".to_string(), instance.0);
 
-        let pool = match PgPoolOptions::new()
-            .max_connections(10)
-            .connect(&instance.1.dsn)
-            .await
-        {
-            Ok(pool) => {
-                println!("✅Connection to the database is successful!");
-                pool
-            }
-            Err(err) => {
-                println!("🔥 Failed to connect to the database: {:?}", err);
-                std::process::exit(1);
-            }
-        };
-        app.instances.push(Instance {
-            db: pool,
-            exclude_db_names: instance.1.exclude_db_names,
-            labels: HashMap::new(),
-        });
+        let pg_instance = instance::new(instance.1.dsn, instance.1.exclude_db_names, labels);
+        let pgi = pg_instance.await;
+
+        app.instances.push(pgi);
     }
 
     HttpServer::new(move || {
