@@ -1,8 +1,11 @@
 use std::sync::{Arc, Mutex};
+use async_trait::async_trait;
 use prometheus::core::{Desc, Opts, Collector};
 use prometheus::IntGauge;
 use prometheus::proto;
 use sqlx::PgPool;
+
+use super::PG;
 
 const LOCKSQUERY: &str = "SELECT  \
 		count(*) FILTER (WHERE mode = 'AccessShareLock') AS access_share_lock,  \
@@ -20,7 +23,7 @@ const LOCKSQUERY: &str = "SELECT  \
 /// 10 metrics per PGLocksCollector.
 const LOCKS_METRICS_NUMBER: usize = 10;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PGLocksCollector {
     db: PgPool,
     data: Arc<Mutex<LocksStat>>,
@@ -194,26 +197,6 @@ impl PGLocksCollector {
         }
     }
 
-    pub async fn update(&self) -> Result<(), anyhow::Error> {
-        let maybe_locks_stats = sqlx::query_as::<_, LocksStat>(LOCKSQUERY).fetch_optional(&self.db).await?;
-
-        if let Some(locks_stats) = maybe_locks_stats {
-            let mut data_lock = self.data.lock().unwrap();
-            data_lock.access_exclusive_lock         = locks_stats.access_exclusive_lock;
-            data_lock.access_share_lock             = locks_stats.access_share_lock;
-            data_lock.exclusive_lock                = locks_stats.exclusive_lock;
-            data_lock.not_granted                   = locks_stats.not_granted;
-            data_lock.row_exclusive_lock            = locks_stats.row_exclusive_lock;
-            data_lock.row_share_lock                = locks_stats.row_share_lock;
-            data_lock.share_lock                    = locks_stats.share_lock;
-            data_lock.share_row_exclusive_lock      = locks_stats.share_row_exclusive_lock;
-            data_lock.share_update_exclusive_lock   = locks_stats.share_update_exclusive_lock;
-            data_lock.total                         = locks_stats.total;
-        }
-    
-        Ok(())
-    }
-
 }
 
 impl Collector for PGLocksCollector {
@@ -251,4 +234,28 @@ impl Collector for PGLocksCollector {
         
         mfs
     }
+}
+
+#[async_trait]
+impl PG for PGLocksCollector {
+    async fn update(&self) -> Result<(), anyhow::Error> {
+        let maybe_locks_stats = sqlx::query_as::<_, LocksStat>(LOCKSQUERY).fetch_optional(&self.db).await?;
+
+        if let Some(locks_stats) = maybe_locks_stats {
+            let mut data_lock = self.data.lock().unwrap();
+            data_lock.access_exclusive_lock         = locks_stats.access_exclusive_lock;
+            data_lock.access_share_lock             = locks_stats.access_share_lock;
+            data_lock.exclusive_lock                = locks_stats.exclusive_lock;
+            data_lock.not_granted                   = locks_stats.not_granted;
+            data_lock.row_exclusive_lock            = locks_stats.row_exclusive_lock;
+            data_lock.row_share_lock                = locks_stats.row_share_lock;
+            data_lock.share_lock                    = locks_stats.share_lock;
+            data_lock.share_row_exclusive_lock      = locks_stats.share_row_exclusive_lock;
+            data_lock.share_update_exclusive_lock   = locks_stats.share_update_exclusive_lock;
+            data_lock.total                         = locks_stats.total;
+        }
+    
+        Ok(())
+    }
+
 }

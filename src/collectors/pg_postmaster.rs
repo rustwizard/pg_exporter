@@ -1,9 +1,12 @@
 use std::sync::{Arc, Mutex};
 
+use async_trait::async_trait;
 use prometheus::core::{Desc, Opts, Collector};
 use prometheus::Gauge;
 use prometheus::proto;
 use sqlx::PgPool;
+
+use super::PG;
 
 
 
@@ -22,7 +25,7 @@ impl PGPostmasterStats {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PGPostmasterCollector {
     db: PgPool,
     data: Arc<Mutex<PGPostmasterStats>>,
@@ -59,17 +62,6 @@ impl PGPostmasterCollector {
             start_time_seconds: start_time_seconds,
         }
     }
-
-    pub async fn update(&self) -> Result<(), anyhow::Error> {
-        let maybe_stats = sqlx::query_as::<_, PGPostmasterStats>(POSTMASTER_QUERY).fetch_optional(&self.db).await?;
-       
-        if let Some(stats) = maybe_stats {
-            let mut data_lock = self.data.lock().unwrap();
-            data_lock.start_time_seconds         = stats.start_time_seconds;
-        }
-    
-        Ok(())
-    }
 }
 
 
@@ -89,5 +81,19 @@ impl Collector for PGPostmasterCollector {
         mfs.extend(self.start_time_seconds.collect());
         mfs
 
+    }
+}
+
+#[async_trait]
+impl PG for PGPostmasterCollector {
+     async fn update(&self) -> Result<(), anyhow::Error> {
+        let maybe_stats = sqlx::query_as::<_, PGPostmasterStats>(POSTMASTER_QUERY).fetch_optional(&self.db).await?;
+       
+        if let Some(stats) = maybe_stats {
+            let mut data_lock = self.data.lock().unwrap();
+            data_lock.start_time_seconds         = stats.start_time_seconds;
+        }
+    
+        Ok(())
     }
 }

@@ -10,19 +10,17 @@ use actix_web::{
 use config::Config;
 use prometheus::{Encoder, Registry};
 
-
-
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
 struct PGEConfig {
     listen_addr: String,
     instances: HashMap<String, instance::Config>,
 }
 
-
-
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct PGEApp {
     instances: Vec<instance::PostgresDB>,
+    collectors: Vec<Box<dyn collectors::PG>>,
+    registry: Registry,
 }
 
 #[actix_web::main]
@@ -42,6 +40,8 @@ async fn main() -> std::io::Result<()> {
 
     let mut app = PGEApp {
         instances: Vec::<instance::PostgresDB>::new(),
+        collectors: Vec::new(),
+        registry: Registry::new(),
     };
 
     for instance in pge_config.instances {
@@ -53,6 +53,15 @@ async fn main() -> std::io::Result<()> {
 
         let pg_instance = instance::new(instance.1.dsn, instance.1.exclude_db_names, labels);
         let pgi = pg_instance.await;
+
+        let pc = collectors::pg_locks::new("test_ns", pgi.db.clone());
+        let _res = app.registry.register(Box::new(pc.clone())).unwrap();
+
+        let pc_pstm = collectors::pg_postmaster::new("test_ns", pgi.db.clone());
+        let _res2 = app.registry.register(Box::new(pc_pstm.clone())).unwrap();
+
+        app.collectors.push(Box::new(pc));
+        app.collectors.push(Box::new(pc_pstm));
 
         app.instances.push(pgi);
     }
@@ -81,26 +90,15 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
             .expect("should be user-agent string")
     );
 
-    let r = Registry::new();
-    for instance in &data.instances {
-        let pc = collectors::pg_locks::new("test_ns", instance.db.clone());
-
-        let res = pc.update().await;
-        res.unwrap();
-
-        let _res = r.register(Box::new(pc)).unwrap();
-
-        let pc_pstm = collectors::pg_postmaster::new("test_ns", instance.db.clone());
-
-        let res2 = pc_pstm.update().await;
-        res2.unwrap();
-        let _res2 = r.register(Box::new(pc_pstm)).unwrap();
+    for col in &data.collectors {
+        let res = col.update().await;
+        res.unwrap()
     }
 
     let mut buffer = Vec::new();
     let encoder = prometheus::TextEncoder::new();
 
-    let metric_families = r.gather();
+    let metric_families = data.registry.gather();
     encoder.encode(&metric_families, &mut buffer).unwrap();
 
     let response = String::from_utf8(buffer.clone()).expect("Failed to convert bytes to string");
