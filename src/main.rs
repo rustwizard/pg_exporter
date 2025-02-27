@@ -60,8 +60,12 @@ async fn main() -> std::io::Result<()> {
         let pc_pstm = collectors::pg_postmaster::new("test_ns", pgi.db.clone());
         let _res2 = app.registry.register(Box::new(pc_pstm.clone())).unwrap();
 
+        let pcdb = collectors::pg_database::new("test_ns", pgi.db.clone());
+        let _res3 = app.registry.register(Box::new(pcdb.clone())).unwrap();
+
         app.collectors.push(Box::new(pc));
         app.collectors.push(Box::new(pc_pstm));
+        app.collectors.push(Box::new(pcdb));
 
         app.instances.push(pgi);
     }
