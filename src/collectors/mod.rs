@@ -1,5 +1,6 @@
 pub mod pg_locks;
 pub mod pg_postmaster;
+pub mod pg_database;
 
 use async_trait::async_trait;
 use dyn_clone::DynClone;
