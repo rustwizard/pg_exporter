@@ -95,7 +95,7 @@ impl PG for PGDatabaseCollector {
             .fetch_all(&self.db)
             .await?;
 
-        /// TODO: amortize this with one query with select  
+        //TODO: amortize this with one query with select  
         for dbname in datnames {
             if dbname.name.len() > 0 {
                 let db_size: (i64,) = sqlx::query_as(PG_DATABASE_SIZE_QUERY)
