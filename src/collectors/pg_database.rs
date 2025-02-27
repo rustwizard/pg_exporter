@@ -7,7 +7,7 @@ use prometheus::proto;
 use prometheus::IntGaugeVec;
 use sqlx::PgPool;
 
-use super::PG;
+use super::{NAMESPACE, PG};
 
 const PG_DATABASE_QUERY: &str = "SELECT pg_database.datname as name FROM pg_database;";
 const PG_DATABASE_SIZE_QUERY: &str = "SELECT pg_database_size($1)";
@@ -39,17 +39,15 @@ pub struct PGDatabaseCollector {
     size_bytes: IntGaugeVec,
 }
 
-pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGDatabaseCollector {
-    PGDatabaseCollector::new(namespace, db)
+pub fn new(db: PgPool) -> PGDatabaseCollector {
+    PGDatabaseCollector::new(db)
 }
 
 impl PGDatabaseCollector {
-    pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGDatabaseCollector {
-        let namespace = namespace.into();
-
+    pub fn new(db: PgPool) -> PGDatabaseCollector {
         let size_bytes = IntGaugeVec::new(
             Opts::new("size_bytes", "Disk space used by the database")
-                .namespace(namespace.clone())
+                .namespace(NAMESPACE)
                 .subsystem(DATABASE_SUBSYSTEM),
             &["datname"],
         )
