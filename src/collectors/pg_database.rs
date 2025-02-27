@@ -9,7 +9,7 @@ use sqlx::PgPool;
 
 use super::PG;
 
-const PG_DATABASE_QUERY: &str = "SELECT pg_database.datname FROM pg_database;";
+const PG_DATABASE_QUERY: &str = "SELECT pg_database.datname as name FROM pg_database;";
 const PG_DATABASE_SIZE_QUERY: &str = "SELECT pg_database_size($1)";
 const DATABASE_SUBSYSTEM: &str = "database";
 
@@ -102,9 +102,6 @@ impl PG for PGDatabaseCollector {
                     .bind(&dbname.name)
                     .fetch_one(&self.db)
                     .await?;
-
-                
-                    println!("got merics {}{}", dbname.name, db_size.0);
 
                     let mut data_lock = self.data.lock().unwrap();
                     data_lock.size_bytes.insert(dbname.name, db_size.0);
