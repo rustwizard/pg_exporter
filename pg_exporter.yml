@@ -4,3 +4,6 @@ instances:
   "pg:5432":
     dsn: "postgres://postgres_exporter:postgres_exporter@pg:5432/db1"
     exclude_db_names: ["postgres", "template", "template1"]
+    const_labels:
+      project: "test_project"
+      cluster: "test_cluster"
