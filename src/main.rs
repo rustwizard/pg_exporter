@@ -46,12 +46,8 @@ async fn main() -> std::io::Result<()> {
 
     for instance in pge_config.instances {
         println!("starting connection for instance: {:?}", instance.0);
-        let mut labels  = HashMap::<String, String>::new();
         
-        labels.insert("namespace".to_string(), "test_ns".to_string());
-        labels.insert("instance".to_string(), instance.0);
-
-        let pg_instance = instance::new(instance.1.dsn, instance.1.exclude_db_names, labels);
+        let pg_instance = instance::new(instance.1.dsn, instance.1.exclude_db_names, instance.1.const_labels.clone());
         let pgi = pg_instance.await;
 
         let pc = collectors::pg_locks::new("test_ns", pgi.db.clone());
@@ -60,7 +56,7 @@ async fn main() -> std::io::Result<()> {
         let pc_pstm = collectors::pg_postmaster::new("test_ns", pgi.db.clone());
         let _res2 = app.registry.register(Box::new(pc_pstm.clone())).unwrap();
 
-        let pcdb = collectors::pg_database::new(pgi.db.clone());
+        let pcdb = collectors::pg_database::new(pgi.db.clone(), instance.1.const_labels);
         let _res3 = app.registry.register(Box::new(pcdb.clone())).unwrap();
 
         app.collectors.push(Box::new(pc));

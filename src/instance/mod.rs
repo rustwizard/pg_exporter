@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub struct Config {
     pub dsn: String,
     pub exclude_db_names: Vec<String>,
+    pub const_labels: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone)]

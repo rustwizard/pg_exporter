@@ -39,16 +39,16 @@ pub struct PGDatabaseCollector {
     size_bytes: IntGaugeVec,
 }
 
-pub fn new(db: PgPool) -> PGDatabaseCollector {
-    PGDatabaseCollector::new(db)
+pub fn new(db: PgPool, labels: HashMap<String, String>) -> PGDatabaseCollector {
+    PGDatabaseCollector::new(db, labels)
 }
 
 impl PGDatabaseCollector {
-    pub fn new(db: PgPool) -> PGDatabaseCollector {
+    pub fn new(db: PgPool,labels: HashMap<String, String>) -> PGDatabaseCollector {
         let size_bytes = IntGaugeVec::new(
             Opts::new("size_bytes", "Disk space used by the database")
                 .namespace(NAMESPACE)
-                .subsystem(DATABASE_SUBSYSTEM),
+                .subsystem(DATABASE_SUBSYSTEM).const_labels(labels),
             &["datname"],
         )
         .unwrap();
