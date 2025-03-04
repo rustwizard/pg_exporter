@@ -5,6 +5,8 @@ pub mod pg_database;
 use async_trait::async_trait;
 use dyn_clone::DynClone;
 
+const NAMESPACE: &str = "pg";
+
 #[async_trait]
 pub trait PG: DynClone + Send + Sync {
     async fn update(&self) -> Result<(), anyhow::Error>;

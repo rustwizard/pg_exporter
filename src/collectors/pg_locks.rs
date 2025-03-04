@@ -1,9 +1,10 @@
-use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
-use prometheus::core::{Desc, Opts, Collector};
-use prometheus::IntGauge;
+use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
+use prometheus::IntGauge;
 use sqlx::PgPool;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use super::PG;
 
@@ -22,6 +23,7 @@ const LOCKSQUERY: &str = "SELECT  \
 
 /// 10 metrics per PGLocksCollector.
 const LOCKS_METRICS_NUMBER: usize = 10;
+const PGLOCKS_SUBSYSTEM: &str = "locks";
 
 #[derive(Debug, Clone)]
 pub struct PGLocksCollector {
@@ -56,56 +58,52 @@ pub struct LocksStat {
 
 impl LocksStat {
     pub fn new() -> LocksStat {
-        LocksStat { 
-            access_share_lock: (0), 
-            row_share_lock: (0), 
-            row_exclusive_lock: (0), 
-            share_update_exclusive_lock: (0), 
-            share_lock: (0), 
-            share_row_exclusive_lock: (0), 
-            exclusive_lock: (0), 
-            access_exclusive_lock: (0), 
-            not_granted: (0), 
-            total: (0) 
+        LocksStat {
+            access_share_lock: (0),
+            row_share_lock: (0),
+            row_exclusive_lock: (0),
+            share_update_exclusive_lock: (0),
+            share_lock: (0),
+            share_row_exclusive_lock: (0),
+            exclusive_lock: (0),
+            access_exclusive_lock: (0),
+            not_granted: (0),
+            total: (0),
         }
     }
 }
 
-pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGLocksCollector {
-    PGLocksCollector::new(namespace, db)
+pub fn new(db: PgPool, labels: HashMap<String, String>) -> PGLocksCollector {
+    PGLocksCollector::new(db, labels)
 }
 
 impl PGLocksCollector {
-    pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGLocksCollector {
-        let namespace = namespace.into();
+    pub fn new(db: PgPool, labels: HashMap<String, String>) -> PGLocksCollector {
         let mut descs = Vec::new();
 
         let access_share_lock = IntGauge::with_opts(
-            Opts::new(
-                "access_share_lock",
-                "Total AccessShareLock",
-            )
-            .namespace(namespace.clone()),
+            Opts::new("access_share_lock", "Total AccessShareLock")
+                .namespace(super::NAMESPACE)
+                .subsystem(PGLOCKS_SUBSYSTEM)
+                .const_labels(labels.clone()),
         )
         .unwrap();
         descs.extend(access_share_lock.desc().into_iter().cloned());
 
         let row_share_lock = IntGauge::with_opts(
-            Opts::new(
-                "row_share_lock",
-                "Total RowShareLock",
-            )
-            .namespace(namespace.clone()),
+            Opts::new("row_share_lock", "Total RowShareLock")
+                .namespace(super::NAMESPACE)
+                .subsystem(PGLOCKS_SUBSYSTEM)
+                .const_labels(labels.clone()),
         )
         .unwrap();
         descs.extend(row_share_lock.desc().into_iter().cloned());
 
         let row_exclusive_lock = IntGauge::with_opts(
-            Opts::new(
-                "row_exclusive_lock",
-                "Total RowExclusiveLock",
-            )
-            .namespace(namespace.clone()),
+            Opts::new("row_exclusive_lock", "Total RowExclusiveLock")
+                .namespace(super::NAMESPACE)
+                .subsystem(PGLOCKS_SUBSYSTEM)
+                .const_labels(labels.clone()),
         )
         .unwrap();
         descs.extend(row_exclusive_lock.desc().into_iter().cloned());
@@ -115,72 +113,68 @@ impl PGLocksCollector {
                 "share_update_exclusive_lock",
                 "Total ShareUpdateExclusiveLock",
             )
-            .namespace(namespace.clone()),
+            .namespace(super::NAMESPACE)
+            .subsystem(PGLOCKS_SUBSYSTEM)
+            .const_labels(labels.clone()),
         )
         .unwrap();
         descs.extend(share_update_exclusive_lock.desc().into_iter().cloned());
 
         let share_lock = IntGauge::with_opts(
-            Opts::new(
-                "share_lock",
-                "Total ShareLock",
-            )
-            .namespace(namespace.clone()),
+            Opts::new("share_lock", "Total ShareLock")
+                .namespace(super::NAMESPACE)
+                .subsystem(PGLOCKS_SUBSYSTEM)
+                .const_labels(labels.clone()),
         )
         .unwrap();
         descs.extend(share_lock.desc().into_iter().cloned());
 
         let share_row_exclusive_lock = IntGauge::with_opts(
-            Opts::new(
-                "share_row_exclusive_lock",
-                "Total ShareRowExclusiveLock",
-            )
-            .namespace(namespace.clone()),
+            Opts::new("share_row_exclusive_lock", "Total ShareRowExclusiveLock")
+                .namespace(super::NAMESPACE)
+                .subsystem(PGLOCKS_SUBSYSTEM)
+                .const_labels(labels.clone()),
         )
         .unwrap();
         descs.extend(share_row_exclusive_lock.desc().into_iter().cloned());
 
         let exclusive_lock = IntGauge::with_opts(
-            Opts::new(
-                "exclusive_lock",
-                "Total ExclusiveLock",
-            )
-            .namespace(namespace.clone()),
+            Opts::new("exclusive_lock", "Total ExclusiveLock")
+                .namespace(super::NAMESPACE)
+                .subsystem(PGLOCKS_SUBSYSTEM)
+                .const_labels(labels.clone()),
         )
         .unwrap();
         descs.extend(exclusive_lock.desc().into_iter().cloned());
 
         let access_exclusive_lock = IntGauge::with_opts(
-            Opts::new(
-                "access_exclusive_lock",
-                "Total AccessExclusiveLock",
-            )
-            .namespace(namespace.clone()),
+            Opts::new("access_exclusive_lock", "Total AccessExclusiveLock")
+                .namespace(super::NAMESPACE)
+                .subsystem(PGLOCKS_SUBSYSTEM)
+                .const_labels(labels.clone()),
         )
         .unwrap();
         descs.extend(access_exclusive_lock.desc().into_iter().cloned());
 
         let not_granted = IntGauge::with_opts(
-            Opts::new(
-                "not_granted",
-                "Total not granted",
-            )
-            .namespace(namespace.clone()),
+            Opts::new("not_granted", "Total not granted")
+                .namespace(super::NAMESPACE)
+                .subsystem(PGLOCKS_SUBSYSTEM)
+                .const_labels(labels.clone()),
         )
         .unwrap();
         descs.extend(not_granted.desc().into_iter().cloned());
 
         let total = IntGauge::with_opts(
-            Opts::new(
-                "total",
-                "Total locks",
-            )
-            .namespace(namespace.clone()),
+            Opts::new("total", "Total locks")
+                .namespace(super::NAMESPACE)
+                .subsystem(PGLOCKS_SUBSYSTEM)
+                .const_labels(labels),
         )
         .unwrap();
         descs.extend(total.desc().into_iter().cloned());
 
-        PGLocksCollector{
+        PGLocksCollector {
             db: db,
             data: Arc::new(Mutex::new(LocksStat::new())),
             descs: descs,
@@ -196,7 +190,6 @@ impl PGLocksCollector {
             total: total,
         }
     }
-
 }
 
 impl Collector for PGLocksCollector {
@@ -207,7 +200,7 @@ impl Collector for PGLocksCollector {
     fn collect(&self) -> Vec<proto::MetricFamily> {
         // collect MetricFamilys.
         let mut mfs = Vec::with_capacity(LOCKS_METRICS_NUMBER);
-        
+
         let data_lock = self.data.lock().unwrap();
 
         self.access_share_lock.set(data_lock.access_share_lock);
@@ -231,7 +224,7 @@ impl Collector for PGLocksCollector {
         mfs.extend(self.share_row_exclusive_lock.collect());
         mfs.extend(self.share_update_exclusive_lock.collect());
         mfs.extend(self.total.collect());
-        
+
         mfs
     }
 }
@@ -239,23 +232,24 @@ impl Collector for PGLocksCollector {
 #[async_trait]
 impl PG for PGLocksCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let maybe_locks_stats = sqlx::query_as::<_, LocksStat>(LOCKSQUERY).fetch_optional(&self.db).await?;
+        let maybe_locks_stats = sqlx::query_as::<_, LocksStat>(LOCKSQUERY)
+            .fetch_optional(&self.db)
+            .await?;
 
         if let Some(locks_stats) = maybe_locks_stats {
             let mut data_lock = self.data.lock().unwrap();
-            data_lock.access_exclusive_lock         = locks_stats.access_exclusive_lock;
-            data_lock.access_share_lock             = locks_stats.access_share_lock;
-            data_lock.exclusive_lock                = locks_stats.exclusive_lock;
-            data_lock.not_granted                   = locks_stats.not_granted;
-            data_lock.row_exclusive_lock            = locks_stats.row_exclusive_lock;
-            data_lock.row_share_lock                = locks_stats.row_share_lock;
-            data_lock.share_lock                    = locks_stats.share_lock;
-            data_lock.share_row_exclusive_lock      = locks_stats.share_row_exclusive_lock;
-            data_lock.share_update_exclusive_lock   = locks_stats.share_update_exclusive_lock;
-            data_lock.total                         = locks_stats.total;
+            data_lock.access_exclusive_lock = locks_stats.access_exclusive_lock;
+            data_lock.access_share_lock = locks_stats.access_share_lock;
+            data_lock.exclusive_lock = locks_stats.exclusive_lock;
+            data_lock.not_granted = locks_stats.not_granted;
+            data_lock.row_exclusive_lock = locks_stats.row_exclusive_lock;
+            data_lock.row_share_lock = locks_stats.row_share_lock;
+            data_lock.share_lock = locks_stats.share_lock;
+            data_lock.share_row_exclusive_lock = locks_stats.share_row_exclusive_lock;
+            data_lock.share_update_exclusive_lock = locks_stats.share_update_exclusive_lock;
+            data_lock.total = locks_stats.total;
         }
-    
+
         Ok(())
     }
-
 }
