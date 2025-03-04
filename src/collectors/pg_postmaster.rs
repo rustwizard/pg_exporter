@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
@@ -11,6 +12,7 @@ use super::PG;
 
 
 const POSTMASTER_QUERY: &str = "SELECT extract(epoch from pg_postmaster_start_time)::FLOAT8 as start_time_seconds from pg_postmaster_start_time()";
+const POSTMASTER_SUBSYSTEM: &str = "postmaster";
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct PGPostmasterStats {
@@ -34,21 +36,21 @@ pub struct PGPostmasterCollector {
 }
 
 
-pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGPostmasterCollector {
-    PGPostmasterCollector::new(namespace, db)
+pub fn new(db: PgPool, labels: HashMap<String, String>) -> PGPostmasterCollector {
+    PGPostmasterCollector::new(db, labels)
 }
 
 
 impl PGPostmasterCollector {
-    pub fn new<S: Into<String>>(namespace: S, db: PgPool) -> PGPostmasterCollector {
-        let namespace = namespace.into();
-
+    pub fn new(db: PgPool, labels: HashMap<String, String>) -> PGPostmasterCollector {
         let start_time_seconds = Gauge::with_opts(
             Opts::new(
                 "start_time_seconds",
                 "Time at which postmaster started",
             )
-            .namespace(namespace.clone()),
+            .namespace(super::NAMESPACE)
+            .subsystem(POSTMASTER_SUBSYSTEM)
+            .const_labels(labels),
         )
         .unwrap();
 
