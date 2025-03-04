@@ -37,14 +37,15 @@ pub struct PGDatabaseCollector {
     data: Arc<Mutex<PGDatabaseStats>>,
     descs: Vec<Desc>,
     size_bytes: IntGaugeVec,
+    exclude_db_names: Vec<String>
 }
 
-pub fn new(db: PgPool, labels: HashMap<String, String>) -> PGDatabaseCollector {
-    PGDatabaseCollector::new(db, labels)
+pub fn new(db: PgPool, labels: HashMap<String, String>, exclude_db_names: Vec<String>) -> PGDatabaseCollector {
+    PGDatabaseCollector::new(db, labels, exclude_db_names)
 }
 
 impl PGDatabaseCollector {
-    pub fn new(db: PgPool,labels: HashMap<String, String>) -> PGDatabaseCollector {
+    pub fn new(db: PgPool,labels: HashMap<String, String>, exclude_db_names: Vec<String>) -> PGDatabaseCollector {
         let size_bytes = IntGaugeVec::new(
             Opts::new("size_bytes", "Disk space used by the database")
                 .namespace(NAMESPACE)
@@ -61,6 +62,7 @@ impl PGDatabaseCollector {
             data: Arc::new(Mutex::new(PGDatabaseStats::new())),
             descs: descs,
             size_bytes: size_bytes,
+            exclude_db_names: exclude_db_names,
         }
     }
 }
@@ -95,6 +97,10 @@ impl PG for PGDatabaseCollector {
 
         //TODO: amortize this with one query with select  
         for dbname in datnames {
+            if self.exclude_db_names.contains(&dbname.name) {
+                continue
+            }
+            
             if dbname.name.len() > 0 {
                 let db_size: (i64,) = sqlx::query_as(PG_DATABASE_SIZE_QUERY)
                     .bind(&dbname.name)
