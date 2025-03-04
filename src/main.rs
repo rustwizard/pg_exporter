@@ -50,7 +50,7 @@ async fn main() -> std::io::Result<()> {
         let pg_instance = instance::new(config.dsn, config.exclude_db_names.clone(), config.const_labels.clone());
         let pgi = pg_instance.await;
 
-        let pc = collectors::pg_locks::new("test_ns", pgi.db.clone());
+        let pc = collectors::pg_locks::new(pgi.db.clone(), config.const_labels.clone());
         let _res = app.registry.register(Box::new(pc.clone())).unwrap();
 
         let pc_pstm = collectors::pg_postmaster::new(pgi.db.clone(), config.const_labels.clone());
