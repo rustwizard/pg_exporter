@@ -1,11 +1,9 @@
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use prometheus::core::{Desc, Opts, Collector};
 use prometheus::Gauge;
 use prometheus::proto;
-use sqlx::PgPool;
 
 use crate::instance;
 
