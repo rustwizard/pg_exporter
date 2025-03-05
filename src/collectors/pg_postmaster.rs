@@ -1,11 +1,11 @@
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use prometheus::core::{Desc, Opts, Collector};
 use prometheus::Gauge;
 use prometheus::proto;
-use sqlx::PgPool;
+
+use crate::instance;
 
 use super::PG;
 
@@ -29,20 +29,20 @@ impl PGPostmasterStats {
 
 #[derive(Debug, Clone)]
 pub struct PGPostmasterCollector {
-    db: PgPool,
+    dbi: instance::PostgresDB,
     data: Arc<Mutex<PGPostmasterStats>>,
     descs: Vec<Desc>,
     start_time_seconds: Gauge,
 }
 
 
-pub fn new(db: PgPool, labels: HashMap<String, String>) -> PGPostmasterCollector {
-    PGPostmasterCollector::new(db, labels)
+pub fn new(dbi: instance::PostgresDB) -> PGPostmasterCollector {
+    PGPostmasterCollector::new(dbi)
 }
 
 
 impl PGPostmasterCollector {
-    pub fn new(db: PgPool, labels: HashMap<String, String>) -> PGPostmasterCollector {
+    pub fn new(dbi: instance::PostgresDB) -> PGPostmasterCollector {
         let start_time_seconds = Gauge::with_opts(
             Opts::new(
                 "start_time_seconds",
@@ -50,7 +50,7 @@ impl PGPostmasterCollector {
             )
             .namespace(super::NAMESPACE)
             .subsystem(POSTMASTER_SUBSYSTEM)
-            .const_labels(labels),
+            .const_labels(dbi.labels.clone()),
         )
         .unwrap();
 
@@ -58,7 +58,7 @@ impl PGPostmasterCollector {
         descs.extend(start_time_seconds.desc().into_iter().cloned());
 
         PGPostmasterCollector{
-            db: db,
+            dbi: dbi,
             data: Arc::new(Mutex::new(PGPostmasterStats::new())),
             descs: descs,
             start_time_seconds: start_time_seconds,
@@ -89,7 +89,7 @@ impl Collector for PGPostmasterCollector {
 #[async_trait]
 impl PG for PGPostmasterCollector {
      async fn update(&self) -> Result<(), anyhow::Error> {
-        let maybe_stats = sqlx::query_as::<_, PGPostmasterStats>(POSTMASTER_QUERY).fetch_optional(&self.db).await?;
+        let maybe_stats = sqlx::query_as::<_, PGPostmasterStats>(POSTMASTER_QUERY).fetch_optional(&self.dbi.db).await?;
        
         if let Some(stats) = maybe_stats {
             let mut data_lock = self.data.lock().unwrap();
