@@ -2,8 +2,6 @@ use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
 use prometheus::IntGauge;
-use sqlx::PgPool;
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::instance;
