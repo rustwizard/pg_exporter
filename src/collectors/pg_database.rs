@@ -5,7 +5,8 @@ use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
 use prometheus::IntGaugeVec;
-use sqlx::PgPool;
+
+use crate::instance;
 
 use super::PG;
 
@@ -33,23 +34,22 @@ impl PGDatabaseStats {
 
 #[derive(Debug, Clone)]
 pub struct PGDatabaseCollector {
-    db: PgPool,
+    dbi: instance::PostgresDB,
     data: Arc<Mutex<PGDatabaseStats>>,
     descs: Vec<Desc>,
     size_bytes: IntGaugeVec,
-    exclude_db_names: Vec<String>
 }
 
-pub fn new(db: PgPool, labels: HashMap<String, String>, exclude_db_names: Vec<String>) -> PGDatabaseCollector {
-    PGDatabaseCollector::new(db, labels, exclude_db_names)
+pub fn new(dbi: instance::PostgresDB) -> PGDatabaseCollector {
+    PGDatabaseCollector::new(dbi)
 }
 
 impl PGDatabaseCollector {
-    pub fn new(db: PgPool,labels: HashMap<String, String>, exclude_db_names: Vec<String>) -> PGDatabaseCollector {
+    pub fn new(dbi: instance::PostgresDB) -> PGDatabaseCollector {
         let size_bytes = IntGaugeVec::new(
             Opts::new("size_bytes", "Disk space used by the database")
                 .namespace(super::NAMESPACE)
-                .subsystem(DATABASE_SUBSYSTEM).const_labels(labels),
+                .subsystem(DATABASE_SUBSYSTEM).const_labels(dbi.labels.clone()),
             &["datname"],
         )
         .unwrap();
@@ -58,11 +58,10 @@ impl PGDatabaseCollector {
         descs.extend(size_bytes.desc().into_iter().cloned());
 
         PGDatabaseCollector {
-            db: db,
+            dbi: dbi,
             data: Arc::new(Mutex::new(PGDatabaseStats::new())),
             descs: descs,
             size_bytes: size_bytes,
-            exclude_db_names: exclude_db_names,
         }
     }
 }
@@ -92,19 +91,19 @@ impl Collector for PGDatabaseCollector {
 impl PG for PGDatabaseCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
         let datnames = sqlx::query_as::<_, PGDatabaseName>(PG_DATABASE_QUERY)
-            .fetch_all(&self.db)
+            .fetch_all(&self.dbi.db)
             .await?;
 
         //TODO: amortize this with one query with select  
         for dbname in datnames {
-            if self.exclude_db_names.contains(&dbname.name) {
+            if self.dbi.exclude_db_names.contains(&dbname.name) {
                 continue
             }
 
             if dbname.name.len() > 0 {
                 let db_size: (i64,) = sqlx::query_as(PG_DATABASE_SIZE_QUERY)
                     .bind(&dbname.name)
-                    .fetch_one(&self.db)
+                    .fetch_one(&self.dbi.db)
                     .await?;
 
                     let mut data_lock = self.data.lock().unwrap();
