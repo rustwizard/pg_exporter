@@ -4,7 +4,8 @@ mod instance;
 use std::collections::HashMap;
 
 use actix_web::{
-    get, http::header::ContentType, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
+    get, http::header::ContentType, rt::task, web, App, HttpRequest, HttpResponse, HttpServer,
+    Responder,
 };
 
 use config::Config;
@@ -46,8 +47,12 @@ async fn main() -> std::io::Result<()> {
 
     for (instance, config) in pge_config.instances {
         println!("starting connection for instance: {:?}", instance);
-        
-        let pg_instance = instance::new(config.dsn, config.exclude_db_names.clone(), config.const_labels.clone());
+
+        let pg_instance = instance::new(
+            config.dsn,
+            config.exclude_db_names.clone(),
+            config.const_labels.clone(),
+        );
         let pgi = pg_instance.await;
 
         let pc = collectors::pg_locks::new(pgi.clone());
@@ -90,9 +95,19 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
             .expect("should be user-agent string")
     );
 
-    for col in &data.collectors {
-        let res = col.update().await;
-        res.unwrap()
+    let tasks: Vec<_> = data
+        .collectors
+        .clone()
+        .into_iter()
+        .map(|col| {
+            actix_web::rt::spawn(async move {
+                let _ = col.update().await;
+            })
+        })
+        .collect();
+
+    for task in tasks {
+        task.await.unwrap();
     }
 
     let mut buffer = Vec::new();
