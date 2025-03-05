@@ -6,6 +6,8 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use crate::instance;
+
 use super::PG;
 
 const LOCKSQUERY: &str = "SELECT  \
@@ -27,7 +29,7 @@ const PGLOCKS_SUBSYSTEM: &str = "locks";
 
 #[derive(Debug, Clone)]
 pub struct PGLocksCollector {
-    db: PgPool,
+    dbi: instance::PostgresDB,
     data: Arc<Mutex<LocksStat>>,
     descs: Vec<Desc>,
     access_share_lock: IntGauge,
@@ -73,19 +75,19 @@ impl LocksStat {
     }
 }
 
-pub fn new(db: PgPool, labels: HashMap<String, String>) -> PGLocksCollector {
-    PGLocksCollector::new(db, labels)
+pub fn new(dbi: instance::PostgresDB) -> PGLocksCollector {
+    PGLocksCollector::new(dbi)
 }
 
 impl PGLocksCollector {
-    pub fn new(db: PgPool, labels: HashMap<String, String>) -> PGLocksCollector {
+    pub fn new(dbi: instance::PostgresDB) -> PGLocksCollector {
         let mut descs = Vec::new();
 
         let access_share_lock = IntGauge::with_opts(
             Opts::new("access_share_lock", "Total AccessShareLock")
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
-                .const_labels(labels.clone()),
+                .const_labels(dbi.labels.clone()),
         )
         .unwrap();
         descs.extend(access_share_lock.desc().into_iter().cloned());
@@ -94,7 +96,7 @@ impl PGLocksCollector {
             Opts::new("row_share_lock", "Total RowShareLock")
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
-                .const_labels(labels.clone()),
+                .const_labels(dbi.labels.clone()),
         )
         .unwrap();
         descs.extend(row_share_lock.desc().into_iter().cloned());
@@ -103,7 +105,7 @@ impl PGLocksCollector {
             Opts::new("row_exclusive_lock", "Total RowExclusiveLock")
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
-                .const_labels(labels.clone()),
+                .const_labels(dbi.labels.clone()),
         )
         .unwrap();
         descs.extend(row_exclusive_lock.desc().into_iter().cloned());
@@ -115,7 +117,7 @@ impl PGLocksCollector {
             )
             .namespace(super::NAMESPACE)
             .subsystem(PGLOCKS_SUBSYSTEM)
-            .const_labels(labels.clone()),
+            .const_labels(dbi.labels.clone()),
         )
         .unwrap();
         descs.extend(share_update_exclusive_lock.desc().into_iter().cloned());
@@ -124,7 +126,7 @@ impl PGLocksCollector {
             Opts::new("share_lock", "Total ShareLock")
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
-                .const_labels(labels.clone()),
+                .const_labels(dbi.labels.clone()),
         )
         .unwrap();
         descs.extend(share_lock.desc().into_iter().cloned());
@@ -133,7 +135,7 @@ impl PGLocksCollector {
             Opts::new("share_row_exclusive_lock", "Total ShareRowExclusiveLock")
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
-                .const_labels(labels.clone()),
+                .const_labels(dbi.labels.clone()),
         )
         .unwrap();
         descs.extend(share_row_exclusive_lock.desc().into_iter().cloned());
@@ -142,7 +144,7 @@ impl PGLocksCollector {
             Opts::new("exclusive_lock", "Total ExclusiveLock")
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
-                .const_labels(labels.clone()),
+                .const_labels(dbi.labels.clone()),
         )
         .unwrap();
         descs.extend(exclusive_lock.desc().into_iter().cloned());
@@ -151,7 +153,7 @@ impl PGLocksCollector {
             Opts::new("access_exclusive_lock", "Total AccessExclusiveLock")
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
-                .const_labels(labels.clone()),
+                .const_labels(dbi.labels.clone()),
         )
         .unwrap();
         descs.extend(access_exclusive_lock.desc().into_iter().cloned());
@@ -160,7 +162,7 @@ impl PGLocksCollector {
             Opts::new("not_granted", "Total not granted")
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
-                .const_labels(labels.clone()),
+                .const_labels(dbi.labels.clone()),
         )
         .unwrap();
         descs.extend(not_granted.desc().into_iter().cloned());
@@ -169,13 +171,13 @@ impl PGLocksCollector {
             Opts::new("total", "Total locks")
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
-                .const_labels(labels),
+                .const_labels(dbi.labels.clone()),
         )
         .unwrap();
         descs.extend(total.desc().into_iter().cloned());
 
         PGLocksCollector {
-            db: db,
+            dbi: dbi,
             data: Arc::new(Mutex::new(LocksStat::new())),
             descs: descs,
             access_share_lock: access_share_lock,
@@ -233,7 +235,7 @@ impl Collector for PGLocksCollector {
 impl PG for PGLocksCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
         let maybe_locks_stats = sqlx::query_as::<_, LocksStat>(LOCKSQUERY)
-            .fetch_optional(&self.db)
+            .fetch_optional(&self.dbi.db)
             .await?;
 
         if let Some(locks_stats) = maybe_locks_stats {
