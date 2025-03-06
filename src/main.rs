@@ -4,7 +4,7 @@ mod instance;
 use std::collections::HashMap;
 
 use actix_web::{
-    get, http::header::ContentType, rt::task, web, App, HttpRequest, HttpResponse, HttpServer,
+    get, http::header::ContentType, web, App, HttpRequest, HttpResponse, HttpServer,
     Responder,
 };
 
