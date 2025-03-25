@@ -198,7 +198,7 @@ impl Collector for PGLocksCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        // collect MetricFamilys.
+        // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(LOCKS_METRICS_NUMBER);
 
         let data_lock = self.data.lock().unwrap();
