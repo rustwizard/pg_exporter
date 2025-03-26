@@ -30,9 +30,9 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
 
-  pg:
+  pge:
     image: postgres:15-bullseye
-    container_name: pg
+    container_name: pge
     restart: always
     volumes:
       - ./monitoring/postgresql/data:/var/lib/postgresql/data
