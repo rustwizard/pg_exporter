@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
 use prometheus::core::{Desc, Opts, Collector};
@@ -30,7 +30,7 @@ impl PGPostmasterStats {
 #[derive(Debug, Clone)]
 pub struct PGPostmasterCollector {
     dbi: instance::PostgresDB,
-    data: Arc<Mutex<PGPostmasterStats>>,
+    data: Arc<RwLock<PGPostmasterStats>>,
     descs: Vec<Desc>,
     start_time_seconds: Gauge,
 }
@@ -59,7 +59,7 @@ impl PGPostmasterCollector {
 
         PGPostmasterCollector{
             dbi: dbi,
-            data: Arc::new(Mutex::new(PGPostmasterStats::new())),
+            data: Arc::new(RwLock::new(PGPostmasterStats::new())),
             descs: descs,
             start_time_seconds: start_time_seconds,
         }
@@ -77,7 +77,7 @@ impl Collector for PGPostmasterCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(1);
         
-        let data_lock = self.data.lock().unwrap();
+        let data_lock = self.data.read().unwrap();
         self.start_time_seconds.set(data_lock.start_time_seconds);
 
         mfs.extend(self.start_time_seconds.collect());
@@ -92,7 +92,7 @@ impl PG for PGPostmasterCollector {
         let maybe_stats = sqlx::query_as::<_, PGPostmasterStats>(POSTMASTER_QUERY).fetch_optional(&self.dbi.db).await?;
        
         if let Some(stats) = maybe_stats {
-            let mut data_lock = self.data.lock().unwrap();
+            let mut data_lock = self.data.write().unwrap();
             data_lock.start_time_seconds         = stats.start_time_seconds;
         }
     
