@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
 use prometheus::IntGauge;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use crate::instance;
 
@@ -28,7 +28,7 @@ const PGLOCKS_SUBSYSTEM: &str = "locks";
 #[derive(Debug, Clone)]
 pub struct PGLocksCollector {
     dbi: instance::PostgresDB,
-    data: Arc<Mutex<LocksStat>>,
+    data: Arc<RwLock<LocksStat>>, // TODO: maybe RWMutex?
     descs: Vec<Desc>,
     access_share_lock: IntGauge,
     row_share_lock: IntGauge,
@@ -176,7 +176,7 @@ impl PGLocksCollector {
 
         PGLocksCollector {
             dbi: dbi,
-            data: Arc::new(Mutex::new(LocksStat::new())),
+            data: Arc::new(RwLock::new(LocksStat::new())),
             descs: descs,
             access_share_lock: access_share_lock,
             row_share_lock: row_share_lock,
@@ -201,7 +201,7 @@ impl Collector for PGLocksCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(LOCKS_METRICS_NUMBER);
 
-        let data_lock = self.data.lock().unwrap();
+        let data_lock = self.data.read().unwrap();
 
         self.access_share_lock.set(data_lock.access_share_lock);
         self.access_exclusive_lock.set(data_lock.access_exclusive_lock);
@@ -237,7 +237,7 @@ impl PG for PGLocksCollector {
             .await?;
 
         if let Some(locks_stats) = maybe_locks_stats {
-            let mut data_lock = self.data.lock().unwrap();
+            let mut data_lock = self.data.write().unwrap();
             data_lock.access_exclusive_lock = locks_stats.access_exclusive_lock;
             data_lock.access_share_lock = locks_stats.access_share_lock;
             data_lock.exclusive_lock = locks_stats.exclusive_lock;
