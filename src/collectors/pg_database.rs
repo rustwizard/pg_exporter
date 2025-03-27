@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
@@ -35,7 +35,7 @@ impl PGDatabaseStats {
 #[derive(Debug, Clone)]
 pub struct PGDatabaseCollector {
     dbi: instance::PostgresDB,
-    data: Arc<Mutex<PGDatabaseStats>>,
+    data: Arc<RwLock<PGDatabaseStats>>,
     descs: Vec<Desc>,
     size_bytes: IntGaugeVec,
 }
@@ -59,7 +59,7 @@ impl PGDatabaseCollector {
 
         PGDatabaseCollector {
             dbi: dbi,
-            data: Arc::new(Mutex::new(PGDatabaseStats::new())),
+            data: Arc::new(RwLock::new(PGDatabaseStats::new())),
             descs: descs,
             size_bytes: size_bytes,
         }
@@ -75,7 +75,7 @@ impl Collector for PGDatabaseCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(1);
 
-        let data_lock = self.data.lock().unwrap();
+        let data_lock = self.data.read().unwrap();
         data_lock
             .size_bytes
             .iter()
@@ -106,7 +106,7 @@ impl PG for PGDatabaseCollector {
                     .fetch_one(&self.dbi.db)
                     .await?;
 
-                    let mut data_lock = self.data.lock().unwrap();
+                    let mut data_lock = self.data.write().unwrap();
                     data_lock.size_bytes.insert(dbname.name, db_size.0);
 
                 
