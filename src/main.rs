@@ -115,8 +115,8 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
     let mut buffer = Vec::new();
     let encoder = prometheus::TextEncoder::new();
 
-    let metric_families = data.registry.gather();
-    encoder.encode(&metric_families, &mut buffer).unwrap();
+    let postgres_metrics = data.registry.gather();
+    encoder.encode(&postgres_metrics, &mut buffer).unwrap();
     encoder.encode(&process_metrics, &mut buffer).unwrap();
 
     let response = String::from_utf8(buffer.clone()).expect("Failed to convert bytes to string");
