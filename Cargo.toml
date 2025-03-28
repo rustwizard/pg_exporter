@@ -9,7 +9,7 @@ actix-web = "4"
 config = "0.15.8"
 serde_derive = "1.0"
 serde = "1.0"
-prometheus = "0.13.4"
+prometheus = {version="0.13.4", features = ["process"]}
 sqlx = {version="0.8.3", features = [ "postgres", "runtime-tokio"]}
 anyhow = "1.0.96"
 async-trait = "0.1.86"
