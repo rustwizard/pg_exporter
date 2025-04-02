@@ -156,6 +156,7 @@ impl PGActivityCollector {
             )
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
+            .variable_labels(vec!["type".to_string(), "event".to_string()])
             .const_labels(dbi.labels.clone()),
         )
         .unwrap();
@@ -168,6 +169,7 @@ impl PGActivityCollector {
             )
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
+            .variable_labels(vec!["user".to_string(), "database".to_string(), "state".to_string()])
             .const_labels(dbi.labels.clone()),
         )
         .unwrap();
@@ -192,6 +194,7 @@ impl PGActivityCollector {
             )
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
+            .variable_labels(vec!["user".to_string(), "database".to_string(), "state".to_string(), "type".to_string()])
             .const_labels(dbi.labels.clone()),
         )
         .unwrap();
@@ -216,6 +219,7 @@ impl PGActivityCollector {
             )
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
+            .variable_labels(vec!["type".to_string()])
             .const_labels(dbi.labels.clone()),
         )
         .unwrap();
@@ -228,6 +232,7 @@ impl PGActivityCollector {
             )
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
+            .variable_labels(vec!["type".to_string()])
             .const_labels(dbi.labels.clone()),
         )
         .unwrap();
@@ -259,4 +264,21 @@ impl PG for PGActivityCollector {
 
 pub fn new(dbi: instance::PostgresDB) -> PGActivityCollector {
     PGActivityCollector::new(dbi)
+}
+
+impl Collector for PGActivityCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        self.descs.iter().collect()
+    }
+
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        // collect MetricFamilies.
+        let mut mfs = Vec::new();
+
+        let data_lock = self.data.read().unwrap();
+
+        // TODO: set collected metrics
+
+        mfs
+    }
 }
