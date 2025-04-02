@@ -279,6 +279,10 @@ impl Collector for PGActivityCollector {
 
         // TODO: set collected metrics
 
+        // All activity metrics collected successfully, now we can collect up metric.
+        self.up.set(1.);
+
+        mfs.extend(self.up.collect());
         mfs
     }
 }
