@@ -281,8 +281,10 @@ impl Collector for PGActivityCollector {
 
         // All activity metrics collected successfully, now we can collect up metric.
         self.up.set(1.);
+        self.start_time.set(data_lock.start_time_seconds);
 
         mfs.extend(self.up.collect());
+        mfs.extend(self.start_time.collect());
         mfs
     }
 }
