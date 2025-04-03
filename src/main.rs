@@ -65,7 +65,7 @@ async fn main() -> std::io::Result<()> {
         let _res3 = app.registry.register(Box::new(pcdb.clone())).unwrap();
 
         let pca = collectors::pg_activity::new(pgi.clone());
-        let _ = app.registry.register(Box::new(pcdb.clone())).unwrap();
+        let _ = app.registry.register(Box::new(pca.clone())).unwrap();
 
         app.collectors.push(Box::new(pc));
         app.collectors.push(Box::new(pc_pstm));
