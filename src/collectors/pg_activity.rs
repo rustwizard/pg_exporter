@@ -4,8 +4,8 @@ use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::proto;
 use prometheus::Gauge;
+use prometheus::{proto, GaugeVec};
 
 use crate::instance;
 
@@ -122,13 +122,13 @@ pub struct PGActivityCollector {
     descs: Vec<Desc>,
     up: Gauge,
     start_time: Gauge,
-    wait_events: Gauge,
-    states: Gauge,
+    wait_events: GaugeVec,
+    states: GaugeVec,
     states_all: Gauge,
-    activity: Gauge,
+    activity: GaugeVec,
     prepared: Gauge,
-    inflight: Gauge,
-    vacuums: Gauge,
+    inflight: GaugeVec,
+    vacuums: GaugeVec,
 }
 
 impl PGActivityCollector {
@@ -151,32 +151,28 @@ impl PGActivityCollector {
         .unwrap();
         descs.extend(start_time.desc().into_iter().cloned());
 
-        let wait_events = Gauge::with_opts(
+        let wait_events = GaugeVec::new(
             Opts::new(
                 "wait_events_in_flight",
                 "Number of wait events in-flight in each state.",
             )
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
-            .variable_labels(vec!["type".to_string(), "event".to_string()])
             .const_labels(dbi.labels.clone()),
+            &["type", "event"],
         )
         .unwrap();
         descs.extend(wait_events.desc().into_iter().cloned());
 
-        let states = Gauge::with_opts(
+        let states = GaugeVec::new(
             Opts::new(
                 "connections_in_flight",
                 "Number of connections in-flight in each state.",
             )
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
-            .variable_labels(vec![
-                "user".to_string(),
-                "database".to_string(),
-                "state".to_string(),
-            ])
             .const_labels(dbi.labels.clone()),
+            &["user", "database", "state"],
         )
         .unwrap();
         descs.extend(states.desc().into_iter().cloned());
@@ -193,20 +189,15 @@ impl PGActivityCollector {
         .unwrap();
         descs.extend(states_all.desc().into_iter().cloned());
 
-        let activity = Gauge::with_opts(
+        let activity = GaugeVec::new(
             Opts::new(
                 "max_seconds",
                 "Longest activity for each user, database and activity type.",
             )
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
-            .variable_labels(vec![
-                "user".to_string(),
-                "database".to_string(),
-                "state".to_string(),
-                "type".to_string(),
-            ])
             .const_labels(dbi.labels.clone()),
+            &["user", "database", "state", "type"],
         )
         .unwrap();
         descs.extend(activity.desc().into_iter().cloned());
@@ -223,28 +214,28 @@ impl PGActivityCollector {
         .unwrap();
         descs.extend(prepared.desc().into_iter().cloned());
 
-        let inflight = Gauge::with_opts(
+        let inflight = GaugeVec::new(
             Opts::new(
                 "queries_in_flight",
                 "Number of queries running in-flight of each type.",
             )
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
-            .variable_labels(vec!["type".to_string()])
             .const_labels(dbi.labels.clone()),
+            &["type"]
         )
         .unwrap();
         descs.extend(inflight.desc().into_iter().cloned());
 
-        let vacuums = Gauge::with_opts(
+        let vacuums = GaugeVec::new(
             Opts::new(
                 "vacuums_in_flight",
                 "Number of vacuum operations running in-flight of each type.",
             )
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
-            .variable_labels(vec!["type".to_string()])
             .const_labels(dbi.labels.clone()),
+            &["type"]
         )
         .unwrap();
         descs.extend(vacuums.desc().into_iter().cloned());
@@ -274,10 +265,9 @@ impl PG for PGActivityCollector {
             .fetch_one(&self.dbi.db)
             .await?;
 
-        let start_time: f64 = sqlx::query_scalar(START_TIME_QUERY).fetch_one(&self.dbi.db)
-        .await?;
-
-
+        let start_time: f64 = sqlx::query_scalar(START_TIME_QUERY)
+            .fetch_one(&self.dbi.db)
+            .await?;
 
         let mut data_lock = self.data.write().unwrap();
         data_lock.prepared = prepared;
@@ -307,7 +297,6 @@ impl Collector for PGActivityCollector {
         // All activity metrics collected successfully, now we can collect up metric.
         self.start_time.set(data_lock.start_time_seconds);
         self.prepared.set(data_lock.prepared);
-        
 
         mfs.extend(self.up.collect());
         mfs.extend(self.start_time.collect());

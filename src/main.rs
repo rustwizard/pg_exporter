@@ -64,9 +64,13 @@ async fn main() -> std::io::Result<()> {
         let pcdb = collectors::pg_database::new(pgi.clone());
         let _res3 = app.registry.register(Box::new(pcdb.clone())).unwrap();
 
+        let pca = collectors::pg_activity::new(pgi.clone());
+        let _ = app.registry.register(Box::new(pcdb.clone())).unwrap();
+
         app.collectors.push(Box::new(pc));
         app.collectors.push(Box::new(pc_pstm));
         app.collectors.push(Box::new(pcdb));
+        app.collectors.push(Box::new(pca));
 
         app.instances.push(pgi);
     }
