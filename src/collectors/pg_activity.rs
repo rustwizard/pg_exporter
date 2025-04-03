@@ -36,6 +36,7 @@ pub struct PGActivityStats {
     query_with: f64,  // number of CTE queries
     query_copy: f64,  // number of COPY queries
     query_other: f64, // number of queries of other types: BEGIN, END, COMMIT, ABORT, SET, etc...
+    prepared: f64, // FROM pg_prepared_xacts
 
     vacuum_ops: HashMap<String, i64>, // vacuum operations by type
 
@@ -67,6 +68,7 @@ impl PGActivityStats {
             query_with: (0.0),
             query_copy: (0.0),
             query_other: (0.0),
+            prepared: (0.0),
             vacuum_ops: HashMap::new(),
             max_idle_user: HashMap::new(),
             max_idle_maint: HashMap::new(),
@@ -282,9 +284,11 @@ impl Collector for PGActivityCollector {
         // All activity metrics collected successfully, now we can collect up metric.
         self.up.set(1.);
         self.start_time.set(data_lock.start_time_seconds);
+        self.prepared.set(data_lock.prepared);
 
         mfs.extend(self.up.collect());
         mfs.extend(self.start_time.collect());
+        mfs.extend(self.prepared.collect());
         mfs
     }
 }
