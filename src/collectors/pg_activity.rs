@@ -36,7 +36,7 @@ pub struct PGActivityStats {
     query_with: f64,  // number of CTE queries
     query_copy: f64,  // number of COPY queries
     query_other: f64, // number of queries of other types: BEGIN, END, COMMIT, ABORT, SET, etc...
-    prepared: f64, // FROM pg_prepared_xacts
+    prepared: f64,    // FROM pg_prepared_xacts
 
     vacuum_ops: HashMap<String, i64>, // vacuum operations by type
 
@@ -171,7 +171,11 @@ impl PGActivityCollector {
             )
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
-            .variable_labels(vec!["user".to_string(), "database".to_string(), "state".to_string()])
+            .variable_labels(vec![
+                "user".to_string(),
+                "database".to_string(),
+                "state".to_string(),
+            ])
             .const_labels(dbi.labels.clone()),
         )
         .unwrap();
@@ -196,7 +200,12 @@ impl PGActivityCollector {
             )
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
-            .variable_labels(vec!["user".to_string(), "database".to_string(), "state".to_string(), "type".to_string()])
+            .variable_labels(vec![
+                "user".to_string(),
+                "database".to_string(),
+                "state".to_string(),
+                "type".to_string(),
+            ])
             .const_labels(dbi.labels.clone()),
         )
         .unwrap();
@@ -260,6 +269,20 @@ impl PGActivityCollector {
 #[async_trait]
 impl PG for PGActivityCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
+        // get pg_prepared_xacts stats
+        let prepared: f64 = sqlx::query_scalar(PREPARED_XACT_QUERY)
+            .fetch_one(&self.dbi.db)
+            .await?;
+
+        let start_time: f64 = sqlx::query_scalar(START_TIME_QUERY).fetch_one(&self.dbi.db)
+        .await?;
+
+
+
+        let mut data_lock = self.data.write().unwrap();
+        data_lock.prepared = prepared;
+        data_lock.start_time_seconds = start_time;
+
         Ok(())
     }
 }
@@ -282,13 +305,14 @@ impl Collector for PGActivityCollector {
         // TODO: set collected metrics
 
         // All activity metrics collected successfully, now we can collect up metric.
-        self.up.set(1.);
         self.start_time.set(data_lock.start_time_seconds);
         self.prepared.set(data_lock.prepared);
+        
 
         mfs.extend(self.up.collect());
         mfs.extend(self.start_time.collect());
         mfs.extend(self.prepared.collect());
+
         mfs
     }
 }
