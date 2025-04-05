@@ -1,5 +1,5 @@
-use regex::Regex;
-use std::collections::HashMap;
+// use regex::Regex;
+// use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
@@ -11,109 +11,169 @@ use crate::instance;
 
 use super::PG;
 
-const ACTIVITY_QUERY: &str = "SELECT 
-    COALESCE(usename, backend_type) AS user, datname AS database, state, wait_event_type, wait_event, 
-    COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - xact_start), 0) AS active_seconds, 
-    CASE WHEN wait_event_type = 'Lock' 
-    THEN (SELECT EXTRACT(EPOCH FROM clock_timestamp() - MAX(waitstart)) FROM pg_locks l WHERE l.pid = a.pid) 
-    ELSE 0 END AS waiting_seconds,
-    LEFT(query, 32) AS query 
-    FROM pg_stat_activity a";
+// const ACTIVITY_QUERY: &str = "SELECT 
+//     COALESCE(usename, backend_type) AS user, datname AS database, state, wait_event_type, wait_event, 
+//     COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - xact_start), 0) AS active_seconds, 
+//     CASE WHEN wait_event_type = 'Lock' 
+//     THEN (SELECT EXTRACT(EPOCH FROM clock_timestamp() - MAX(waitstart)) FROM pg_locks l WHERE l.pid = a.pid) 
+//     ELSE 0 END AS waiting_seconds,
+//     LEFT(query, 32) AS query 
+//     FROM pg_stat_activity a";
 
 const PREPARED_XACT_QUERY: &str = "SELECT count(*) AS total FROM pg_prepared_xacts";
 
-const START_TIME_QUERY: &str = "SELECT EXTRACT(EPOCH FROM pg_postmaster_start_time())";
+// const START_TIME_QUERY: &str = "SELECT EXTRACT(EPOCH FROM pg_postmaster_start_time())";
 
 const ACTIVITY_SUBSYSTEM: &str = "activity";
+
+// // Backend states accordingly to pg_stat_activity.state
+// const ST_ACTIVE: &str          = "active";
+// const ST_IDLE: &str            = "idle";
+// const ST_IDLE_XACT: &str        = "idle in transaction";
+// const ST_IDLE_XACT_ABORTED: &str = "idle in transaction (aborted)";
+// const ST_FAST_PATH: &str        = "fastpath function call";
+// const ST_DISABLED: &str        = "disabled";
+// const ST_WAITING: &str         = "waiting"; // fake state based on 'wait_event_type == Lock'
+
+// // Wait event type names
+// const WE_LOCK: &str = "Lock";
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct PGActivityStats {
     start_time_seconds: f64, // unix time when postmaster has been started
-    query_select: f64,       // number of select queries: SELECT, TABLE
-    query_mod: f64,          // number of DML: INSERT, UPDATE, DELETE, TRUNCATE
-    query_ddl: f64,          // number of DDL queries: CREATE, ALTER, DROP
-    query_maint: f64, // number of maintenance queries: VACUUM, ANALYZE, CLUSTER, REINDEX, REFRESH, CHECKPOINT
-    query_with: f64,  // number of CTE queries
-    query_copy: f64,  // number of COPY queries
-    query_other: f64, // number of queries of other types: BEGIN, END, COMMIT, ABORT, SET, etc...
+    // query_select: f64,       // number of select queries: SELECT, TABLE
+    // query_mod: f64,          // number of DML: INSERT, UPDATE, DELETE, TRUNCATE
+    // query_ddl: f64,          // number of DDL queries: CREATE, ALTER, DROP
+    // query_maint: f64, // number of maintenance queries: VACUUM, ANALYZE, CLUSTER, REINDEX, REFRESH, CHECKPOINT
+    // query_with: f64,  // number of CTE queries
+    // query_copy: f64,  // number of COPY queries
+    // query_other: f64, // number of queries of other types: BEGIN, END, COMMIT, ABORT, SET, etc...
     prepared: f64,    // FROM pg_prepared_xacts
 
-    vacuum_ops: HashMap<String, i64>, // vacuum operations by type
+    // vacuum_ops: HashMap<String, i64>, // vacuum operations by type
 
-    max_idle_user: HashMap<String, i64>, // longest duration among idle transactions opened by user/database
-    max_idle_maint: HashMap<String, i64>, // longest duration among idle transactions initiated by maintenance operations (autovacuum, vacuum. analyze)
-    max_active_user: HashMap<String, i64>, // longest duration among client queries
-    max_active_maint: HashMap<String, i64>, // longest duration among maintenance operations (autovacuum, vacuum. analyze)
-    max_wait_user: HashMap<String, i64>, // longest duration being in waiting state (all activity)
-    max_wait_maint: HashMap<String, i64>, // longest duration being in waiting state (all activity)
+    // max_idle_user: HashMap<String, i64>, // longest duration among idle transactions opened by user/database
+    // max_idle_maint: HashMap<String, i64>, // longest duration among idle transactions initiated by maintenance operations (autovacuum, vacuum. analyze)
+    // max_active_user: HashMap<String, i64>, // longest duration among client queries
+    // max_active_maint: HashMap<String, i64>, // longest duration among maintenance operations (autovacuum, vacuum. analyze)
+    // max_wait_user: HashMap<String, i64>, // longest duration being in waiting state (all activity)
+    // max_wait_maint: HashMap<String, i64>, // longest duration being in waiting state (all activity)
 
-    idle: HashMap<String, i64>,        // state = 'idle'
-    idlexact: HashMap<String, i64>, // state IN ('idle in transaction', 'idle in transaction (aborted)'))
-    active: HashMap<String, i64>,   // state = 'active'
-    other: HashMap<String, i64>,    // state IN ('fastpath function call','disabled')
-    waiting: HashMap<String, i64>,  // wait_event_type = 'Lock' (or waiting = 't')
-    wait_events: HashMap<String, i64>, // wait_event_type/wait_event counters
+    // idle: HashMap<String, i64>,        // state = 'idle'
+    // idlexact: HashMap<String, i64>, // state IN ('idle in transaction', 'idle in transaction (aborted)'))
+    // active: HashMap<String, i64>,   // state = 'active'
+    // other: HashMap<String, i64>,    // state IN ('fastpath function call','disabled')
+    // waiting: HashMap<String, i64>,  // wait_event_type = 'Lock' (or waiting = 't')
+    // wait_events: HashMap<String, i64>, // wait_event_type/wait_event counters
 
-    re: QueryRegexp,
+    // re: QueryRegexp,
 }
 
 impl PGActivityStats {
     pub fn new() -> PGActivityStats {
         PGActivityStats {
             start_time_seconds: (0.0),
-            query_select: (0.0),
-            query_mod: (0.0),
-            query_ddl: (0.0),
-            query_maint: (0.0),
-            query_with: (0.0),
-            query_copy: (0.0),
-            query_other: (0.0),
+            // query_select: (0.0),
+            // query_mod: (0.0),
+            // query_ddl: (0.0),
+            // query_maint: (0.0),
+            // query_with: (0.0),
+            // query_copy: (0.0),
+            // query_other: (0.0),
             prepared: (0.0),
-            vacuum_ops: HashMap::new(),
-            max_idle_user: HashMap::new(),
-            max_idle_maint: HashMap::new(),
-            max_active_user: HashMap::new(),
-            max_active_maint: HashMap::new(),
-            max_wait_user: HashMap::new(),
-            max_wait_maint: HashMap::new(),
-            idle: HashMap::new(),
-            idlexact: HashMap::new(),
-            active: HashMap::new(),
-            other: HashMap::new(),
-            waiting: HashMap::new(),
-            wait_events: HashMap::new(),
-            re: QueryRegexp::new(),
+            // vacuum_ops: HashMap::new(),
+            // max_idle_user: HashMap::new(),
+            // max_idle_maint: HashMap::new(),
+            // max_active_user: HashMap::new(),
+            // max_active_maint: HashMap::new(),
+            // max_wait_user: HashMap::new(),
+            // max_wait_maint: HashMap::new(),
+            // idle: HashMap::new(),
+            // idlexact: HashMap::new(),
+            // active: HashMap::new(),
+            // other: HashMap::new(),
+            // waiting: HashMap::new(),
+            // wait_events: HashMap::new(),
+            // re: QueryRegexp::new(),
         }
     }
+
+    // pub fn update_state(&mut self, usename: &str, datname: &str, state: &str) {
+    //     let key = format!( "{}{}{}", usename, "/", datname );
+
+    //     match state {
+    //         ST_ACTIVE => {
+    //             if let Some(count) = self.active.get(&key) {
+    //                 self.active.insert(key, count + 1);
+    //             } else {
+    //                 self.active.insert(key, 1);
+    //             }
+    //         },
+
+    //         ST_IDLE => {
+    //             if let Some(count) = self.idle.get(&key) {
+    //                 self.idle.insert(key, count + 1);
+    //             } else {
+    //                 self.idle.insert(key, 1);
+    //             }
+    //         },
+
+    //         ST_IDLE_XACT | ST_IDLE_XACT_ABORTED => {
+    //             if let Some(count) = self.idlexact.get(&key) {
+    //                 self.idlexact.insert(key, count + 1);
+    //             } else {
+    //                 self.idlexact.insert(key, 1);
+    //             }
+    //         },
+
+    //         ST_FAST_PATH | ST_DISABLED => {
+    //             if let Some(count) = self.other.get(&key) {
+    //                 self.other.insert(key, count + 1);
+    //             } else {
+    //                 self.other.insert(key, 1);
+    //             }
+    //         },
+
+    //         ST_WAITING => {
+    //             if let Some(count) = self.waiting.get(&key) {
+    //                 self.waiting.insert(key, count + 1);
+    //             } else {
+    //                 self.waiting.insert(key, 1);
+    //             }
+    //         }
+            
+    //         _ => println!("pg activity stats: unknown state")
+    //     }
+    // }
 }
 
-#[derive(Debug, Clone)]
-struct QueryRegexp {
-    // query regexps
-    selects: Regex, // SELECT|TABLE
-    modify: Regex,  // INSERT|UPDATE|DELETE|TRUNCATE
-    ddl: Regex,     // CREATE|ALTER|DROP
-    maint: Regex,   // ANALYZE|CLUSTER|REINDEX|REFRESH|CHECKPOINT
-    vacuum: Regex,  // VACUUM|autovacuum: .+
-    vacanl: Regex,  // VACUUM|ANALYZE|autovacuum:
-    with: Regex,    // WITH
-    copy: Regex,    // COPY
-}
+//#[derive(Debug, Clone)]
+// struct QueryRegexp {
+//     // query regexps
+//     selects: Regex, // SELECT|TABLE
+//     modify: Regex,  // INSERT|UPDATE|DELETE|TRUNCATE
+//     ddl: Regex,     // CREATE|ALTER|DROP
+//     maint: Regex,   // ANALYZE|CLUSTER|REINDEX|REFRESH|CHECKPOINT
+//     vacuum: Regex,  // VACUUM|autovacuum: .+
+//     vacanl: Regex,  // VACUUM|ANALYZE|autovacuum:
+//     with: Regex,    // WITH
+//     copy: Regex,    // COPY
+// }
 
-impl QueryRegexp {
-    fn new() -> QueryRegexp {
-        QueryRegexp {
-            selects: Regex::new("^(?i)(SELECT|TABLE)").unwrap(),
-            modify: Regex::new("^(?i)(INSERT|UPDATE|DELETE|TRUNCATE)").unwrap(),
-            ddl: Regex::new("^(?i)(CREATE|ALTER|DROP)").unwrap(),
-            maint: Regex::new("^(?i)(ANALYZE|CLUSTER|REINDEX|REFRESH|CHECKPOINT)").unwrap(),
-            vacuum: Regex::new("^(?i)(VACUUM|autovacuum: .+)").unwrap(),
-            vacanl: Regex::new("^(?i)(VACUUM|ANALYZE|autovacuum:)").unwrap(),
-            with: Regex::new("^(?i)WITH").unwrap(),
-            copy: Regex::new("^(?i)COPY").unwrap(),
-        }
-    }
-}
+// impl QueryRegexp {
+//     fn new() -> QueryRegexp {
+//         QueryRegexp {
+//             selects: Regex::new("^(?i)(SELECT|TABLE)").unwrap(),
+//             modify: Regex::new("^(?i)(INSERT|UPDATE|DELETE|TRUNCATE)").unwrap(),
+//             ddl: Regex::new("^(?i)(CREATE|ALTER|DROP)").unwrap(),
+//             maint: Regex::new("^(?i)(ANALYZE|CLUSTER|REINDEX|REFRESH|CHECKPOINT)").unwrap(),
+//             vacuum: Regex::new("^(?i)(VACUUM|autovacuum: .+)").unwrap(),
+//             vacanl: Regex::new("^(?i)(VACUUM|ANALYZE|autovacuum:)").unwrap(),
+//             with: Regex::new("^(?i)WITH").unwrap(),
+//             copy: Regex::new("^(?i)COPY").unwrap(),
+//         }
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub struct PGActivityCollector {
@@ -122,13 +182,13 @@ pub struct PGActivityCollector {
     descs: Vec<Desc>,
     up: Gauge,
     start_time: Gauge,
-    wait_events: GaugeVec,
+    //wait_events: GaugeVec,
     states: GaugeVec,
-    states_all: Gauge,
-    activity: GaugeVec,
+    //states_all: Gauge,
+    //activity: GaugeVec,
     prepared: Gauge,
-    inflight: GaugeVec,
-    vacuums: GaugeVec,
+    //inflight: GaugeVec,
+    //vacuums: GaugeVec,
 }
 
 impl PGActivityCollector {
@@ -246,32 +306,69 @@ impl PGActivityCollector {
             descs: descs,
             up: up,
             start_time: start_time,
-            wait_events: wait_events,
+            //wait_events: wait_events,
             states: states,
-            states_all: states_all,
-            activity: activity,
+            //states_all: states_all,
+            //activity: activity,
             prepared: prepared,
-            inflight: inflight,
-            vacuums: vacuums,
+            //inflight: inflight,
+            //vacuums: vacuums,
         }
     }
 }
 
+// #[derive(sqlx::FromRow, Debug, Clone)]
+// pub struct PGActivity {
+//     user: String,
+//     database: String, 
+//     state: String,
+//     wait_event: String,
+//     active_seconds: f64,
+//     waiting_seconds: f64,
+//     query: String,
+// }
+
 #[async_trait]
 impl PG for PGActivityCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        // get pg_prepared_xacts stats
-        let prepared: f64 = sqlx::query_scalar(PREPARED_XACT_QUERY)
+        println!("pg_activity start 0");
+        //get pg_prepared_xacts stats
+        let prepared: Option<f64> = sqlx::query_scalar(PREPARED_XACT_QUERY)
             .fetch_one(&self.dbi.db)
             .await?;
 
-        let start_time: f64 = sqlx::query_scalar(START_TIME_QUERY)
-            .fetch_one(&self.dbi.db)
-            .await?;
+        println!("prepared: {:?}", prepared);
 
-        let mut data_lock = self.data.write().unwrap();
-        data_lock.prepared = prepared;
-        data_lock.start_time_seconds = start_time;
+        // println!("pg_activity start 1");
+        // let start_time: f64 = sqlx::query_scalar(START_TIME_QUERY)
+        //     .fetch_one(&self.dbi.db)
+        //     .await?;
+
+        println!("pg_activity start 2");
+
+        // let pg_activity_rows: Vec<PGActivity> = sqlx::query_as(ACTIVITY_QUERY).fetch_all(&self.dbi.db).await?;
+        
+        // //let mut data_lock = self.data.write().unwrap();
+        // for activity in &pg_activity_rows {
+        //     //data_lock.update_state(&activity.user, &activity.database, &activity.state);
+        //     println!("activity: {}, database: {}, state: {}, wait_event: {}, wait_seconds: {}, query: {}, active_seconds: {}", activity.user, activity.database, 
+        //     activity.state, activity.wait_event, activity.waiting_seconds, activity.query, activity.active_seconds);
+        // }
+
+        // let states: HashMap<&str, &HashMap<String, i64>> = HashMap::from([
+        //     ("active", &data_lock.active), 
+        //     ("idle", &data_lock.idle),
+        //     ("idlexact", &data_lock.idlexact),
+        //     ("other", &data_lock.other),
+        //     ("waiting", &data_lock.waiting),
+        //     ]
+        // );
+
+        // println!("states: {:?}", states);
+
+        
+        // data_lock.prepared = prepared.unwrap();
+        // data_lock.start_time_seconds = start_time;
 
         Ok(())
     }
@@ -301,6 +398,7 @@ impl Collector for PGActivityCollector {
         mfs.extend(self.up.collect());
         mfs.extend(self.start_time.collect());
         mfs.extend(self.prepared.collect());
+        mfs.extend(self.states.collect());
 
         mfs
     }
