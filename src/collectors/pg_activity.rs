@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::Gauge;
+use prometheus::{Gauge, IntGauge};
 use prometheus::{proto, GaugeVec};
 
 use crate::instance;
@@ -48,7 +48,7 @@ pub struct PGActivityStats {
     // query_with: f64,  // number of CTE queries
     // query_copy: f64,  // number of COPY queries
     // query_other: f64, // number of queries of other types: BEGIN, END, COMMIT, ABORT, SET, etc...
-    prepared: f64,    // FROM pg_prepared_xacts
+    prepared: i64,    // FROM pg_prepared_xacts
 
     // vacuum_ops: HashMap<String, i64>, // vacuum operations by type
 
@@ -80,7 +80,7 @@ impl PGActivityStats {
             // query_with: (0.0),
             // query_copy: (0.0),
             // query_other: (0.0),
-            prepared: (0.0),
+            prepared: (0),
             // vacuum_ops: HashMap::new(),
             // max_idle_user: HashMap::new(),
             // max_idle_maint: HashMap::new(),
@@ -186,7 +186,7 @@ pub struct PGActivityCollector {
     states: GaugeVec,
     //states_all: Gauge,
     //activity: GaugeVec,
-    prepared: Gauge,
+    prepared: IntGauge,
     //inflight: GaugeVec,
     //vacuums: GaugeVec,
 }
@@ -262,7 +262,7 @@ impl PGActivityCollector {
         .unwrap();
         descs.extend(activity.desc().into_iter().cloned());
 
-        let prepared = Gauge::with_opts(
+        let prepared = IntGauge::with_opts(
             Opts::new(
                 "prepared_transactions_in_flight",
                 "Number of transactions that are currently prepared for two-phase commit.",
@@ -331,24 +331,19 @@ impl PGActivityCollector {
 #[async_trait]
 impl PG for PGActivityCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        println!("pg_activity start 0");
         //get pg_prepared_xacts stats
-        let prepared: Option<f64> = sqlx::query_scalar(PREPARED_XACT_QUERY)
+        let prepared = sqlx::query_scalar::<_, i64>(PREPARED_XACT_QUERY)
             .fetch_one(&self.dbi.db)
             .await?;
-
-        println!("prepared: {:?}", prepared);
 
         // println!("pg_activity start 1");
         // let start_time: f64 = sqlx::query_scalar(START_TIME_QUERY)
         //     .fetch_one(&self.dbi.db)
         //     .await?;
 
-        println!("pg_activity start 2");
-
         // let pg_activity_rows: Vec<PGActivity> = sqlx::query_as(ACTIVITY_QUERY).fetch_all(&self.dbi.db).await?;
         
-        // //let mut data_lock = self.data.write().unwrap();
+       let mut data_lock = self.data.write().unwrap();
         // for activity in &pg_activity_rows {
         //     //data_lock.update_state(&activity.user, &activity.database, &activity.state);
         //     println!("activity: {}, database: {}, state: {}, wait_event: {}, wait_seconds: {}, query: {}, active_seconds: {}", activity.user, activity.database, 
@@ -367,7 +362,7 @@ impl PG for PGActivityCollector {
         // println!("states: {:?}", states);
 
         
-        // data_lock.prepared = prepared.unwrap();
+        data_lock.prepared = prepared;
         // data_lock.start_time_seconds = start_time;
 
         Ok(())
