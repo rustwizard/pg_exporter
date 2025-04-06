@@ -22,7 +22,7 @@ use super::PG;
 
 const PREPARED_XACT_QUERY: &str = "SELECT count(*) AS total FROM pg_prepared_xacts";
 
-// const START_TIME_QUERY: &str = "SELECT EXTRACT(EPOCH FROM pg_postmaster_start_time())";
+const START_TIME_QUERY: &str = "SELECT EXTRACT(EPOCH FROM pg_postmaster_start_time())::FLOAT8";
 
 const ACTIVITY_SUBSYSTEM: &str = "activity";
 
@@ -336,10 +336,9 @@ impl PG for PGActivityCollector {
             .fetch_one(&self.dbi.db)
             .await?;
 
-        // println!("pg_activity start 1");
-        // let start_time: f64 = sqlx::query_scalar(START_TIME_QUERY)
-        //     .fetch_one(&self.dbi.db)
-        //     .await?;
+        let start_time: f64 = sqlx::query_scalar(START_TIME_QUERY)
+            .fetch_one(&self.dbi.db)
+            .await?;
 
         // let pg_activity_rows: Vec<PGActivity> = sqlx::query_as(ACTIVITY_QUERY).fetch_all(&self.dbi.db).await?;
         
@@ -363,7 +362,7 @@ impl PG for PGActivityCollector {
 
         
         data_lock.prepared = prepared;
-        // data_lock.start_time_seconds = start_time;
+        data_lock.start_time_seconds = start_time;
 
         Ok(())
     }
