@@ -4,8 +4,8 @@ use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::{Gauge, IntGauge};
 use prometheus::{proto, GaugeVec};
+use prometheus::{Gauge, IntGauge};
 
 use crate::instance;
 
@@ -27,13 +27,13 @@ const START_TIME_QUERY: &str = "SELECT EXTRACT(EPOCH FROM pg_postmaster_start_ti
 const ACTIVITY_SUBSYSTEM: &str = "activity";
 
 // Backend states accordingly to pg_stat_activity.state
-const ST_ACTIVE: &str          = "active";
-const ST_IDLE: &str            = "idle";
-const ST_IDLE_XACT: &str        = "idle in transaction";
+const ST_ACTIVE: &str = "active";
+const ST_IDLE: &str = "idle";
+const ST_IDLE_XACT: &str = "idle in transaction";
 const ST_IDLE_XACT_ABORTED: &str = "idle in transaction (aborted)";
-const ST_FAST_PATH: &str        = "fastpath function call";
-const ST_DISABLED: &str        = "disabled";
-const ST_WAITING: &str         = "waiting"; // fake state based on 'wait_event_type == Lock'
+const ST_FAST_PATH: &str = "fastpath function call";
+const ST_DISABLED: &str = "disabled";
+const ST_WAITING: &str = "waiting"; // fake state based on 'wait_event_type == Lock'
 
 // Wait event type names
 const WE_LOCK: &str = "Lock";
@@ -99,7 +99,7 @@ impl PGActivityStats {
     }
 
     pub fn update_state(&mut self, usename: &str, datname: &str, state: &str) {
-        let key = format!( "{}{}{}", usename, "/", datname );
+        let key = format!("{}{}{}", usename, "/", datname);
 
         match state {
             ST_ACTIVE => {
@@ -108,7 +108,7 @@ impl PGActivityStats {
                 } else {
                     self.active.insert(key, 1);
                 }
-            },
+            }
 
             ST_IDLE => {
                 if let Some(count) = self.idle.get(&key) {
@@ -116,7 +116,7 @@ impl PGActivityStats {
                 } else {
                     self.idle.insert(key, 1);
                 }
-            },
+            }
 
             ST_IDLE_XACT | ST_IDLE_XACT_ABORTED => {
                 if let Some(count) = self.idlexact.get(&key) {
@@ -124,7 +124,7 @@ impl PGActivityStats {
                 } else {
                     self.idlexact.insert(key, 1);
                 }
-            },
+            }
 
             ST_FAST_PATH | ST_DISABLED => {
                 if let Some(count) = self.other.get(&key) {
@@ -132,7 +132,7 @@ impl PGActivityStats {
                 } else {
                     self.other.insert(key, 1);
                 }
-            },
+            }
 
             ST_WAITING => {
                 if let Some(count) = self.waiting.get(&key) {
@@ -141,8 +141,8 @@ impl PGActivityStats {
                     self.waiting.insert(key, 1);
                 }
             }
-            
-            _ => println!("pg activity stats: unknown state")
+
+            _ => println!("pg activity stats: unknown state"),
         }
     }
 }
@@ -282,7 +282,7 @@ impl PGActivityCollector {
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
-            &["type"]
+            &["type"],
         )
         .unwrap();
         descs.extend(inflight.desc().into_iter().cloned());
@@ -295,7 +295,7 @@ impl PGActivityCollector {
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
-            &["type"]
+            &["type"],
         )
         .unwrap();
         descs.extend(vacuums.desc().into_iter().cloned());
@@ -320,7 +320,7 @@ impl PGActivityCollector {
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct PGActivity {
     user: Option<String>,
-    database: Option<String>, 
+    database: Option<String>,
     state: Option<String>,
     wait_event_type: Option<String>,
     wait_event: Option<String>,
@@ -341,9 +341,19 @@ impl PG for PGActivityCollector {
             .fetch_one(&self.dbi.db)
             .await?;
 
-        let pg_activity_rows: Vec<PGActivity> = sqlx::query_as(ACTIVITY_QUERY).fetch_all(&self.dbi.db).await?;
+        let pg_activity_rows: Vec<PGActivity> = sqlx::query_as(ACTIVITY_QUERY)
+            .fetch_all(&self.dbi.db)
+            .await?;
+
+        let mut data_lock = self.data.write().unwrap();
         
-       let mut data_lock = self.data.write().unwrap();
+        // clear all previous states
+        data_lock.active.clear();
+        data_lock.idle.clear();
+        data_lock.idlexact.clear();
+        data_lock.other.clear();
+        data_lock.waiting.clear();
+
         for activity in &pg_activity_rows {
             if let Some(u) = &activity.user {
                 if let Some(d) = &activity.database {
@@ -353,24 +363,21 @@ impl PG for PGActivityCollector {
                         } else {
                             data_lock.update_state(u.as_str(), d.as_str(), s.as_str());
                         }
-                       
                     }
-                }       
-            }      
+                }
+            }
         }
 
         let states: HashMap<&str, &HashMap<String, i64>> = HashMap::from([
-            ("active", &data_lock.active), 
+            ("active", &data_lock.active),
             ("idle", &data_lock.idle),
             ("idlexact", &data_lock.idlexact),
             ("other", &data_lock.other),
             ("waiting", &data_lock.waiting),
-            ]
-        );
+        ]);
 
         println!("states: {:?}", states);
 
-        
         data_lock.prepared = prepared;
         data_lock.start_time_seconds = start_time;
 
