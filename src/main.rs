@@ -108,7 +108,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
                 let update_result = col.update().await;
                 let _update = match update_result {
                     Ok(update) => update,
-                    Err(error) => panic!("Problem running update collector: {error:?}"),
+                    Err(err) => println!("Problem running update collector: {:?}", err),
                 };
             })
         })
