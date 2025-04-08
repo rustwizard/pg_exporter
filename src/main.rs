@@ -64,9 +64,13 @@ async fn main() -> std::io::Result<()> {
         let pcdb = collectors::pg_database::new(pgi.clone());
         let _res3 = app.registry.register(Box::new(pcdb.clone())).unwrap();
 
+        let pca = collectors::pg_activity::new(pgi.clone());
+        let _ = app.registry.register(Box::new(pca.clone())).unwrap();
+
         app.collectors.push(Box::new(pc));
         app.collectors.push(Box::new(pc_pstm));
         app.collectors.push(Box::new(pcdb));
+        app.collectors.push(Box::new(pca));
 
         app.instances.push(pgi);
     }
@@ -101,7 +105,11 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
         .into_iter()
         .map(|col| {
             actix_web::rt::spawn(async move {
-                let _ = col.update().await;
+                let update_result = col.update().await;
+                let _update = match update_result {
+                    Ok(update) => update,
+                    Err(err) => println!("Problem running update collector: {:?}", err),
+                };
             })
         })
         .collect();
