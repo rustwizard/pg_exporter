@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::{proto, GaugeVec};
+use prometheus::{proto, GaugeVec, IntGaugeVec};
 use prometheus::{Gauge, IntGauge};
 
 use crate::instance;
@@ -49,7 +49,6 @@ pub struct PGActivityStats {
     query_copy: f64,  // number of COPY queries
     query_other: f64, // number of queries of other types: BEGIN, END, COMMIT, ABORT, SET, etc...
     prepared: i64,    // FROM pg_prepared_xacts
-    total_states: i64,
 
     vacuum_ops: HashMap<String, i64>, // vacuum operations by type
 
@@ -82,7 +81,6 @@ impl PGActivityStats {
             query_copy: (0.0),
             query_other: (0.0),
             prepared: (0),
-            total_states: (0),
             vacuum_ops: HashMap::new(),
             max_idle_user: HashMap::new(),
             max_idle_maint: HashMap::new(),
@@ -185,7 +183,7 @@ pub struct PGActivityCollector {
     up: Gauge,
     start_time: Gauge,
     wait_events: GaugeVec,
-    states: GaugeVec,
+    states: IntGaugeVec,
     states_all: IntGauge,
     activity: GaugeVec,
     prepared: IntGauge,
@@ -226,7 +224,7 @@ impl PGActivityCollector {
         .unwrap();
         descs.extend(wait_events.desc().into_iter().cloned());
 
-        let states = GaugeVec::new(
+        let states = IntGaugeVec::new(
             Opts::new(
                 "connections_in_flight",
                 "Number of connections in-flight in each state.",
@@ -377,9 +375,8 @@ impl PG for PGActivityCollector {
             ("other", &data_lock.other),
             ("waiting", &data_lock.waiting),
         ]);
-
-        println!("states: {:?}", states);
-        
+   
+        // connection states
         let mut total: i64 = 0;
         for (tag, values) in states {
             for (k, v) in values {
@@ -397,11 +394,8 @@ impl PG for PGActivityCollector {
             }
         }
 
-        println!("total_states: {:?}", total);
-
         data_lock.prepared = prepared;
         data_lock.start_time_seconds = start_time;
-        data_lock.total_states = total;
 
         Ok(())
     }
@@ -424,10 +418,38 @@ impl Collector for PGActivityCollector {
 
         // TODO: set collected metrics
 
+        let states: HashMap<&str, &HashMap<String, i64>> = HashMap::from([
+            ("active", &data_lock.active),
+            ("idle", &data_lock.idle),
+            ("idlexact", &data_lock.idlexact),
+            ("other", &data_lock.other),
+            ("waiting", &data_lock.waiting),
+        ]);
+
+        // connection states
+        let mut total: i64 = 0;
+        for (tag, values) in states {
+            for (k, v) in values {
+                let names: Vec<&str> = k.split("/").collect();
+                if names.len() >= 2 {
+
+                    self.states.with_label_values(&[names[0], names[1], tag]).set(*v);
+                
+                // totals shouldn't include waiting state, because it's already included in 'active' state.
+				if tag != "waiting" {
+					total += v
+				}
+
+                } else {
+                    println!("create state '{:?}' activity failed: insufficient number of fields in key '{:?}'; skip", tag, k);
+                }
+            }
+        }
+
         // All activity metrics collected successfully, now we can collect up metric.
         self.start_time.set(data_lock.start_time_seconds);
         self.prepared.set(data_lock.prepared);
-        self.states_all.set(data_lock.total_states);
+        self.states_all.set(total);
 
         mfs.extend(self.up.collect());
         mfs.extend(self.start_time.collect());
