@@ -49,6 +49,7 @@ pub struct PGActivityStats {
     query_copy: f64,  // number of COPY queries
     query_other: f64, // number of queries of other types: BEGIN, END, COMMIT, ABORT, SET, etc...
     prepared: i64,    // FROM pg_prepared_xacts
+    total_states: i64,
 
     vacuum_ops: HashMap<String, i64>, // vacuum operations by type
 
@@ -81,6 +82,7 @@ impl PGActivityStats {
             query_copy: (0.0),
             query_other: (0.0),
             prepared: (0),
+            total_states: (0),
             vacuum_ops: HashMap::new(),
             max_idle_user: HashMap::new(),
             max_idle_maint: HashMap::new(),
@@ -182,13 +184,13 @@ pub struct PGActivityCollector {
     descs: Vec<Desc>,
     up: Gauge,
     start_time: Gauge,
-    //wait_events: GaugeVec,
+    wait_events: GaugeVec,
     states: GaugeVec,
-    //states_all: Gauge,
-    //activity: GaugeVec,
+    states_all: IntGauge,
+    activity: GaugeVec,
     prepared: IntGauge,
-    //inflight: GaugeVec,
-    //vacuums: GaugeVec,
+    inflight: GaugeVec,
+    vacuums: GaugeVec,
 }
 
 impl PGActivityCollector {
@@ -237,7 +239,7 @@ impl PGActivityCollector {
         .unwrap();
         descs.extend(states.desc().into_iter().cloned());
 
-        let states_all = Gauge::with_opts(
+        let states_all = IntGauge::with_opts(
             Opts::new(
                 "connections_all_in_flight",
                 "Number of all connections in-flight.",
@@ -306,13 +308,13 @@ impl PGActivityCollector {
             descs: descs,
             up: up,
             start_time: start_time,
-            //wait_events: wait_events,
+            wait_events: wait_events,
             states: states,
-            //states_all: states_all,
-            //activity: activity,
+            states_all: states_all,
+            activity: activity,
             prepared: prepared,
-            //inflight: inflight,
-            //vacuums: vacuums,
+            inflight: inflight,
+            vacuums: vacuums,
         }
     }
 }
@@ -346,7 +348,7 @@ impl PG for PGActivityCollector {
             .await?;
 
         let mut data_lock = self.data.write().unwrap();
-        
+
         // clear all previous states
         data_lock.active.clear();
         data_lock.idle.clear();
@@ -377,9 +379,29 @@ impl PG for PGActivityCollector {
         ]);
 
         println!("states: {:?}", states);
+        
+        let mut total: i64 = 0;
+        for (tag, values) in states {
+            for (k, v) in values {
+                let names: Vec<&str> = k.split("/").collect();
+                if names.len() >= 2 {
+                
+                // totals shouldn't include waiting state, because it's already included in 'active' state.
+				if tag != "waiting" {
+					total += v
+				}
+
+                } else {
+                    println!("create state '{:?}' activity failed: insufficient number of fields in key '{:?}'; skip", tag, k);
+                }
+            }
+        }
+
+        println!("total_states: {:?}", total);
 
         data_lock.prepared = prepared;
         data_lock.start_time_seconds = start_time;
+        data_lock.total_states = total;
 
         Ok(())
     }
@@ -405,11 +427,13 @@ impl Collector for PGActivityCollector {
         // All activity metrics collected successfully, now we can collect up metric.
         self.start_time.set(data_lock.start_time_seconds);
         self.prepared.set(data_lock.prepared);
+        self.states_all.set(data_lock.total_states);
 
         mfs.extend(self.up.collect());
         mfs.extend(self.start_time.collect());
         mfs.extend(self.prepared.collect());
         mfs.extend(self.states.collect());
+        mfs.extend(self.states_all.collect());
 
         mfs
     }
