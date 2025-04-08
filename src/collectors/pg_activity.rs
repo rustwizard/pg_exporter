@@ -52,8 +52,8 @@ pub struct PGActivityStats {
 
     vacuum_ops: HashMap<String, i64>, // vacuum operations by type
 
-    max_idle_user: HashMap<String, i64>, // longest duration among idle transactions opened by user/database
-    max_idle_maint: HashMap<String, i64>, // longest duration among idle transactions initiated by maintenance operations (autovacuum, vacuum. analyze)
+    max_idle_user: HashMap<String, f64>, // longest duration among idle transactions opened by user/database
+    max_idle_maint: HashMap<String, f64>, // longest duration among idle transactions initiated by maintenance operations (autovacuum, vacuum. analyze)
     max_active_user: HashMap<String, i64>, // longest duration among client queries
     max_active_maint: HashMap<String, i64>, // longest duration among maintenance operations (autovacuum, vacuum. analyze)
     max_wait_user: HashMap<String, i64>, // longest duration being in waiting state (all activity)
@@ -145,6 +145,42 @@ impl PGActivityStats {
             _ => println!("pg activity stats: unknown state"),
         }
     }
+
+    pub fn update_maxidletime_duration(&mut self, value: f64, usename: &Option<String>, datname: &Option<String>, state: &Option<String>, query: &Option<String>) {
+        // necessary values should not be empty (except wait_event_type)
+        if state.is_none() || query.is_none() {
+            return;
+        }
+
+        if let Some(state) = state {
+            if state != ST_IDLE_XACT && state != ST_IDLE_XACT_ABORTED {
+                return;
+            }
+        }
+
+        // all validations ok, update stats
+
+        // inspect query - is ia a user activity like queries, or maintenance tasks like automatic or regular vacuum/analyze.
+        let key = format!("{}{}{}", usename.clone().unwrap(), "/", datname.clone().unwrap());
+
+        if self.re.vacanl.is_match(&query.clone().unwrap()) {
+            let v = self.max_idle_maint.get(&key);
+            if v.is_some() {
+                if value > *v.unwrap() {
+                    self.max_idle_maint.insert(key, value);
+                }
+            }
+        } else {
+            let v = self.max_idle_user.get(&key);
+            if v.is_some() {
+                if value > *v.unwrap() {
+                    self.max_idle_user.insert(key, value);
+                }
+            }
+        }
+
+    }
+
 }
 
 #[derive(Debug, Clone)]
@@ -366,7 +402,13 @@ impl PG for PGActivityCollector {
                     }
                 }
             }
+
+            if let Some(asec) = &activity.active_seconds {
+                data_lock.update_maxidletime_duration(*asec, &activity.user, &activity.database, &activity.state, &activity.query);
+            }
         }
+
+        println!("idle maint: {:?}, idle user: {:?}", data_lock.max_idle_maint, data_lock.max_idle_user);
 
         let states: HashMap<&str, &HashMap<String, i64>> = HashMap::from([
             ("active", &data_lock.active),
