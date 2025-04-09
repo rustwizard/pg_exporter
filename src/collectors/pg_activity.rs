@@ -301,6 +301,10 @@ impl PGActivityStats {
             }
         }
     }
+
+    fn update_query_stat(&mut self, query: &str, state: &str) {
+        
+    }
 }
 
 #[derive(Debug, Clone)]
