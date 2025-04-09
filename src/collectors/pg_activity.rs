@@ -146,6 +146,15 @@ impl PGActivityStats {
         }
     }
 
+    pub fn update_wait_events(&mut self, ev_type: &str, state: &str) {
+        let key = format!("{}{}{}", ev_type, "/", state);
+        if let Some(count) = self.wait_events.get(&key) {
+            self.wait_events.insert(key, count + 1);
+        } else {
+            self.wait_events.insert(key, 1);
+        }
+    }
+
     pub fn update_max_idletime_duration(
         &mut self,
         value: f64,
@@ -329,7 +338,7 @@ pub struct PGActivityCollector {
     descs: Vec<Desc>,
     up: Gauge,
     start_time: Gauge,
-    wait_events: GaugeVec,
+    wait_events: IntGaugeVec,
     states: IntGaugeVec,
     states_all: IntGauge,
     activity: GaugeVec,
@@ -358,7 +367,7 @@ impl PGActivityCollector {
         .unwrap();
         descs.extend(start_time.desc().into_iter().cloned());
 
-        let wait_events = GaugeVec::new(
+        let wait_events = IntGaugeVec::new(
             Opts::new(
                 "wait_events_in_flight",
                 "Number of wait events in-flight in each state.",
@@ -500,16 +509,13 @@ impl PG for PGActivityCollector {
         data_lock.idlexact.clear();
         data_lock.other.clear();
         data_lock.waiting.clear();
+        data_lock.wait_events.clear();
 
         for activity in &pg_activity_rows {
             if let Some(u) = &activity.user {
                 if let Some(d) = &activity.database {
                     if let Some(s) = &activity.state {
-                        if s == WE_LOCK {
-                            data_lock.update_state(u.as_str(), d.as_str(), "waiting");
-                        } else {
-                            data_lock.update_state(u.as_str(), d.as_str(), s.as_str());
-                        }
+                        data_lock.update_state(u.as_str(), d.as_str(), s.as_str());
                     }
                 }
             }
@@ -540,6 +546,19 @@ impl PG for PGActivityCollector {
                     &activity.wait_event_type,
                     &activity.query,
                 );
+            }
+
+            if let Some(we) = &activity.wait_event_type {
+                // Count waiting activity only if waiting = 't' or wait_event_type = 'Lock'.
+                if we == WE_LOCK || we == "t" {
+                    data_lock.update_state(
+                        &activity.user.clone().unwrap(),
+                        &activity.database.clone().unwrap(),
+                        "waiting",
+                    );
+                }
+
+                data_lock.update_wait_events(we, &activity.wait_event.clone().unwrap());
             }
         }
 
@@ -642,6 +661,16 @@ impl Collector for PGActivityCollector {
             }
         }
 
+        // wait_events
+        for (k, v) in &data_lock.wait_events {
+            let labels: Vec<&str> = k.split("/").collect();
+            if labels.len() >= 2 {
+                self.wait_events.with_label_values(&[labels[0], labels[1]]).set(*v)
+            } else {
+                println!("create wait_event activity failed: invalid input '{:?}'; skip", k);
+            }
+        }
+
         // All activity metrics collected successfully, now we can collect up metric.
         self.start_time.set(data_lock.start_time_seconds);
         self.prepared.set(data_lock.prepared);
@@ -653,6 +682,7 @@ impl Collector for PGActivityCollector {
         mfs.extend(self.states.collect());
         mfs.extend(self.states_all.collect());
         mfs.extend(self.activity.collect());
+        mfs.extend(self.wait_events.collect());
 
         mfs
     }
