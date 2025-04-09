@@ -56,8 +56,8 @@ pub struct PGActivityStats {
     max_idle_maint: HashMap<String, f64>, // longest duration among idle transactions initiated by maintenance operations (autovacuum, vacuum. analyze)
     max_active_user: HashMap<String, f64>, // longest duration among client queries
     max_active_maint: HashMap<String, f64>, // longest duration among maintenance operations (autovacuum, vacuum. analyze)
-    max_wait_user: HashMap<String, i64>, // longest duration being in waiting state (all activity)
-    max_wait_maint: HashMap<String, i64>, // longest duration being in waiting state (all activity)
+    max_wait_user: HashMap<String, f64>, // longest duration being in waiting state (all activity)
+    max_wait_maint: HashMap<String, f64>, // longest duration being in waiting state (all activity)
 
     idle: HashMap<String, i64>,        // state = 'idle'
     idlexact: HashMap<String, i64>, // state IN ('idle in transaction', 'idle in transaction (aborted)'))
@@ -221,6 +221,45 @@ impl PGActivityStats {
                 }
             } else {
                 self.max_active_user.insert(key, value);
+            }
+        }
+
+    }
+
+    pub fn update_max_waitime_duration(&mut self, value: f64, usename: &Option<String>, datname: &Option<String>, waiting: &Option<String>, query: &Option<String>) {
+        if waiting.is_none() || query.is_none() {
+            return;
+        }
+        
+        if let Some(wait) = waiting {
+            // waiting activity is considered only with wait_event_type = 'Lock' (or waiting = 't')
+            if *wait != WE_LOCK.to_string() && *wait != "t".to_string() {
+                return;
+            }
+        }
+
+        let key = format!("{}{}{}", usename.clone().unwrap(), "/", datname.clone().unwrap());
+
+        if self.re.vacanl.is_match(&query.clone().unwrap()) {
+
+            let v = self.max_wait_maint.get(&key);
+            if v.is_some() {
+                if value > *v.unwrap() {
+                    self.max_wait_maint.insert(key, value);
+                }
+            } else {
+                self.max_wait_maint.insert(key, value);
+            }
+
+        } else {
+
+            let v = self.max_wait_user.get(&key);
+            if v.is_some() {
+                if value > *v.unwrap() {
+                    self.max_wait_user.insert(key, value);
+                }
+            } else {
+                self.max_wait_user.insert(key, value);
             }
         }
 
