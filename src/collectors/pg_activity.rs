@@ -146,7 +146,14 @@ impl PGActivityStats {
         }
     }
 
-    pub fn update_max_idletime_duration(&mut self, value: f64, usename: &Option<String>, datname: &Option<String>, state: &Option<String>, query: &Option<String>) {
+    pub fn update_max_idletime_duration(
+        &mut self,
+        value: f64,
+        usename: &Option<String>,
+        datname: &Option<String>,
+        state: &Option<String>,
+        query: &Option<String>,
+    ) {
         // necessary values should not be empty (except wait_event_type)
         if state.is_none() || query.is_none() {
             return;
@@ -161,7 +168,12 @@ impl PGActivityStats {
         // all validations ok, update stats
 
         // inspect query - is ia a user activity like queries, or maintenance tasks like automatic or regular vacuum/analyze.
-        let key = format!("{}{}{}", usename.clone().unwrap(), "/", datname.clone().unwrap());
+        let key = format!(
+            "{}{}{}",
+            usename.clone().unwrap(),
+            "/",
+            datname.clone().unwrap()
+        );
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
             let v = self.max_idle_maint.get(&key);
@@ -182,16 +194,23 @@ impl PGActivityStats {
                 self.max_idle_user.insert(key, value);
             }
         }
-
     }
 
-    pub fn update_max_runtime_duration(&mut self, value: f64, usename: &Option<String>, datname: &Option<String>, state: &Option<String>, etype: &Option<String>, query: &Option<String>) {
+    pub fn update_max_runtime_duration(
+        &mut self,
+        value: f64,
+        usename: &Option<String>,
+        datname: &Option<String>,
+        state: &Option<String>,
+        etype: &Option<String>,
+        query: &Option<String>,
+    ) {
         // necessary values should not be empty (except wait_event_type)
         if state.is_none() || query.is_none() {
             return;
         }
 
-        if let Some(state) = state  {
+        if let Some(state) = state {
             let ev_type = etype.clone().or(Some("".to_string()));
             if state != ST_ACTIVE || ev_type.unwrap() == WE_LOCK {
                 return;
@@ -199,10 +218,14 @@ impl PGActivityStats {
         }
 
         // inspect query - is ia a user activity like queries, or maintenance tasks like automatic or regular vacuum/analyze.
-        let key = format!("{}{}{}", usename.clone().unwrap(), "/", datname.clone().unwrap());
+        let key = format!(
+            "{}{}{}",
+            usename.clone().unwrap(),
+            "/",
+            datname.clone().unwrap()
+        );
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
-
             let v = self.max_active_maint.get(&key);
             if v.is_some() {
                 if value > *v.unwrap() {
@@ -211,9 +234,7 @@ impl PGActivityStats {
             } else {
                 self.max_active_maint.insert(key, value);
             }
-
         } else {
-
             let v = self.max_active_user.get(&key);
             if v.is_some() {
                 if value > *v.unwrap() {
@@ -223,14 +244,20 @@ impl PGActivityStats {
                 self.max_active_user.insert(key, value);
             }
         }
-
     }
 
-    pub fn update_max_waitime_duration(&mut self, value: f64, usename: &Option<String>, datname: &Option<String>, waiting: &Option<String>, query: &Option<String>) {
+    pub fn update_max_waitime_duration(
+        &mut self,
+        value: f64,
+        usename: &Option<String>,
+        datname: &Option<String>,
+        waiting: &Option<String>,
+        query: &Option<String>,
+    ) {
         if waiting.is_none() || query.is_none() {
             return;
         }
-        
+
         if let Some(wait) = waiting {
             // waiting activity is considered only with wait_event_type = 'Lock' (or waiting = 't')
             if *wait != WE_LOCK.to_string() && *wait != "t".to_string() {
@@ -238,10 +265,14 @@ impl PGActivityStats {
             }
         }
 
-        let key = format!("{}{}{}", usename.clone().unwrap(), "/", datname.clone().unwrap());
+        let key = format!(
+            "{}{}{}",
+            usename.clone().unwrap(),
+            "/",
+            datname.clone().unwrap()
+        );
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
-
             let v = self.max_wait_maint.get(&key);
             if v.is_some() {
                 if value > *v.unwrap() {
@@ -250,9 +281,7 @@ impl PGActivityStats {
             } else {
                 self.max_wait_maint.insert(key, value);
             }
-
         } else {
-
             let v = self.max_wait_user.get(&key);
             if v.is_some() {
                 if value > *v.unwrap() {
@@ -262,9 +291,7 @@ impl PGActivityStats {
                 self.max_wait_user.insert(key, value);
             }
         }
-
     }
-
 }
 
 #[derive(Debug, Clone)]
@@ -488,13 +515,33 @@ impl PG for PGActivityCollector {
             }
 
             if let Some(asec) = &activity.active_seconds {
-                data_lock.update_max_idletime_duration(*asec, &activity.user, &activity.database, &activity.state, &activity.query);
-                data_lock.update_max_runtime_duration(*asec, &activity.user, &activity.database, &activity.state, &activity.wait_event_type, &activity.query);
+                data_lock.update_max_idletime_duration(
+                    *asec,
+                    &activity.user,
+                    &activity.database,
+                    &activity.state,
+                    &activity.query,
+                );
+                data_lock.update_max_runtime_duration(
+                    *asec,
+                    &activity.user,
+                    &activity.database,
+                    &activity.state,
+                    &activity.wait_event_type,
+                    &activity.query,
+                );
+            }
+
+            if let Some(wait) = &activity.waiting_seconds {
+                data_lock.update_max_waitime_duration(
+                    *wait,
+                    &activity.user,
+                    &activity.database,
+                    &activity.wait_event_type,
+                    &activity.query,
+                );
             }
         }
-
-        println!("idle maint: {:?}, idle user: {:?}", data_lock.max_idle_maint, data_lock.max_idle_user);
-        println!("active maint: {:?}, active user: {:?}", data_lock.max_active_maint, data_lock.max_active_user);
 
         let states: HashMap<&str, &HashMap<String, i64>> = HashMap::from([
             ("active", &data_lock.active),
@@ -503,19 +550,17 @@ impl PG for PGActivityCollector {
             ("other", &data_lock.other),
             ("waiting", &data_lock.waiting),
         ]);
-   
+
         // connection states
         let mut total: i64 = 0;
         for (tag, values) in states {
             for (k, v) in values {
                 let names: Vec<&str> = k.split("/").collect();
                 if names.len() >= 2 {
-                
-                // totals shouldn't include waiting state, because it's already included in 'active' state.
-				if tag != "waiting" {
-					total += v
-				}
-
+                    // totals shouldn't include waiting state, because it's already included in 'active' state.
+                    if tag != "waiting" {
+                        total += v
+                    }
                 } else {
                     println!("create state '{:?}' activity failed: insufficient number of fields in key '{:?}'; skip", tag, k);
                 }
@@ -560,14 +605,37 @@ impl Collector for PGActivityCollector {
             for (k, v) in values {
                 let names: Vec<&str> = k.split("/").collect();
                 if names.len() >= 2 {
+                    self.states
+                        .with_label_values(&[names[0], names[1], tag])
+                        .set(*v);
 
-                    self.states.with_label_values(&[names[0], names[1], tag]).set(*v);
-                
-                // totals shouldn't include waiting state, because it's already included in 'active' state.
-				if tag != "waiting" {
-					total += v
-				}
+                    // totals shouldn't include waiting state, because it's already included in 'active' state.
+                    if tag != "waiting" {
+                        total += v
+                    }
+                } else {
+                    println!("create state '{:?}' activity failed: insufficient number of fields in key '{:?}'; skip", tag, k);
+                }
+            }
+        }
 
+        let maint_states: HashMap<&str, &HashMap<String, f64>> = HashMap::from([
+            ("idlexact/user", &data_lock.max_idle_user),
+            ("idlexact/maintenance", &data_lock.max_idle_maint),
+            ("active/user", &data_lock.max_active_user),
+            ("active/maintenance", &data_lock.max_active_maint),
+            ("waiting/user", &data_lock.max_wait_user),
+            ("waiting/maintenance", &data_lock.max_wait_maint),
+        ]);
+
+        for (tag, values) in maint_states {
+            for (k, v) in values {
+                let names: Vec<&str> = k.split("/").collect();
+                if names.len() >= 2 {
+                    let ff: Vec<&str> = tag.split("/").collect();
+                    self.activity
+                        .with_label_values(&[names[0], names[1], ff[0], ff[1]])
+                        .set(*v);
                 } else {
                     println!("create state '{:?}' activity failed: insufficient number of fields in key '{:?}'; skip", tag, k);
                 }
@@ -584,6 +652,7 @@ impl Collector for PGActivityCollector {
         mfs.extend(self.prepared.collect());
         mfs.extend(self.states.collect());
         mfs.extend(self.states_all.collect());
+        mfs.extend(self.activity.collect());
 
         mfs
     }
