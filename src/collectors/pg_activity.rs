@@ -42,7 +42,7 @@ const WE_LOCK: &str = "Lock";
 pub struct PGActivityStats {
     start_time_seconds: f64, // unix time when postmaster has been started
     query_select: i64,       // number of select queries: SELECT, TABLE
-    query_mod: f64,          // number of DML: INSERT, UPDATE, DELETE, TRUNCATE
+    query_mod: i64,          // number of DML: INSERT, UPDATE, DELETE, TRUNCATE
     query_ddl: f64,          // number of DDL queries: CREATE, ALTER, DROP
     query_maint: f64, // number of maintenance queries: VACUUM, ANALYZE, CLUSTER, REINDEX, REFRESH, CHECKPOINT
     query_with: f64,  // number of CTE queries
@@ -74,7 +74,7 @@ impl PGActivityStats {
         PGActivityStats {
             start_time_seconds: (0.0),
             query_select: (0),
-            query_mod: (0.0),
+            query_mod: (0),
             query_ddl: (0.0),
             query_maint: (0.0),
             query_with: (0.0),
@@ -313,6 +313,11 @@ impl PGActivityStats {
 
         if self.re.selects.is_match(&query.clone().unwrap()) {
             self.query_select += 1;
+            return;
+        }
+
+        if self.re.modify.is_match(&query.clone().unwrap()) {
+            self.query_mod += 1;
             return;
         }
 
