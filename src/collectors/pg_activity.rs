@@ -43,11 +43,11 @@ pub struct PGActivityStats {
     start_time_seconds: f64, // unix time when postmaster has been started
     query_select: i64,       // number of select queries: SELECT, TABLE
     query_mod: i64,          // number of DML: INSERT, UPDATE, DELETE, TRUNCATE
-    query_ddl: f64,          // number of DDL queries: CREATE, ALTER, DROP
-    query_maint: f64, // number of maintenance queries: VACUUM, ANALYZE, CLUSTER, REINDEX, REFRESH, CHECKPOINT
-    query_with: f64,  // number of CTE queries
-    query_copy: f64,  // number of COPY queries
-    query_other: f64, // number of queries of other types: BEGIN, END, COMMIT, ABORT, SET, etc...
+    query_ddl: i64,          // number of DDL queries: CREATE, ALTER, DROP
+    query_maint: i64, // number of maintenance queries: VACUUM, ANALYZE, CLUSTER, REINDEX, REFRESH, CHECKPOINT
+    query_with: i64,  // number of CTE queries
+    query_copy: i64,  // number of COPY queries
+    query_other: i64, // number of queries of other types: BEGIN, END, COMMIT, ABORT, SET, etc...
     prepared: i64,    // FROM pg_prepared_xacts
 
     vacuum_ops: HashMap<String, i64>, // vacuum operations by type
@@ -75,11 +75,11 @@ impl PGActivityStats {
             start_time_seconds: (0.0),
             query_select: (0),
             query_mod: (0),
-            query_ddl: (0.0),
-            query_maint: (0.0),
-            query_with: (0.0),
-            query_copy: (0.0),
-            query_other: (0.0),
+            query_ddl: (0),
+            query_maint: (0),
+            query_with: (0),
+            query_copy: (0),
+            query_other: (0),
             prepared: (0),
             vacuum_ops: HashMap::new(),
             max_idle_user: HashMap::new(),
@@ -302,12 +302,12 @@ impl PGActivityStats {
         }
     }
 
-    fn update_query_stat(&mut self, query: Option<String>, state: Option<String>) {
+    fn update_query_stat(&mut self, query: &Option<String>, state: &Option<String>) {
         if query.is_none() || state.is_none() {
             return;
         }
 
-        if state.unwrap() != ST_ACTIVE {
+        if state.clone().unwrap() != ST_ACTIVE {
             return;
         }
 
@@ -318,6 +318,11 @@ impl PGActivityStats {
 
         if self.re.modify.is_match(&query.clone().unwrap()) {
             self.query_mod += 1;
+            return;
+        }
+
+        if self.re.ddl.is_match(&query.clone().unwrap()) {
+            self.query_ddl += 1;
             return;
         }
 
@@ -531,6 +536,9 @@ impl PG for PGActivityCollector {
         data_lock.other.clear();
         data_lock.waiting.clear();
         data_lock.wait_events.clear();
+        data_lock.query_select = 0;
+        data_lock.query_mod = 0;
+        data_lock.query_ddl = 0;
 
         for activity in &pg_activity_rows {
             if let Some(u) = &activity.user {
@@ -581,6 +589,8 @@ impl PG for PGActivityCollector {
 
                 data_lock.update_wait_events(we, &activity.wait_event.clone().unwrap());
             }
+
+            data_lock.update_query_stat(&activity.query, &activity.state);
         }
 
         let states: HashMap<&str, &HashMap<String, i64>> = HashMap::from([
