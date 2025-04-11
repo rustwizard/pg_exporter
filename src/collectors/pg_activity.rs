@@ -326,6 +326,11 @@ impl PGActivityStats {
             return;
         }
 
+        if self.re.maint.is_match(&query.clone().unwrap()) {
+            self.query_maint += 1;
+            return;
+        }
+
     }
 }
 
