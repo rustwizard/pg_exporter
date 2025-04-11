@@ -406,7 +406,7 @@ pub struct PGActivityCollector {
     states_all: IntGauge,
     activity: GaugeVec,
     prepared: IntGauge,
-    inflight: GaugeVec,
+    inflight: IntGaugeVec,
     vacuums: GaugeVec,
 }
 
@@ -493,7 +493,7 @@ impl PGActivityCollector {
         .unwrap();
         descs.extend(prepared.desc().into_iter().cloned());
 
-        let inflight = GaugeVec::new(
+        let inflight = IntGaugeVec::new(
             Opts::new(
                 "queries_in_flight",
                 "Number of queries running in-flight of each type.",
@@ -575,7 +575,11 @@ impl PG for PGActivityCollector {
         data_lock.wait_events.clear();
         data_lock.query_select = 0;
         data_lock.query_mod = 0;
+        data_lock.query_copy = 0;
         data_lock.query_ddl = 0;
+        data_lock.query_maint = 0;
+        data_lock.query_other = 0;
+        data_lock.query_with = 0;
 
         for activity in &pg_activity_rows {
             if let Some(u) = &activity.user {
@@ -744,6 +748,16 @@ impl Collector for PGActivityCollector {
             }
         }
 
+        // in flight queries
+        self.inflight.with_label_values(&["select"]).set(data_lock.query_select);
+        self.inflight.with_label_values(&["mod"]).set(data_lock.query_mod);
+        self.inflight.with_label_values(&["ddl"]).set(data_lock.query_ddl);
+        self.inflight.with_label_values(&["maintenance"]).set(data_lock.query_maint);
+        self.inflight.with_label_values(&["with"]).set(data_lock.query_with);
+        self.inflight.with_label_values(&["copy"]).set(data_lock.query_copy);
+        self.inflight.with_label_values(&["other"]).set(data_lock.query_other);
+
+
         // All activity metrics collected successfully, now we can collect up metric.
         self.start_time.set(data_lock.start_time_seconds);
         self.prepared.set(data_lock.prepared);
@@ -756,6 +770,7 @@ impl Collector for PGActivityCollector {
         mfs.extend(self.states_all.collect());
         mfs.extend(self.activity.collect());
         mfs.extend(self.wait_events.collect());
+        mfs.extend(self.inflight.collect());
 
         mfs
     }
