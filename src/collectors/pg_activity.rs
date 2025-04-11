@@ -1,7 +1,7 @@
 use regex::Regex;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-
+use anyhow::anyhow;
 use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{proto, GaugeVec, IntGaugeVec};
@@ -332,7 +332,13 @@ impl PGActivityStats {
         }
 
         let binding = query.clone().unwrap();
-        let str = self.re.vacuum.find(&binding).unwrap().as_str();
+        let maybe_str = self.re.vacuum.find(&binding);
+
+        let mut str: &str = "";
+
+        if let Some(s) = maybe_str {
+            str = s.as_str();
+        }
 
         if str != "" {
             self.query_maint += 1;
@@ -564,7 +570,14 @@ impl PG for PGActivityCollector {
             .fetch_all(&self.dbi.db)
             .await?;
 
-        let mut data_lock = self.data.write().unwrap();
+        let data_lock_result = self.data.write();
+
+        if data_lock_result.is_err() {
+            println!("error: {:?}", data_lock_result.unwrap_err());
+            return Err(anyhow!("can't acuire data lock"));
+        }
+
+        let mut data_lock = data_lock_result.unwrap();
 
         // clear all previous states
         data_lock.active.clear();
@@ -678,7 +691,14 @@ impl Collector for PGActivityCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::new();
 
-        let data_lock = self.data.read().unwrap();
+        let data_lock_result = self.data.read();
+
+        if data_lock_result.is_err() {
+            println!("collect error: {:?}", data_lock_result.unwrap_err());
+            return mfs;
+        }
+
+        let data_lock = data_lock_result.unwrap();
 
         // TODO: set collected metrics
 
