@@ -350,6 +350,19 @@ impl PGActivityStats {
             *self.vacuum_ops.entry("user".to_string()).or_insert(0) += 1;
             return;
         }
+
+        if self.re.with.is_match(&query.clone().unwrap()) {
+            self.query_with += 1;
+            return;
+        }
+
+        if self.re.copy.is_match(&query.clone().unwrap()) {
+            self.query_copy += 1;
+            return;
+        }
+
+        // still here? ok, increment others and return
+	    self.query_other += 1;
     }
 }
 
