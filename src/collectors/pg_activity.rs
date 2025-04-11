@@ -331,6 +331,25 @@ impl PGActivityStats {
             return;
         }
 
+        let binding = query.clone().unwrap();
+        let str = self.re.vacuum.find(&binding).unwrap().as_str();
+
+        if str != "" {
+            self.query_maint += 1;
+            
+            if str.starts_with("autovacuum:") && str.contains("(to prevent wraparound)") {
+                *self.vacuum_ops.entry("wraparound".to_string()).or_insert(0) += 1;
+                return;
+            }
+
+            if str.starts_with("autovacuum:") {
+                *self.vacuum_ops.entry("regular".to_string()).or_insert(0) += 1;
+                return;
+            }
+
+            *self.vacuum_ops.entry("user".to_string()).or_insert(0) += 1;
+            return;
+        }
     }
 }
 
@@ -701,9 +720,14 @@ impl Collector for PGActivityCollector {
         for (k, v) in &data_lock.wait_events {
             let labels: Vec<&str> = k.split("/").collect();
             if labels.len() >= 2 {
-                self.wait_events.with_label_values(&[labels[0], labels[1]]).set(*v)
+                self.wait_events
+                    .with_label_values(&[labels[0], labels[1]])
+                    .set(*v)
             } else {
-                println!("create wait_event activity failed: invalid input '{:?}'; skip", k);
+                println!(
+                    "create wait_event activity failed: invalid input '{:?}'; skip",
+                    k
+                );
             }
         }
 
