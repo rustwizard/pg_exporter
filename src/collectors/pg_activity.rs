@@ -407,7 +407,7 @@ pub struct PGActivityCollector {
     activity: GaugeVec,
     prepared: IntGauge,
     inflight: IntGaugeVec,
-    vacuums: GaugeVec,
+    vacuums: IntGaugeVec,
 }
 
 impl PGActivityCollector {
@@ -506,7 +506,7 @@ impl PGActivityCollector {
         .unwrap();
         descs.extend(inflight.desc().into_iter().cloned());
 
-        let vacuums = GaugeVec::new(
+        let vacuums = IntGaugeVec::new(
             Opts::new(
                 "vacuums_in_flight",
                 "Number of vacuum operations running in-flight of each type.",
@@ -757,6 +757,11 @@ impl Collector for PGActivityCollector {
         self.inflight.with_label_values(&["copy"]).set(data_lock.query_copy);
         self.inflight.with_label_values(&["other"]).set(data_lock.query_other);
 
+        // vacuums
+        for (k, v) in &data_lock.vacuum_ops {
+            self.vacuums.with_label_values(&[k]).set(*v);
+        }
+
 
         // All activity metrics collected successfully, now we can collect up metric.
         self.start_time.set(data_lock.start_time_seconds);
@@ -771,6 +776,7 @@ impl Collector for PGActivityCollector {
         mfs.extend(self.activity.collect());
         mfs.extend(self.wait_events.collect());
         mfs.extend(self.inflight.collect());
+        mfs.extend(self.vacuums.collect());
 
         mfs
     }
