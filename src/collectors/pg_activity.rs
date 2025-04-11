@@ -1,7 +1,7 @@
 use regex::Regex;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-
+use anyhow::anyhow;
 use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{proto, GaugeVec, IntGaugeVec};
@@ -41,13 +41,13 @@ const WE_LOCK: &str = "Lock";
 #[derive(sqlx::FromRow, Debug)]
 pub struct PGActivityStats {
     start_time_seconds: f64, // unix time when postmaster has been started
-    query_select: f64,       // number of select queries: SELECT, TABLE
-    query_mod: f64,          // number of DML: INSERT, UPDATE, DELETE, TRUNCATE
-    query_ddl: f64,          // number of DDL queries: CREATE, ALTER, DROP
-    query_maint: f64, // number of maintenance queries: VACUUM, ANALYZE, CLUSTER, REINDEX, REFRESH, CHECKPOINT
-    query_with: f64,  // number of CTE queries
-    query_copy: f64,  // number of COPY queries
-    query_other: f64, // number of queries of other types: BEGIN, END, COMMIT, ABORT, SET, etc...
+    query_select: i64,       // number of select queries: SELECT, TABLE
+    query_mod: i64,          // number of DML: INSERT, UPDATE, DELETE, TRUNCATE
+    query_ddl: i64,          // number of DDL queries: CREATE, ALTER, DROP
+    query_maint: i64, // number of maintenance queries: VACUUM, ANALYZE, CLUSTER, REINDEX, REFRESH, CHECKPOINT
+    query_with: i64,  // number of CTE queries
+    query_copy: i64,  // number of COPY queries
+    query_other: i64, // number of queries of other types: BEGIN, END, COMMIT, ABORT, SET, etc...
     prepared: i64,    // FROM pg_prepared_xacts
 
     vacuum_ops: HashMap<String, i64>, // vacuum operations by type
@@ -73,13 +73,13 @@ impl PGActivityStats {
     pub fn new() -> PGActivityStats {
         PGActivityStats {
             start_time_seconds: (0.0),
-            query_select: (0.0),
-            query_mod: (0.0),
-            query_ddl: (0.0),
-            query_maint: (0.0),
-            query_with: (0.0),
-            query_copy: (0.0),
-            query_other: (0.0),
+            query_select: (0),
+            query_mod: (0),
+            query_ddl: (0),
+            query_maint: (0),
+            query_with: (0),
+            query_copy: (0),
+            query_other: (0),
             prepared: (0),
             vacuum_ops: HashMap::new(),
             max_idle_user: HashMap::new(),
@@ -301,6 +301,75 @@ impl PGActivityStats {
             }
         }
     }
+
+    fn update_query_stat(&mut self, query: &Option<String>, state: &Option<String>) {
+        if query.is_none() || state.is_none() {
+            return;
+        }
+
+        if state.clone().unwrap() != ST_ACTIVE {
+            return;
+        }
+
+        if self.re.selects.is_match(&query.clone().unwrap()) {
+            self.query_select += 1;
+            return;
+        }
+
+        if self.re.modify.is_match(&query.clone().unwrap()) {
+            self.query_mod += 1;
+            return;
+        }
+
+        if self.re.ddl.is_match(&query.clone().unwrap()) {
+            self.query_ddl += 1;
+            return;
+        }
+
+        if self.re.maint.is_match(&query.clone().unwrap()) {
+            self.query_maint += 1;
+            return;
+        }
+
+        let binding = query.clone().unwrap();
+        let maybe_str = self.re.vacuum.find(&binding);
+
+        let mut str: &str = "";
+
+        if let Some(s) = maybe_str {
+            str = s.as_str();
+        }
+
+        if str != "" {
+            self.query_maint += 1;
+            
+            if str.starts_with("autovacuum:") && str.contains("(to prevent wraparound)") {
+                *self.vacuum_ops.entry("wraparound".to_string()).or_insert(0) += 1;
+                return;
+            }
+
+            if str.starts_with("autovacuum:") {
+                *self.vacuum_ops.entry("regular".to_string()).or_insert(0) += 1;
+                return;
+            }
+
+            *self.vacuum_ops.entry("user".to_string()).or_insert(0) += 1;
+            return;
+        }
+
+        if self.re.with.is_match(&query.clone().unwrap()) {
+            self.query_with += 1;
+            return;
+        }
+
+        if self.re.copy.is_match(&query.clone().unwrap()) {
+            self.query_copy += 1;
+            return;
+        }
+
+        // still here? ok, increment others and return
+	    self.query_other += 1;
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -343,8 +412,8 @@ pub struct PGActivityCollector {
     states_all: IntGauge,
     activity: GaugeVec,
     prepared: IntGauge,
-    inflight: GaugeVec,
-    vacuums: GaugeVec,
+    inflight: IntGaugeVec,
+    vacuums: IntGaugeVec,
 }
 
 impl PGActivityCollector {
@@ -430,7 +499,7 @@ impl PGActivityCollector {
         .unwrap();
         descs.extend(prepared.desc().into_iter().cloned());
 
-        let inflight = GaugeVec::new(
+        let inflight = IntGaugeVec::new(
             Opts::new(
                 "queries_in_flight",
                 "Number of queries running in-flight of each type.",
@@ -443,7 +512,7 @@ impl PGActivityCollector {
         .unwrap();
         descs.extend(inflight.desc().into_iter().cloned());
 
-        let vacuums = GaugeVec::new(
+        let vacuums = IntGaugeVec::new(
             Opts::new(
                 "vacuums_in_flight",
                 "Number of vacuum operations running in-flight of each type.",
@@ -501,7 +570,14 @@ impl PG for PGActivityCollector {
             .fetch_all(&self.dbi.db)
             .await?;
 
-        let mut data_lock = self.data.write().unwrap();
+        let data_lock_result = self.data.write();
+
+        if data_lock_result.is_err() {
+            println!("error: {:?}", data_lock_result.unwrap_err());
+            return Err(anyhow!("can't acuire data lock"));
+        }
+
+        let mut data_lock = data_lock_result.unwrap();
 
         // clear all previous states
         data_lock.active.clear();
@@ -510,6 +586,13 @@ impl PG for PGActivityCollector {
         data_lock.other.clear();
         data_lock.waiting.clear();
         data_lock.wait_events.clear();
+        data_lock.query_select = 0;
+        data_lock.query_mod = 0;
+        data_lock.query_copy = 0;
+        data_lock.query_ddl = 0;
+        data_lock.query_maint = 0;
+        data_lock.query_other = 0;
+        data_lock.query_with = 0;
 
         for activity in &pg_activity_rows {
             if let Some(u) = &activity.user {
@@ -560,6 +643,8 @@ impl PG for PGActivityCollector {
 
                 data_lock.update_wait_events(we, &activity.wait_event.clone().unwrap());
             }
+
+            data_lock.update_query_stat(&activity.query, &activity.state);
         }
 
         let states: HashMap<&str, &HashMap<String, i64>> = HashMap::from([
@@ -606,7 +691,14 @@ impl Collector for PGActivityCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::new();
 
-        let data_lock = self.data.read().unwrap();
+        let data_lock_result = self.data.read();
+
+        if data_lock_result.is_err() {
+            println!("collect error: {:?}", data_lock_result.unwrap_err());
+            return mfs;
+        }
+
+        let data_lock = data_lock_result.unwrap();
 
         // TODO: set collected metrics
 
@@ -665,13 +757,34 @@ impl Collector for PGActivityCollector {
         for (k, v) in &data_lock.wait_events {
             let labels: Vec<&str> = k.split("/").collect();
             if labels.len() >= 2 {
-                self.wait_events.with_label_values(&[labels[0], labels[1]]).set(*v)
+                self.wait_events
+                    .with_label_values(&[labels[0], labels[1]])
+                    .set(*v)
             } else {
-                println!("create wait_event activity failed: invalid input '{:?}'; skip", k);
+                println!(
+                    "create wait_event activity failed: invalid input '{:?}'; skip",
+                    k
+                );
             }
         }
 
+        // in flight queries
+        self.inflight.with_label_values(&["select"]).set(data_lock.query_select);
+        self.inflight.with_label_values(&["mod"]).set(data_lock.query_mod);
+        self.inflight.with_label_values(&["ddl"]).set(data_lock.query_ddl);
+        self.inflight.with_label_values(&["maintenance"]).set(data_lock.query_maint);
+        self.inflight.with_label_values(&["with"]).set(data_lock.query_with);
+        self.inflight.with_label_values(&["copy"]).set(data_lock.query_copy);
+        self.inflight.with_label_values(&["other"]).set(data_lock.query_other);
+
+        // vacuums
+        for (k, v) in &data_lock.vacuum_ops {
+            self.vacuums.with_label_values(&[k]).set(*v);
+        }
+
+
         // All activity metrics collected successfully, now we can collect up metric.
+        self.up.set(1.0);
         self.start_time.set(data_lock.start_time_seconds);
         self.prepared.set(data_lock.prepared);
         self.states_all.set(total);
@@ -683,6 +796,8 @@ impl Collector for PGActivityCollector {
         mfs.extend(self.states_all.collect());
         mfs.extend(self.activity.collect());
         mfs.extend(self.wait_events.collect());
+        mfs.extend(self.inflight.collect());
+        mfs.extend(self.vacuums.collect());
 
         mfs
     }
