@@ -764,6 +764,7 @@ impl Collector for PGActivityCollector {
 
 
         // All activity metrics collected successfully, now we can collect up metric.
+        self.up.set(1.0);
         self.start_time.set(data_lock.start_time_seconds);
         self.prepared.set(data_lock.prepared);
         self.states_all.set(total);
