@@ -56,16 +56,16 @@ async fn main() -> std::io::Result<()> {
         let pgi = pg_instance.await;
 
         let pc = collectors::pg_locks::new(pgi.clone());
-        let _res = app.registry.register(Box::new(pc.clone())).unwrap();
+        app.registry.register(Box::new(pc.clone())).unwrap();
 
         let pc_pstm = collectors::pg_postmaster::new(pgi.clone());
-        let _res2 = app.registry.register(Box::new(pc_pstm.clone())).unwrap();
+        app.registry.register(Box::new(pc_pstm.clone())).unwrap();
 
         let pcdb = collectors::pg_database::new(pgi.clone());
-        let _res3 = app.registry.register(Box::new(pcdb.clone())).unwrap();
+        app.registry.register(Box::new(pcdb.clone())).unwrap();
 
         let pca = collectors::pg_activity::new(pgi.clone());
-        let _ = app.registry.register(Box::new(pca.clone())).unwrap();
+        app.registry.register(Box::new(pca.clone())).unwrap();
 
         app.collectors.push(Box::new(pc));
         app.collectors.push(Box::new(pc_pstm));
