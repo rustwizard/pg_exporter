@@ -269,7 +269,7 @@ impl PGActivityStats {
 
         if let Some(wait) = waiting {
             // waiting activity is considered only with wait_event_type = 'Lock' (or waiting = 't')
-            if *wait != WE_LOCK.to_string() && *wait != "t".to_string() {
+            if *wait != WE_LOCK && *wait != "t" {
                 return;
             }
         }
@@ -340,7 +340,7 @@ impl PGActivityStats {
             str = s.as_str();
         }
 
-        if str != "" {
+        if !str.is_empty() {
             self.query_maint += 1;
             
             if str.starts_with("autovacuum:") && str.contains("(to prevent wraparound)") {
@@ -402,7 +402,7 @@ impl QueryRegexp {
 
 #[derive(Debug, Clone)]
 pub struct PGActivityCollector {
-    dbi: instance::PostgresDB,
+    dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGActivityStats>>,
     descs: Vec<Desc>,
     up: Gauge,
@@ -417,7 +417,7 @@ pub struct PGActivityCollector {
 }
 
 impl PGActivityCollector {
-    pub fn new(dbi: instance::PostgresDB) -> PGActivityCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGActivityCollector {
         let up = Gauge::with_opts(
             Opts::new("up", "State of PostgreSQL service: 0 is down, 1 is up.")
                 .namespace(super::NAMESPACE)
@@ -526,18 +526,18 @@ impl PGActivityCollector {
         descs.extend(vacuums.desc().into_iter().cloned());
 
         PGActivityCollector {
-            dbi: dbi,
+            dbi,
             data: Arc::new(RwLock::new(PGActivityStats::new())),
-            descs: descs,
-            up: up,
-            start_time: start_time,
-            wait_events: wait_events,
-            states: states,
-            states_all: states_all,
-            activity: activity,
-            prepared: prepared,
-            inflight: inflight,
-            vacuums: vacuums,
+            descs,
+            up,
+            start_time,
+            wait_events,
+            states,
+            states_all,
+            activity,
+            prepared,
+            inflight,
+            vacuums,
         }
     }
 }
@@ -678,7 +678,7 @@ impl PG for PGActivityCollector {
     }
 }
 
-pub fn new(dbi: instance::PostgresDB) -> PGActivityCollector {
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGActivityCollector {
     PGActivityCollector::new(dbi)
 }
 

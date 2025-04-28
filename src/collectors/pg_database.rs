@@ -34,18 +34,18 @@ impl PGDatabaseStats {
 
 #[derive(Debug, Clone)]
 pub struct PGDatabaseCollector {
-    dbi: instance::PostgresDB,
+    dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGDatabaseStats>>,
     descs: Vec<Desc>,
     size_bytes: IntGaugeVec,
 }
 
-pub fn new(dbi: instance::PostgresDB) -> PGDatabaseCollector {
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGDatabaseCollector {
     PGDatabaseCollector::new(dbi)
 }
 
 impl PGDatabaseCollector {
-    pub fn new(dbi: instance::PostgresDB) -> PGDatabaseCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGDatabaseCollector {
         let size_bytes = IntGaugeVec::new(
             Opts::new("size_bytes", "Disk space used by the database")
                 .namespace(super::NAMESPACE)
@@ -58,10 +58,10 @@ impl PGDatabaseCollector {
         descs.extend(size_bytes.desc().into_iter().cloned());
 
         PGDatabaseCollector {
-            dbi: dbi,
+            dbi,
             data: Arc::new(RwLock::new(PGDatabaseStats::new())),
-            descs: descs,
-            size_bytes: size_bytes,
+            descs,
+            size_bytes,
         }
     }
 }
@@ -96,11 +96,11 @@ impl PG for PGDatabaseCollector {
 
         //TODO: amortize this with one query with select  
         for dbname in datnames {
-            if self.dbi.exclude_db_names.contains(&dbname.name) {
+            if self.dbi.excluded_db_names.contains(&dbname.name) {
                 continue
             }
 
-            if dbname.name.len() > 0 {
+            if !dbname.name.is_empty() {
                 let db_size: (i64,) = sqlx::query_as(PG_DATABASE_SIZE_QUERY)
                     .bind(&dbname.name)
                     .fetch_one(&self.dbi.db)

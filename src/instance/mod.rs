@@ -11,7 +11,7 @@ pub struct Config {
 #[derive(Debug, Clone)]
 pub struct PostgresDB {
     pub db: Pool<Postgres>,
-    pub exclude_db_names: Vec<String>,
+    pub excluded_db_names: Vec<String>,
     pub labels: HashMap<String, String>,
 }
 
@@ -37,13 +37,13 @@ pub async fn new(
 impl PostgresDB {
     pub fn new(
         db: Pool<Postgres>,
-        excluded_dbnames: Vec<String>,
+        excluded_db_names: Vec<String>,
         labels: HashMap<String, String>,
     ) -> Self {
         Self {
-            db: db,
-            exclude_db_names: excluded_dbnames,
-            labels: labels,
+            db,
+            excluded_db_names,
+            labels,
         }
     }
 }
