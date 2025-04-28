@@ -29,20 +29,20 @@ impl PGPostmasterStats {
 
 #[derive(Debug, Clone)]
 pub struct PGPostmasterCollector {
-    dbi: instance::PostgresDB,
+    dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGPostmasterStats>>,
     descs: Vec<Desc>,
     start_time_seconds: Gauge,
 }
 
 
-pub fn new(dbi: instance::PostgresDB) -> PGPostmasterCollector {
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGPostmasterCollector {
     PGPostmasterCollector::new(dbi)
 }
 
 
 impl PGPostmasterCollector {
-    pub fn new(dbi: instance::PostgresDB) -> PGPostmasterCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGPostmasterCollector {
         let start_time_seconds = Gauge::with_opts(
             Opts::new(
                 "start_time_seconds",

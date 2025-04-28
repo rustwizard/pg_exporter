@@ -402,7 +402,7 @@ impl QueryRegexp {
 
 #[derive(Debug, Clone)]
 pub struct PGActivityCollector {
-    dbi: instance::PostgresDB,
+    dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGActivityStats>>,
     descs: Vec<Desc>,
     up: Gauge,
@@ -417,7 +417,7 @@ pub struct PGActivityCollector {
 }
 
 impl PGActivityCollector {
-    pub fn new(dbi: instance::PostgresDB) -> PGActivityCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGActivityCollector {
         let up = Gauge::with_opts(
             Opts::new("up", "State of PostgreSQL service: 0 is down, 1 is up.")
                 .namespace(super::NAMESPACE)
@@ -678,7 +678,7 @@ impl PG for PGActivityCollector {
     }
 }
 
-pub fn new(dbi: instance::PostgresDB) -> PGActivityCollector {
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGActivityCollector {
     PGActivityCollector::new(dbi)
 }
 

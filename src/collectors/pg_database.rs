@@ -34,18 +34,18 @@ impl PGDatabaseStats {
 
 #[derive(Debug, Clone)]
 pub struct PGDatabaseCollector {
-    dbi: instance::PostgresDB,
+    dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGDatabaseStats>>,
     descs: Vec<Desc>,
     size_bytes: IntGaugeVec,
 }
 
-pub fn new(dbi: instance::PostgresDB) -> PGDatabaseCollector {
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGDatabaseCollector {
     PGDatabaseCollector::new(dbi)
 }
 
 impl PGDatabaseCollector {
-    pub fn new(dbi: instance::PostgresDB) -> PGDatabaseCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGDatabaseCollector {
         let size_bytes = IntGaugeVec::new(
             Opts::new("size_bytes", "Disk space used by the database")
                 .namespace(super::NAMESPACE)

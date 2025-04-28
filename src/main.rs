@@ -1,7 +1,7 @@
 mod collectors;
 mod instance;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use actix_web::{
     get, http::header::ContentType, web, App, HttpRequest, HttpResponse, HttpServer,
@@ -19,7 +19,7 @@ struct PGEConfig {
 
 #[derive(Clone)]
 struct PGEApp {
-    instances: Vec<instance::PostgresDB>,
+    instances: Vec<Arc<instance::PostgresDB>>,
     collectors: Vec<Box<dyn collectors::PG>>,
     registry: Registry,
 }
@@ -40,7 +40,7 @@ async fn main() -> std::io::Result<()> {
     println!("starting pg_exporter at {:?}", pge_config.listen_addr);
 
     let mut app = PGEApp {
-        instances: Vec::<instance::PostgresDB>::new(),
+        instances: Vec::<Arc<instance::PostgresDB>>::new(),
         collectors: Vec::new(),
         registry: Registry::new(),
     };
@@ -54,17 +54,18 @@ async fn main() -> std::io::Result<()> {
             config.const_labels.clone(),
         );
         let pgi = pg_instance.await;
+        let arc_pgi = Arc::new(pgi);
 
-        let pc = collectors::pg_locks::new(pgi.clone());
+        let pc = collectors::pg_locks::new(arc_pgi.clone());
         app.registry.register(Box::new(pc.clone())).unwrap();
 
-        let pc_pstm = collectors::pg_postmaster::new(pgi.clone());
+        let pc_pstm = collectors::pg_postmaster::new(arc_pgi.clone());
         app.registry.register(Box::new(pc_pstm.clone())).unwrap();
 
-        let pcdb = collectors::pg_database::new(pgi.clone());
+        let pcdb = collectors::pg_database::new(arc_pgi.clone());
         app.registry.register(Box::new(pcdb.clone())).unwrap();
 
-        let pca = collectors::pg_activity::new(pgi.clone());
+        let pca = collectors::pg_activity::new(arc_pgi.clone());
         app.registry.register(Box::new(pca.clone())).unwrap();
 
         app.collectors.push(Box::new(pc));
@@ -72,7 +73,7 @@ async fn main() -> std::io::Result<()> {
         app.collectors.push(Box::new(pcdb));
         app.collectors.push(Box::new(pca));
 
-        app.instances.push(pgi);
+        app.instances.push(arc_pgi);
     }
 
     HttpServer::new(move || {

@@ -27,7 +27,7 @@ const PGLOCKS_SUBSYSTEM: &str = "locks";
 
 #[derive(Debug, Clone)]
 pub struct PGLocksCollector {
-    dbi: instance::PostgresDB,
+    dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<LocksStat>>, // TODO: maybe RWMutex?
     descs: Vec<Desc>,
     access_share_lock: IntGauge,
@@ -73,12 +73,12 @@ impl LocksStat {
     }
 }
 
-pub fn new(dbi: instance::PostgresDB) -> PGLocksCollector {
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGLocksCollector {
     PGLocksCollector::new(dbi)
 }
 
 impl PGLocksCollector {
-    pub fn new(dbi: instance::PostgresDB) -> PGLocksCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGLocksCollector {
         let mut descs = Vec::new();
 
         let access_share_lock = IntGauge::with_opts(
