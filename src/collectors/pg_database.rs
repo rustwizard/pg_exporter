@@ -96,7 +96,7 @@ impl PG for PGDatabaseCollector {
 
         //TODO: amortize this with one query with select  
         for dbname in datnames {
-            if self.dbi.exclude_db_names.contains(&dbname.name) {
+            if self.dbi.excluded_db_names.contains(&dbname.name) {
                 continue
             }
 
