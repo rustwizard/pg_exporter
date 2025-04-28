@@ -526,18 +526,18 @@ impl PGActivityCollector {
         descs.extend(vacuums.desc().into_iter().cloned());
 
         PGActivityCollector {
-            dbi: dbi,
+            dbi,
             data: Arc::new(RwLock::new(PGActivityStats::new())),
-            descs: descs,
-            up: up,
-            start_time: start_time,
-            wait_events: wait_events,
-            states: states,
-            states_all: states_all,
-            activity: activity,
-            prepared: prepared,
-            inflight: inflight,
-            vacuums: vacuums,
+            descs,
+            up,
+            start_time,
+            wait_events,
+            states,
+            states_all,
+            activity,
+            prepared,
+            inflight,
+            vacuums,
         }
     }
 }
