@@ -100,7 +100,7 @@ impl PG for PGDatabaseCollector {
                 continue
             }
 
-            if dbname.name.len() > 0 {
+            if !dbname.name.is_empty() {
                 let db_size: (i64,) = sqlx::query_as(PG_DATABASE_SIZE_QUERY)
                     .bind(&dbname.name)
                     .fetch_one(&self.dbi.db)

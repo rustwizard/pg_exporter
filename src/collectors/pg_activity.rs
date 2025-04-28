@@ -340,7 +340,7 @@ impl PGActivityStats {
             str = s.as_str();
         }
 
-        if str != "" {
+        if !str.is_empty() {
             self.query_maint += 1;
             
             if str.starts_with("autovacuum:") && str.contains("(to prevent wraparound)") {

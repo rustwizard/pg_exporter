@@ -106,7 +106,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
         .map(|col| {
             actix_web::rt::spawn(async move {
                 let update_result = col.update().await;
-                let _update = match update_result {
+                match update_result {
                     Ok(update) => update,
                     Err(err) => println!("Problem running update collector: {:?}", err),
                 };

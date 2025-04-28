@@ -189,7 +189,7 @@ impl PGLocksCollector {
             exclusive_lock,
             access_exclusive_lock,
             not_granted,
-            total: total,
+            total,
         }
     }
 }

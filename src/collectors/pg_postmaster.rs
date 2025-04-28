@@ -58,10 +58,10 @@ impl PGPostmasterCollector {
         descs.extend(start_time_seconds.desc().into_iter().cloned());
 
         PGPostmasterCollector{
-            dbi: dbi,
+            dbi,
             data: Arc::new(RwLock::new(PGPostmasterStats::new())),
-            descs: descs,
-            start_time_seconds: start_time_seconds,
+            descs,
+            start_time_seconds,
         }
     }
 }
