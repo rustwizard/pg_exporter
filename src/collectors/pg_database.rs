@@ -58,10 +58,10 @@ impl PGDatabaseCollector {
         descs.extend(size_bytes.desc().into_iter().cloned());
 
         PGDatabaseCollector {
-            dbi: dbi,
+            dbi,
             data: Arc::new(RwLock::new(PGDatabaseStats::new())),
-            descs: descs,
-            size_bytes: size_bytes,
+            descs,
+            size_bytes,
         }
     }
 }
