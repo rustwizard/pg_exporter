@@ -174,19 +174,21 @@ impl PGLocksCollector {
         .unwrap();
         descs.extend(total.desc().into_iter().cloned());
 
+        let data = Arc::new(RwLock::new(LocksStat::new()));
+
         PGLocksCollector {
-            dbi: dbi,
-            data: Arc::new(RwLock::new(LocksStat::new())),
-            descs: descs,
-            access_share_lock: access_share_lock,
-            row_share_lock: row_share_lock,
-            row_exclusive_lock: row_exclusive_lock,
-            share_update_exclusive_lock: share_update_exclusive_lock,
-            share_lock: share_lock,
-            share_row_exclusive_lock: share_row_exclusive_lock,
-            exclusive_lock: exclusive_lock,
-            access_exclusive_lock: access_exclusive_lock,
-            not_granted: not_granted,
+            dbi,
+            data,
+            descs,
+            access_share_lock,
+            row_share_lock,
+            row_exclusive_lock,
+            share_update_exclusive_lock,
+            share_lock,
+            share_row_exclusive_lock,
+            exclusive_lock,
+            access_exclusive_lock,
+            not_granted,
             total: total,
         }
     }
