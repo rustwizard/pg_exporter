@@ -269,7 +269,7 @@ impl PGActivityStats {
 
         if let Some(wait) = waiting {
             // waiting activity is considered only with wait_event_type = 'Lock' (or waiting = 't')
-            if *wait != WE_LOCK.to_string() && *wait != "t".to_string() {
+            if *wait != WE_LOCK && *wait != "t" {
                 return;
             }
         }
