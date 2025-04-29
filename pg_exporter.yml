@@ -8,7 +8,7 @@ instances:
       project: "test_project15"
       cluster: "test_cluster15"
 
-  "pg17:5432":
+  "pg17:6432":
     dsn: "postgres://postgres_exporter:postgres_exporter@pge17:5432/db17"
     exclude_db_names: ["postgres", "template", "template1", "template0"]
     const_labels:
