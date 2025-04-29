@@ -12,14 +12,13 @@ const BGWRITER_QUERY16: &str = "SELECT
 const BGWRITER_QUERY_LATEST: &str = "WITH ckpt AS (
 		SELECT num_timed AS checkpoints_timed, num_requested AS checkpoints_req, restartpoints_timed, restartpoints_req, 
 		restartpoints_done, write_time AS checkpoint_write_time, sync_time AS checkpoint_sync_time, buffers_written AS buffers_checkpoint, 
-		COALESCE(EXTRACT(EPOCH FROM AGE(now(), stats_reset)), 0) as ckpt_stats_age_seconds FROM pg_stat_checkpointer), 
+		COALESCE(EXTRACT(EPOCH FROM AGE(now(), stats_reset)), 0)::FLOAT8 as ckpt_stats_age_seconds FROM pg_stat_checkpointer), 
 		bgwr AS (
 		SELECT buffers_clean, maxwritten_clean, buffers_alloc, 
-		COALESCE(EXTRACT(EPOCH FROM age(now(), stats_reset)), 0) as bgwr_stats_age_seconds FROM pg_stat_bgwriter), 
+		COALESCE(EXTRACT(EPOCH FROM age(now(), stats_reset)), 0)::FLOAT8 as bgwr_stats_age_seconds FROM pg_stat_bgwriter), 
 		stat_io AS ( 
 		SELECT SUM(writes) AS buffers_backend, SUM(fsyncs) AS buffers_backend_fsync FROM pg_stat_io WHERE backend_type='background writer') 
 		SELECT ckpt.*, bgwr.*, stat_io.* FROM ckpt, bgwr, stat_io";
-
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct PGBGwriterStats16 {
@@ -33,7 +32,26 @@ pub struct PGBGwriterStats16 {
     buffers_backend: i64,
     buffers_backend_fsync: i64,
     buffers_alloc: i64,
-    bgwr_stats_age_seconds: f64
+    bgwr_stats_age_seconds: f64,
+}
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct PGBGwriterStats {
+    checkpoints_timed: i64,
+    checkpoints_req: i64,
+    restartpoints_timed: i64,
+    restartpoints_req: i64,
+    restartpoints_done: i64,
+    checkpoint_write_time: f64,
+    checkpoint_sync_time: f64,
+    buffers_checkpoint: i64,
+    ckpt_stats_age_seconds: i64,
+    buffers_clean: i64,
+    maxwritten_clean: i64,
+    buffers_alloc: i64,
+    bgwr_stats_age_seconds: f64,
+    buffers_backend: f64,
+    buffers_backend_fsync: f64,
 }
 
 impl PGBGwriterStats16 {
@@ -50,6 +68,28 @@ impl PGBGwriterStats16 {
             buffers_backend_fsync: (0),
             buffers_alloc: (0),
             bgwr_stats_age_seconds: (0.0),
+        }
+    }
+}
+
+impl PGBGwriterStats {
+    fn new() -> Self {
+        PGBGwriterStats {
+            checkpoints_timed: (0),
+            checkpoints_req: (0),
+            restartpoints_timed: (0),
+            restartpoints_req: (0),
+            restartpoints_done: (0),
+            checkpoint_write_time: (0.0),
+            checkpoint_sync_time: (0.0),
+            buffers_checkpoint: (0),
+            ckpt_stats_age_seconds: (0),
+            buffers_clean: (0),
+            maxwritten_clean: (0),
+            buffers_alloc: (0),
+            bgwr_stats_age_seconds: (0.0),
+            buffers_backend: (0.0),
+            buffers_backend_fsync: (0.0),
         }
     }
 }
