@@ -1,3 +1,5 @@
+use std::sync::{Arc, RwLock};
+
 use crate::instance;
 
 use super::PG;
@@ -92,4 +94,11 @@ impl PGBGwriterStats {
             buffers_backend_fsync: (0.0),
         }
     }
+} 
+
+
+pub struct PGBGwriterCollector {
+    dbi: Arc<instance::PostgresDB>,
+    data: Arc<RwLock<PGBGwriterStats>>,
+    data16: Arc<RwLock<PGBGwriterStats16>>
 }
