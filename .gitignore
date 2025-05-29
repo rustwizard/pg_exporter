@@ -25,3 +25,4 @@ Cargo.lock
 /target
 /monitoring/grafana/data
 /monitoring/postgresql/data
+/monitoring/postgresql/data17

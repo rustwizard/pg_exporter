@@ -30,9 +30,9 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
 
-  pge:
+  pge15:
     image: postgres:15-bullseye
-    container_name: pge
+    container_name: pge15
     restart: always
     volumes:
       - ./monitoring/postgresql/data:/var/lib/postgresql/data
@@ -45,3 +45,19 @@ services:
       - "5432"
     ports:
       - "5432:5432"
+
+  pge17:
+    image: postgres:17-bullseye
+    container_name: pge17
+    restart: always
+    volumes:
+      - ./monitoring/postgresql/data17:/var/lib/postgresql/data
+      - ./init-db-users.sh:/docker-entrypoint-initdb.d/init-db-users.sh
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: db17
+    expose:
+      - "6432"
+    ports:
+      - "6432:5432"

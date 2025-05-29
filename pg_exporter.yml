@@ -1,9 +1,16 @@
 listen_addr: 0.0.0.0:61488
 
 instances:
-  "pg:5432":
-    dsn: "postgres://postgres_exporter:postgres_exporter@pge:5432/db1"
+  "pg15:5432":
+    dsn: "postgres://postgres_exporter:postgres_exporter@pge15:5432/db1"
     exclude_db_names: ["postgres", "template", "template1", "template0"]
     const_labels:
-      project: "test_project"
-      cluster: "test_cluster"
+      project: "test_project15"
+      cluster: "test_cluster15"
+
+  "pg17:6432":
+    dsn: "postgres://postgres_exporter:postgres_exporter@pge17:5432/db17"
+    exclude_db_names: ["postgres", "template", "template1", "template0"]
+    const_labels:
+      project: "test_project17"
+      cluster: "test_cluster17"
