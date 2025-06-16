@@ -1,4 +1,6 @@
-use std::sync::{Arc, RwLock};
+use std::{collections::HashMap, sync::{Arc, RwLock}};
+
+use prometheus::core::Desc;
 
 use crate::instance;
 
@@ -100,5 +102,6 @@ impl PGBGwriterStats {
 pub struct PGBGwriterCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGBGwriterStats>>,
-    data16: Arc<RwLock<PGBGwriterStats16>>
+    data16: Arc<RwLock<PGBGwriterStats16>>,
+    desc: HashMap<String, Desc>
 }
