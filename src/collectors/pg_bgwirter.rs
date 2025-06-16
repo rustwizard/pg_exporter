@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::{Arc, RwLock}};
 
-use prometheus::core::Desc;
+use prometheus::core::{Collector, Desc};
+use prometheus::proto;
 
 use crate::instance;
 
@@ -103,5 +104,36 @@ pub struct PGBGwriterCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGBGwriterStats>>,
     data16: Arc<RwLock<PGBGwriterStats16>>,
-    desc: HashMap<String, Desc>
+    descs: HashMap<String, Desc>
+}
+
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
+    PGBGwriterCollector::new(dbi)
+}
+
+impl PGBGwriterCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
+        let mut descs = HashMap::new();
+        PGBGwriterCollector{
+            dbi,
+            data: Arc::new(RwLock::new(PGBGwriterStats::new())),
+            data16: Arc::new(RwLock::new(PGBGwriterStats16::new())),
+            descs
+        }
+    }
+}
+
+impl Collector for PGBGwriterCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        self.descs.values().collect()
+    }
+
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(1);
+
+        let data_lock = self.data.read().unwrap();
+        
+        mfs
+    }
 }
