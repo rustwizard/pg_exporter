@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::{Arc, RwLock}};
 
-use prometheus::{core::{Collector, Desc}, IntCounter, IntGauge, Opts};
+use prometheus::{core::{Collector, Desc}, Gauge, IntGauge, Opts};
 use prometheus::proto;
 
 use crate::instance;
@@ -115,7 +115,7 @@ impl PGBGwriterCollector {
     pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
         let mut descs = Vec::new();
 
-        let checkpoints_total = IntCounter::with_opts(
+        let checkpoints_total = IntGauge::with_opts(
             Opts::new(
                 "total",
                 "Total number of checkpoints that have been performed of each type.",
@@ -128,7 +128,7 @@ impl PGBGwriterCollector {
 
         descs.extend(checkpoints_total.desc().into_iter().cloned());
 
-        let checkpoints_all = IntCounter::with_opts(
+        let checkpoints_all = IntGauge::with_opts(
             Opts::new(
                 "all_total",
                 "Total number of checkpoints that have been performed of each type.",
@@ -141,6 +141,17 @@ impl PGBGwriterCollector {
 
         descs.extend(checkpoints_all.desc().into_iter().cloned());
 
+        let seconds_total = Gauge::with_opts(
+            Opts::new(
+                "seconds_total",
+                "Total amount of time that has been spent processing data during checkpoint in each stage, in seconds.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(seconds_total.desc().into_iter().cloned());
 
         PGBGwriterCollector{
             dbi,
