@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::{Arc, RwLock}};
 
-use prometheus::core::{Collector, Desc};
+use prometheus::{core::{Collector, Desc}, IntCounter, IntGauge, Opts};
 use prometheus::proto;
 
 use crate::instance;
@@ -104,7 +104,7 @@ pub struct PGBGwriterCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGBGwriterStats>>,
     data16: Arc<RwLock<PGBGwriterStats16>>,
-    descs: HashMap<String, Desc>
+    descs: Vec<Desc>
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
@@ -113,7 +113,35 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
 
 impl PGBGwriterCollector {
     pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
-        let mut descs = HashMap::new();
+        let mut descs = Vec::new();
+
+        let checkpoints_total = IntCounter::with_opts(
+            Opts::new(
+                "total",
+                "Total number of checkpoints that have been performed of each type.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+
+        descs.extend(checkpoints_total.desc().into_iter().cloned());
+
+        let checkpoints_all = IntCounter::with_opts(
+            Opts::new(
+                "all_total",
+                "Total number of checkpoints that have been performed of each type.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+
+        descs.extend(checkpoints_all.desc().into_iter().cloned());
+
+
         PGBGwriterCollector{
             dbi,
             data: Arc::new(RwLock::new(PGBGwriterStats::new())),
@@ -125,7 +153,7 @@ impl PGBGwriterCollector {
 
 impl Collector for PGBGwriterCollector {
     fn desc(&self) -> Vec<&Desc> {
-        self.descs.values().collect()
+       self.descs.iter().collect()
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
