@@ -153,6 +153,20 @@ impl PGBGwriterCollector {
         .unwrap();
         descs.extend(seconds_total.desc().into_iter().cloned());
 
+        let seconds_all_total = Gauge::with_opts(
+            Opts::new(
+                "seconds_all_total",
+                "Total amount of time that has been spent processing data during checkpoint, in seconds.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(seconds_all_total.desc().into_iter().cloned());
+
+
+
         PGBGwriterCollector{
             dbi,
             data: Arc::new(RwLock::new(PGBGwriterStats::new())),
