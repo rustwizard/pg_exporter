@@ -171,7 +171,7 @@ impl PGBGwriterCollector {
                 "Total number of bytes written by each subsystem, in bytes.",
             )
             .namespace(super::NAMESPACE)
-            .subsystem("checkpoints")
+            .subsystem("written")
             .const_labels(dbi.labels.clone()),
         )
         .unwrap();
@@ -183,7 +183,7 @@ impl PGBGwriterCollector {
                 "Total number of times the background writer stopped a cleaning scan because it had written too many buffers.",
             )
             .namespace(super::NAMESPACE)
-            .subsystem("checkpoints")
+            .subsystem("bgwriter")
             .const_labels(dbi.labels.clone()),
         )
         .unwrap();
@@ -192,14 +192,86 @@ impl PGBGwriterCollector {
         let fsync_total = IntCounter::with_opts(
             Opts::new(
                 "fsync_total",
-                "Total number of times the background writer stopped a cleaning scan because it had written too many buffers.",
+                "Total number of times a backends had to execute its own fsync() call.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("backends")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(fsync_total.desc().into_iter().cloned());
+
+        let allocated_bytes_total = IntCounter::with_opts(
+            Opts::new(
+                "allocated_bytes_total",
+                "Total number of bytes allocated by backends.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("backends")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(allocated_bytes_total.desc().into_iter().cloned());
+
+        let bgwr_stats_age_seconds = IntCounter::with_opts(
+            Opts::new(
+                "stats_age_seconds_total",
+                "The age of the background writer activity statistics, in seconds.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("bgwriter")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(bgwr_stats_age_seconds.desc().into_iter().cloned());
+
+        let ckpt_stats_age_seconds = IntCounter::with_opts(
+            Opts::new(
+                "stats_age_seconds_total",
+                "The age of the checkpointer activity statistics, in seconds (since v17).",
             )
             .namespace(super::NAMESPACE)
             .subsystem("checkpoints")
             .const_labels(dbi.labels.clone()),
         )
         .unwrap();
-        descs.extend(fsync_total.desc().into_iter().cloned());
+        descs.extend(ckpt_stats_age_seconds.desc().into_iter().cloned());
+
+        let restartpoints_timed = IntCounter::with_opts(
+            Opts::new(
+                "restartpoints_timed",
+                "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it (since v17).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(restartpoints_timed.desc().into_iter().cloned());
+
+        let restartpoints_req = IntCounter::with_opts(
+            Opts::new(
+                "restartpoints_req",
+                "Number of requested restartpoints (since v17).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(restartpoints_req.desc().into_iter().cloned());
+
+        let restartpoints_done = IntCounter::with_opts(
+            Opts::new(
+                "restartpoints_done",
+                "Number of restartpoints that have been performed (since v17).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(restartpoints_done.desc().into_iter().cloned());
 
 
 
