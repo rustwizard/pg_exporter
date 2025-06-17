@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::{Arc, RwLock}};
 
-use prometheus::core::Desc;
+use prometheus::{core::{Collector, Desc}, Counter, Gauge, IntCounter, IntGauge, Opts};
+use prometheus::proto;
 
 use crate::instance;
 
@@ -103,5 +104,197 @@ pub struct PGBGwriterCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGBGwriterStats>>,
     data16: Arc<RwLock<PGBGwriterStats16>>,
-    desc: HashMap<String, Desc>
+    descs: Vec<Desc>
+}
+
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
+    PGBGwriterCollector::new(dbi)
+}
+
+impl PGBGwriterCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
+        let mut descs = Vec::new();
+
+        let checkpoints_total = IntCounter::with_opts(
+            Opts::new(
+                "total",
+                "Total number of checkpoints that have been performed of each type.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+
+        descs.extend(checkpoints_total.desc().into_iter().cloned());
+
+        let checkpoints_all = IntCounter::with_opts(
+            Opts::new(
+                "all_total",
+                "Total number of checkpoints that have been performed of each type.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+
+        descs.extend(checkpoints_all.desc().into_iter().cloned());
+
+        let seconds_total = Counter::with_opts(
+            Opts::new(
+                "seconds_total",
+                "Total amount of time that has been spent processing data during checkpoint in each stage, in seconds.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(seconds_total.desc().into_iter().cloned());
+
+        let seconds_all_total = Counter::with_opts(
+            Opts::new(
+                "seconds_all_total",
+                "Total amount of time that has been spent processing data during checkpoint, in seconds.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(seconds_all_total.desc().into_iter().cloned());
+
+        let bytes_total = IntCounter::with_opts(
+            Opts::new(
+                "bytes_total",
+                "Total number of bytes written by each subsystem, in bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("written")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(bytes_total.desc().into_iter().cloned());
+
+        let maxwritten_clean_total = IntCounter::with_opts(
+            Opts::new(
+                "maxwritten_clean_total",
+                "Total number of times the background writer stopped a cleaning scan because it had written too many buffers.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("bgwriter")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(maxwritten_clean_total.desc().into_iter().cloned());
+
+        let fsync_total = IntCounter::with_opts(
+            Opts::new(
+                "fsync_total",
+                "Total number of times a backends had to execute its own fsync() call.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("backends")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(fsync_total.desc().into_iter().cloned());
+
+        let allocated_bytes_total = IntCounter::with_opts(
+            Opts::new(
+                "allocated_bytes_total",
+                "Total number of bytes allocated by backends.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("backends")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(allocated_bytes_total.desc().into_iter().cloned());
+
+        let bgwr_stats_age_seconds = IntCounter::with_opts(
+            Opts::new(
+                "stats_age_seconds_total",
+                "The age of the background writer activity statistics, in seconds.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("bgwriter")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(bgwr_stats_age_seconds.desc().into_iter().cloned());
+
+        let ckpt_stats_age_seconds = IntCounter::with_opts(
+            Opts::new(
+                "stats_age_seconds_total",
+                "The age of the checkpointer activity statistics, in seconds (since v17).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(ckpt_stats_age_seconds.desc().into_iter().cloned());
+
+        let restartpoints_timed = IntCounter::with_opts(
+            Opts::new(
+                "restartpoints_timed",
+                "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it (since v17).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(restartpoints_timed.desc().into_iter().cloned());
+
+        let restartpoints_req = IntCounter::with_opts(
+            Opts::new(
+                "restartpoints_req",
+                "Number of requested restartpoints (since v17).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(restartpoints_req.desc().into_iter().cloned());
+
+        let restartpoints_done = IntCounter::with_opts(
+            Opts::new(
+                "restartpoints_done",
+                "Number of restartpoints that have been performed (since v17).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(restartpoints_done.desc().into_iter().cloned());
+
+
+
+        PGBGwriterCollector{
+            dbi,
+            data: Arc::new(RwLock::new(PGBGwriterStats::new())),
+            data16: Arc::new(RwLock::new(PGBGwriterStats16::new())),
+            descs
+        }
+    }
+}
+
+impl Collector for PGBGwriterCollector {
+    fn desc(&self) -> Vec<&Desc> {
+       self.descs.iter().collect()
+    }
+
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(1);
+
+        let data_lock = self.data.read().unwrap();
+        
+        mfs
+    }
 }
