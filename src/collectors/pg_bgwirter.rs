@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::{Arc, RwLock}};
 
-use prometheus::{core::{Collector, Desc}, Gauge, IntGauge, Opts};
+use prometheus::{core::{Collector, Desc}, Counter, Gauge, IntCounter, IntGauge, Opts};
 use prometheus::proto;
 
 use crate::instance;
@@ -115,7 +115,7 @@ impl PGBGwriterCollector {
     pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
         let mut descs = Vec::new();
 
-        let checkpoints_total = IntGauge::with_opts(
+        let checkpoints_total = IntCounter::with_opts(
             Opts::new(
                 "total",
                 "Total number of checkpoints that have been performed of each type.",
@@ -128,7 +128,7 @@ impl PGBGwriterCollector {
 
         descs.extend(checkpoints_total.desc().into_iter().cloned());
 
-        let checkpoints_all = IntGauge::with_opts(
+        let checkpoints_all = IntCounter::with_opts(
             Opts::new(
                 "all_total",
                 "Total number of checkpoints that have been performed of each type.",
@@ -141,7 +141,7 @@ impl PGBGwriterCollector {
 
         descs.extend(checkpoints_all.desc().into_iter().cloned());
 
-        let seconds_total = Gauge::with_opts(
+        let seconds_total = Counter::with_opts(
             Opts::new(
                 "seconds_total",
                 "Total amount of time that has been spent processing data during checkpoint in each stage, in seconds.",
@@ -153,7 +153,7 @@ impl PGBGwriterCollector {
         .unwrap();
         descs.extend(seconds_total.desc().into_iter().cloned());
 
-        let seconds_all_total = Gauge::with_opts(
+        let seconds_all_total = Counter::with_opts(
             Opts::new(
                 "seconds_all_total",
                 "Total amount of time that has been spent processing data during checkpoint, in seconds.",
@@ -164,6 +164,18 @@ impl PGBGwriterCollector {
         )
         .unwrap();
         descs.extend(seconds_all_total.desc().into_iter().cloned());
+
+        let bytes_total = IntCounter::with_opts(
+            Opts::new(
+                "bytes_total",
+                "Total number of bytes written by each subsystem, in bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(bytes_total.desc().into_iter().cloned());
 
 
 
