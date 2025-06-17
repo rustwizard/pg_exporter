@@ -177,6 +177,18 @@ impl PGBGwriterCollector {
         .unwrap();
         descs.extend(bytes_total.desc().into_iter().cloned());
 
+        let maxwritten_clean_total = IntCounter::with_opts(
+            Opts::new(
+                "maxwritten_clean_total",
+                "Total number of times the background writer stopped a cleaning scan because it had written too many buffers.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("checkpoints")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(maxwritten_clean_total.desc().into_iter().cloned());
+
 
 
         PGBGwriterCollector{
