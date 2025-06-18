@@ -355,6 +355,20 @@ impl Collector for PGBGwriterCollector {
 
         self.maxwritten_clean.inc_by(data_lock.maxwritten_clean as u64);
         
+
+        mfs.extend(self.alloc_bytes.collect());
+        mfs.extend(self.bgwr_stats_age_seconds.collect());
+        mfs.extend(self.buffers_backend_fsync.collect());
+        mfs.extend(self.checkpoint_restartpointsdone.collect());
+        mfs.extend(self.checkpoint_restartpointsreq.collect());
+        mfs.extend(self.checkpoint_restartpointstimed.collect());
+        mfs.extend(self.checkpoint_time.collect());
+        mfs.extend(self.checkpoint_time_all.collect());
+        mfs.extend(self.checkpoints.collect());
+        mfs.extend(self.checkpoints_all.collect());
+        mfs.extend(self.ckpt_stats_age_seconds.collect());
+        mfs.extend(self.written_bytes.collect());
+        mfs.extend(self.maxwritten_clean.collect());
         
         mfs
     }
