@@ -107,7 +107,7 @@ pub struct PGBGwriterCollector {
     descs: Vec<Desc>,
     checkpoints: IntCounterVec,
     checkpoints_all: IntCounter,
-    checkpoint_time: CounterVec,
+    checkpoint_time: IntCounterVec,
     checkpoint_time_all: Counter,
     maxwritten_clean: IntCounter,
     written_bytes: IntCounterVec,
@@ -156,7 +156,7 @@ impl PGBGwriterCollector {
 
         descs.extend(all_total.desc().into_iter().cloned());
 
-        let seconds_total = CounterVec::new(
+        let seconds_total = IntCounterVec::new(
             Opts::new(
                 "seconds_total",
                 "Total amount of time that has been spent processing data during checkpoint in each stage, in seconds.",
@@ -329,6 +329,31 @@ impl Collector for PGBGwriterCollector {
         }
 
         let data_lock = data_lock_result.unwrap();
+
+        self.alloc_bytes.inc_by(data_lock.buffers_alloc as u64);
+        self.bgwr_stats_age_seconds.inc_by(data_lock.bgwr_stats_age_seconds as u64);
+        self.buffers_backend_fsync.inc_by(data_lock.buffers_backend_fsync as u64);
+        self.checkpoint_restartpointsdone.inc_by(data_lock.restartpoints_done as u64);
+        self.checkpoint_restartpointsreq.inc_by(data_lock.restartpoints_req as u64);
+        self.checkpoint_restartpointstimed.inc_by(data_lock.restartpoints_timed as u64);
+        
+        self.checkpoints.with_label_values(&["timed"]).inc_by(data_lock.checkpoints_timed as u64);
+        self.checkpoints.with_label_values(&["req"]).inc_by(data_lock.checkpoints_req as u64);
+        
+        self.checkpoint_time_all.inc_by((data_lock.checkpoint_write_time + data_lock.checkpoint_sync_time) as f64);
+        
+        self.checkpoint_time.with_label_values(&["write"]).inc_by(data_lock.checkpoint_write_time as u64);
+        self.checkpoint_time.with_label_values(&["sync"]).inc_by(data_lock.checkpoint_sync_time as u64);
+        
+        self.checkpoints_all.inc_by((data_lock.checkpoints_timed + data_lock.checkpoints_req) as u64);
+
+        self.written_bytes.with_label_values(&["checkpointer"]).inc_by((data_lock.buffers_checkpoint*4096) as u64);
+        self.written_bytes.with_label_values(&["bgwriter"]).inc_by((data_lock.buffers_clean*4096) as u64);
+        self.written_bytes.with_label_values(&["backend"]).inc_by((data_lock.buffers_backend as u64 * 4096) as u64);
+
+        self.ckpt_stats_age_seconds.inc_by(data_lock.ckpt_stats_age_seconds as u64);
+
+        self.maxwritten_clean.inc_by(data_lock.maxwritten_clean as u64);
         
         
         mfs
