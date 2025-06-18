@@ -1,6 +1,7 @@
-use std::{collections::HashMap, sync::{Arc, RwLock}};
+use std::sync::{Arc, RwLock};
 
-use prometheus::{core::{Collector, Desc}, Counter, CounterVec, Gauge, IntCounter, IntCounterVec, IntGauge, Opts};
+use async_trait::async_trait;
+use prometheus::{core::{Collector, Desc}, Counter, IntCounter, IntCounterVec, Opts};
 use prometheus::proto;
 
 use crate::instance;
@@ -99,7 +100,7 @@ impl PGBGwriterStats {
     }
 } 
 
-
+#[derive(Debug, Clone)]
 pub struct PGBGwriterCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGBGwriterStats>>,
@@ -371,5 +372,14 @@ impl Collector for PGBGwriterCollector {
         mfs.extend(self.maxwritten_clean.collect());
         
         mfs
+    }
+}
+
+
+#[async_trait]
+impl PG for PGBGwriterCollector {
+    async fn update(&self) -> Result<(), anyhow::Error> {
+        
+        Ok(())
     }
 }
