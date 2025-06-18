@@ -68,10 +68,16 @@ async fn main() -> std::io::Result<()> {
         let pca = collectors::pg_activity::new(arc_pgi.clone());
         app.registry.register(Box::new(pca.clone())).unwrap();
 
+        let pbgwr = collectors::pg_bgwirter::new(arc_pgi.clone()).await;
+
+        let pbgwrc = pbgwr.unwrap();
+        app.registry.register(Box::new(pbgwrc.clone())).unwrap();
+
         app.collectors.push(Box::new(pc));
         app.collectors.push(Box::new(pc_pstm));
         app.collectors.push(Box::new(pcdb));
         app.collectors.push(Box::new(pca));
+        app.collectors.push(Box::new(pbgwrc));
 
         app.instances.push(arc_pgi);
     }
