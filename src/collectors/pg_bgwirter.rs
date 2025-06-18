@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::{Arc, RwLock}};
 
-use prometheus::{core::{Collector, Desc}, Counter, Gauge, IntCounter, IntGauge, Opts};
+use prometheus::{core::{Collector, Desc}, Counter, CounterVec, Gauge, IntCounter, IntCounterVec, IntGauge, Opts};
 use prometheus::proto;
 
 use crate::instance;
@@ -115,7 +115,7 @@ impl PGBGwriterCollector {
     pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
         let mut descs = Vec::new();
 
-        let checkpoints_total = IntCounter::with_opts(
+        let checkpoints_total = IntCounterVec::new(
             Opts::new(
                 "total",
                 "Total number of checkpoints that have been performed of each type.",
@@ -123,6 +123,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("checkpoints")
             .const_labels(dbi.labels.clone()),
+            &["checkpoint"],
         )
         .unwrap();
 
@@ -141,7 +142,7 @@ impl PGBGwriterCollector {
 
         descs.extend(checkpoints_all.desc().into_iter().cloned());
 
-        let seconds_total = Counter::with_opts(
+        let seconds_total = CounterVec::new(
             Opts::new(
                 "seconds_total",
                 "Total amount of time that has been spent processing data during checkpoint in each stage, in seconds.",
@@ -149,6 +150,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("checkpoints")
             .const_labels(dbi.labels.clone()),
+            &["stage"],
         )
         .unwrap();
         descs.extend(seconds_total.desc().into_iter().cloned());
@@ -165,7 +167,7 @@ impl PGBGwriterCollector {
         .unwrap();
         descs.extend(seconds_all_total.desc().into_iter().cloned());
 
-        let bytes_total = IntCounter::with_opts(
+        let bytes_total = IntCounterVec::new(
             Opts::new(
                 "bytes_total",
                 "Total number of bytes written by each subsystem, in bytes.",
@@ -173,6 +175,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("written")
             .const_labels(dbi.labels.clone()),
+            &["process"],
         )
         .unwrap();
         descs.extend(bytes_total.desc().into_iter().cloned());
@@ -273,8 +276,6 @@ impl PGBGwriterCollector {
         .unwrap();
         descs.extend(restartpoints_done.desc().into_iter().cloned());
 
-
-
         PGBGwriterCollector{
             dbi,
             data: Arc::new(RwLock::new(PGBGwriterStats::new())),
@@ -293,7 +294,15 @@ impl Collector for PGBGwriterCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(1);
 
-        let data_lock = self.data.read().unwrap();
+        let data_lock_result = self.data.read();
+
+        if data_lock_result.is_err() {
+            println!("collect error: {:?}", data_lock_result.unwrap_err());
+            return mfs;
+        }
+
+        let data_lock = data_lock_result.unwrap();
+        
         
         mfs
     }

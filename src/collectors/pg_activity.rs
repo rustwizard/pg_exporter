@@ -700,8 +700,6 @@ impl Collector for PGActivityCollector {
 
         let data_lock = data_lock_result.unwrap();
 
-        // TODO: set collected metrics
-
         let states: HashMap<&str, &HashMap<String, i64>> = HashMap::from([
             ("active", &data_lock.active),
             ("idle", &data_lock.idle),
