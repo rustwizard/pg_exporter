@@ -104,7 +104,21 @@ pub struct PGBGwriterCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGBGwriterStats>>,
     data16: Arc<RwLock<PGBGwriterStats16>>,
-    descs: Vec<Desc>
+    descs: Vec<Desc>,
+    checkpoints: IntCounterVec,
+    checkpoints_all: IntCounter,
+    checkpoint_time: CounterVec,
+    checkpoint_time_all: Counter,
+    maxwritten_clean: IntCounter,
+    written_bytes: IntCounterVec,
+    buffers_backend_fsync: IntCounter,
+    alloc_bytes: IntCounter,
+    bgwr_stats_age_seconds: IntCounter,
+    ckpt_stats_age_seconds: IntCounter,
+    checkpoint_restartpointstimed: IntCounter,
+    checkpoint_restartpointsreq: IntCounter,
+    checkpoint_restartpointsdone: IntCounter
+
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
@@ -129,7 +143,7 @@ impl PGBGwriterCollector {
 
         descs.extend(checkpoints_total.desc().into_iter().cloned());
 
-        let checkpoints_all = IntCounter::with_opts(
+        let all_total = IntCounter::with_opts(
             Opts::new(
                 "all_total",
                 "Total number of checkpoints that have been performed of each type.",
@@ -140,7 +154,7 @@ impl PGBGwriterCollector {
         )
         .unwrap();
 
-        descs.extend(checkpoints_all.desc().into_iter().cloned());
+        descs.extend(all_total.desc().into_iter().cloned());
 
         let seconds_total = CounterVec::new(
             Opts::new(
@@ -280,7 +294,20 @@ impl PGBGwriterCollector {
             dbi,
             data: Arc::new(RwLock::new(PGBGwriterStats::new())),
             data16: Arc::new(RwLock::new(PGBGwriterStats16::new())),
-            descs
+            descs,
+            checkpoints: checkpoints_total,
+            checkpoints_all: all_total,
+            checkpoint_time: seconds_total,
+            checkpoint_time_all: seconds_all_total,
+            maxwritten_clean: maxwritten_clean_total,
+            written_bytes: bytes_total,
+            buffers_backend_fsync: fsync_total,
+            alloc_bytes: allocated_bytes_total,
+            bgwr_stats_age_seconds: bgwr_stats_age_seconds,
+            ckpt_stats_age_seconds: ckpt_stats_age_seconds,
+            checkpoint_restartpointstimed: restartpoints_timed,
+            checkpoint_restartpointsreq: restartpoints_req,
+            checkpoint_restartpointsdone: restartpoints_done,
         }
     }
 }
