@@ -373,6 +373,7 @@ impl Collector for PGBGwriterCollector {
 #[async_trait]
 impl PG for PGBGwriterCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
+        // TODO: we should use another struct for query < POSTGRES_V17
         let maybe_bgwr_stats = if self.cfg.pg_version < POSTGRES_V17 {
              sqlx::query_as::<_, PGBGwriterStats>(BGWRITER_QUERY16)
             .fetch_optional(&self.dbi.db)
