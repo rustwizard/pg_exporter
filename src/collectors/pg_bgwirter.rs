@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use prometheus::{core::{Collector, Desc}, Counter, IntCounter, IntCounterVec, Opts};
 use prometheus::proto;
 
-use crate::{collectors::{Config, POSTGRES_V17}, instance};
+use crate::{collectors::{POSTGRES_V17}, instance};
 
 use super::PG;
 
@@ -77,7 +77,6 @@ pub struct PGBGwriterCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGBGwriterStats>>,
     descs: Vec<Desc>,
-    cfg: Box<Config>,
     checkpoints: IntCounterVec,
     checkpoints_all: IntCounter,
     checkpoint_time: IntCounterVec,
@@ -94,34 +93,12 @@ pub struct PGBGwriterCollector {
 
 }
 
-pub async fn new(dbi: Arc<instance::PostgresDB>) -> Result<PGBGwriterCollector, anyhow::Error> {
-    let version = sqlx::query_scalar::<_, String>("SELECT setting FROM pg_settings WHERE name = 'server_version_num'")
-            .fetch_one(&dbi.db).await?;
-
-    let pg_version = version.parse()?;
-
-    let block_size = sqlx::query_scalar::<_, String>("SELECT setting FROM pg_settings WHERE name = 'block_size'")
-            .fetch_one(&dbi.db).await?;
-
-    let pg_block_size = block_size.parse()?;
-
-
-    let wal_segment_size = sqlx::query_scalar::<_, String>("SELECT setting FROM pg_settings WHERE name = 'wal_segment_size'")
-            .fetch_one(&dbi.db).await?;
-
-    let pg_wal_segment_size = wal_segment_size.parse()?;
-    
-    let cfg = Config{ 
-            pg_version, 
-            pg_block_size, 
-            pg_wal_segment_size
-        };
-        
-     Ok(PGBGwriterCollector::new(dbi, Box::new(cfg)))
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {        
+     PGBGwriterCollector::new(dbi)
 }
 
 impl PGBGwriterCollector {
-    pub fn new(dbi: Arc<instance::PostgresDB>, cfg: Box<Config>) -> PGBGwriterCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
         let mut descs = Vec::new();
 
         let checkpoints_total = IntCounterVec::new(
@@ -302,7 +279,6 @@ impl PGBGwriterCollector {
             checkpoint_restartpointstimed: restartpoints_timed,
             checkpoint_restartpointsreq: restartpoints_req,
             checkpoint_restartpointsdone: restartpoints_done,
-            cfg
         }
     }
 }
@@ -342,9 +318,9 @@ impl Collector for PGBGwriterCollector {
         
         self.checkpoints_all.inc_by((data_lock.checkpoints_timed + data_lock.checkpoints_req) as u64);
 
-        self.written_bytes.with_label_values(&["checkpointer"]).inc_by((data_lock.buffers_checkpoint*self.cfg.pg_block_size) as u64);
-        self.written_bytes.with_label_values(&["bgwriter"]).inc_by((data_lock.buffers_clean*self.cfg.pg_block_size) as u64);
-        self.written_bytes.with_label_values(&["backend"]).inc_by((data_lock.buffers_backend as u64 * self.cfg.pg_block_size as u64) as u64);
+        self.written_bytes.with_label_values(&["checkpointer"]).inc_by((data_lock.buffers_checkpoint*self.dbi.cfg.pg_block_size) as u64);
+        self.written_bytes.with_label_values(&["bgwriter"]).inc_by((data_lock.buffers_clean*self.dbi.cfg.pg_block_size) as u64);
+        self.written_bytes.with_label_values(&["backend"]).inc_by((data_lock.buffers_backend as u64 * self.dbi.cfg.pg_block_size as u64) as u64);
 
         self.ckpt_stats_age_seconds.inc_by(data_lock.ckpt_stats_age_seconds as u64);
 
@@ -373,7 +349,7 @@ impl Collector for PGBGwriterCollector {
 #[async_trait]
 impl PG for PGBGwriterCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let maybe_bgwr_stats = if self.cfg.pg_version < POSTGRES_V17 {
+        let maybe_bgwr_stats = if self.dbi.cfg.pg_version < POSTGRES_V17 {
              sqlx::query_as::<_, PGBGwriterStats>(BGWRITER_QUERY16)
             .fetch_optional(&self.dbi.db)
             .await?

@@ -54,7 +54,7 @@ async fn main() -> std::io::Result<()> {
             config.const_labels.clone(),
         );
         let pgi = pg_instance.await;
-        let arc_pgi = Arc::new(pgi);
+        let arc_pgi = Arc::new(pgi.unwrap());
 
         let pc = collectors::pg_locks::new(arc_pgi.clone());
         app.registry.register(Box::new(pc.clone())).unwrap();
@@ -68,16 +68,14 @@ async fn main() -> std::io::Result<()> {
         let pca = collectors::pg_activity::new(arc_pgi.clone());
         app.registry.register(Box::new(pca.clone())).unwrap();
 
-        let pbgwr = collectors::pg_bgwirter::new(arc_pgi.clone()).await;
-
-        let pbgwrc = pbgwr.unwrap();
-        app.registry.register(Box::new(pbgwrc.clone())).unwrap();
+        let pbgwr = collectors::pg_bgwirter::new(arc_pgi.clone());
+        app.registry.register(Box::new(pbgwr.clone())).unwrap();
 
         app.collectors.push(Box::new(pc));
         app.collectors.push(Box::new(pc_pstm));
         app.collectors.push(Box::new(pcdb));
         app.collectors.push(Box::new(pca));
-        app.collectors.push(Box::new(pbgwrc));
+        app.collectors.push(Box::new(pbgwr));
 
         app.instances.push(arc_pgi);
     }

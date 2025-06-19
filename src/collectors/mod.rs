@@ -36,9 +36,3 @@ impl Clone for Box<dyn PG> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Config {
-    pg_version: i64,
-    pg_block_size: i64,
-    pg_wal_segment_size: i64,
-}
