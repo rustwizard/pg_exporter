@@ -101,7 +101,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.0.1+security-01",
+      "pluginVersion": "12.0.2",
       "targets": [
         {
           "datasource": {
@@ -202,7 +202,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.0.1+security-01",
+      "pluginVersion": "12.0.2",
       "targets": [
         {
           "datasource": {
@@ -322,7 +322,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.0.1+security-01",
+      "pluginVersion": "12.0.2",
       "targets": [
         {
           "datasource": {
@@ -422,7 +422,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.0.1+security-01",
+      "pluginVersion": "12.0.2",
       "targets": [
         {
           "datasource": {
@@ -523,7 +523,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.0.1+security-01",
+      "pluginVersion": "12.0.2",
       "targets": [
         {
           "datasource": {
@@ -801,7 +801,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.0.1+security-01",
+      "pluginVersion": "12.0.2",
       "targets": [
         {
           "datasource": {
@@ -901,7 +901,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.0.1+security-01",
+      "pluginVersion": "12.0.2",
       "targets": [
         {
           "datasource": {
@@ -1002,7 +1002,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.0.1+security-01",
+      "pluginVersion": "12.0.2",
       "targets": [
         {
           "datasource": {
@@ -1120,7 +1120,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.0.1+security-01",
+      "pluginVersion": "12.0.2",
       "targets": [
         {
           "datasource": {
@@ -1278,7 +1278,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.0.1+security-01",
+      "pluginVersion": "12.0.2",
       "targets": [
         {
           "datasource": {
@@ -1321,7 +1321,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_restartpoints_req",
+          "expr": "pg_checkpoints_restartpoints_timed",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -1338,7 +1338,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_restartpoints_timed",
+          "expr": "pg_checkpoints_restartpoints_done",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -1347,17 +1347,6 @@
           "range": true,
           "refId": "D",
           "useBackend": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "",
-          "hide": false,
-          "instant": false,
-          "range": true,
-          "refId": "E"
         }
       ],
       "title": "PG  Checkpoints total",
@@ -1379,5 +1368,5 @@
   "timezone": "browser",
   "title": "PosgreSQL",
   "uid": "begwiryjys0lcb",
-  "version": 12
+  "version": 16
 }
