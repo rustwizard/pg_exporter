@@ -98,18 +98,18 @@ pub async fn new(dbi: Arc<instance::PostgresDB>) -> Result<PGBGwriterCollector, 
     let version = sqlx::query_scalar::<_, String>("SELECT setting FROM pg_settings WHERE name = 'server_version_num'")
             .fetch_one(&dbi.db).await?;
 
-    let pg_version = version.parse().expect("not a valid number for version");
+    let pg_version = version.parse()?;
 
     let block_size = sqlx::query_scalar::<_, String>("SELECT setting FROM pg_settings WHERE name = 'block_size'")
             .fetch_one(&dbi.db).await?;
 
-    let pg_block_size = block_size.parse().expect("not a valid number for block_size");
+    let pg_block_size = block_size.parse()?;
 
 
     let wal_segment_size = sqlx::query_scalar::<_, String>("SELECT setting FROM pg_settings WHERE name = 'wal_segment_size'")
             .fetch_one(&dbi.db).await?;
 
-    let pg_wal_segment_size = wal_segment_size.parse().expect("not a valid number for wal_segment_size");
+    let pg_wal_segment_size = wal_segment_size.parse()?;
     
     let cfg = Config{ 
             pg_version, 
@@ -373,7 +373,6 @@ impl Collector for PGBGwriterCollector {
 #[async_trait]
 impl PG for PGBGwriterCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        // TODO: we should use another struct for query < POSTGRES_V17
         let maybe_bgwr_stats = if self.cfg.pg_version < POSTGRES_V17 {
              sqlx::query_as::<_, PGBGwriterStats>(BGWRITER_QUERY16)
             .fetch_optional(&self.dbi.db)
@@ -398,6 +397,9 @@ impl PG for PGBGwriterCollector {
             data_lock.checkpoints_req = bgwr_stats.checkpoints_req;
             data_lock.checkpoints_timed = bgwr_stats.checkpoints_timed;
             data_lock.maxwritten_clean = bgwr_stats.maxwritten_clean;
+            data_lock.restartpoints_done = bgwr_stats.restartpoints_done;
+            data_lock.restartpoints_req = bgwr_stats.restartpoints_req;
+            data_lock.restartpoints_timed = bgwr_stats.restartpoints_timed;
         }
 
 
