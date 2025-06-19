@@ -48,13 +48,13 @@ async fn main() -> std::io::Result<()> {
     for (instance, config) in pge_config.instances {
         println!("starting connection for instance: {:?}", instance);
 
-        let pg_instance = instance::new(
+        let pgi = instance::new(
             config.dsn,
             config.exclude_db_names.clone(),
             config.const_labels.clone(),
-        );
-        let pgi = pg_instance.await;
-        let arc_pgi = Arc::new(pgi.unwrap());
+        ).await.unwrap();
+        
+        let arc_pgi = Arc::new(pgi);
 
         let pc = collectors::pg_locks::new(arc_pgi.clone());
         app.registry.register(Box::new(pc.clone())).unwrap();
