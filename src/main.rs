@@ -55,7 +55,7 @@ async fn main() -> std::io::Result<()> {
             config.dsn,
             config.exclude_db_names.clone(),
             config.const_labels.clone(),
-        ).await?;
+        ).await.unwrap();
         
         let arc_pgi = Arc::new(pgi);
 
@@ -99,7 +99,7 @@ async fn hello() -> impl Responder {
     HttpResponse::Ok().body("This is a pg_exporter for Prometheus written in Rust")
 }
 
-async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<(), MyError> {
+async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpResponse, MyError> {
     println!(
         "processing the request from {:?}",
         req.headers()
@@ -138,7 +138,12 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<(), MyErro
     let response = String::from_utf8(buffer.clone()).expect("Failed to convert bytes to string");
     buffer.clear();
 
-    HttpResponse::Ok()
+    let resp = HttpResponse::Ok()
         .insert_header(ContentType::plaintext())
-        .body(response)
+        .body(response);
+
+    Ok(resp)
+
+
+
 }
