@@ -1,5 +1,6 @@
 mod collectors;
 mod instance;
+mod error;
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -10,6 +11,8 @@ use actix_web::{
 
 use config::Config;
 use prometheus::{Encoder, Registry};
+
+use crate::error::MyError;
 
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
 struct PGEConfig {
@@ -96,7 +99,7 @@ async fn hello() -> impl Responder {
     HttpResponse::Ok().body("This is a pg_exporter for Prometheus written in Rust")
 }
 
-async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
+async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpResponse, MyError> {
     println!(
         "processing the request from {:?}",
         req.headers()
@@ -120,7 +123,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
         .collect();
 
     for task in tasks {
-        task.await.unwrap();
+        task.await?;
     }
     
     let process_metrics = prometheus::gather();
@@ -135,7 +138,12 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> impl Responder {
     let response = String::from_utf8(buffer.clone()).expect("Failed to convert bytes to string");
     buffer.clear();
 
-    HttpResponse::Ok()
+    let resp = HttpResponse::Ok()
         .insert_header(ContentType::plaintext())
-        .body(response)
+        .body(response);
+
+    Ok(resp)
+
+
+
 }
