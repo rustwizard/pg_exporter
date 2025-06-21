@@ -274,8 +274,8 @@ impl PGBGwriterCollector {
             written_bytes: bytes_total,
             buffers_backend_fsync: fsync_total,
             alloc_bytes: allocated_bytes_total,
-            bgwr_stats_age_seconds: bgwr_stats_age_seconds,
-            ckpt_stats_age_seconds: ckpt_stats_age_seconds,
+            bgwr_stats_age_seconds,
+            ckpt_stats_age_seconds,
             checkpoint_restartpointstimed: restartpoints_timed,
             checkpoint_restartpointsreq: restartpoints_req,
             checkpoint_restartpointsdone: restartpoints_done,
@@ -311,7 +311,7 @@ impl Collector for PGBGwriterCollector {
         self.checkpoints.with_label_values(&["timed"]).inc_by(data_lock.checkpoints_timed as u64);
         self.checkpoints.with_label_values(&["req"]).inc_by(data_lock.checkpoints_req as u64);
         
-        self.checkpoint_time_all.inc_by((data_lock.checkpoint_write_time + data_lock.checkpoint_sync_time) as f64);
+        self.checkpoint_time_all.inc_by(data_lock.checkpoint_write_time + data_lock.checkpoint_sync_time);
         
         self.checkpoint_time.with_label_values(&["write"]).inc_by(data_lock.checkpoint_write_time as u64);
         self.checkpoint_time.with_label_values(&["sync"]).inc_by(data_lock.checkpoint_sync_time as u64);
@@ -320,7 +320,7 @@ impl Collector for PGBGwriterCollector {
 
         self.written_bytes.with_label_values(&["checkpointer"]).inc_by((data_lock.buffers_checkpoint*self.dbi.cfg.pg_block_size) as u64);
         self.written_bytes.with_label_values(&["bgwriter"]).inc_by((data_lock.buffers_clean*self.dbi.cfg.pg_block_size) as u64);
-        self.written_bytes.with_label_values(&["backend"]).inc_by((data_lock.buffers_backend as u64 * self.dbi.cfg.pg_block_size as u64) as u64);
+        self.written_bytes.with_label_values(&["backend"]).inc_by(data_lock.buffers_backend as u64 * self.dbi.cfg.pg_block_size as u64);
 
         self.ckpt_stats_age_seconds.inc_by(data_lock.ckpt_stats_age_seconds as u64);
 
