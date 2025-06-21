@@ -3,6 +3,7 @@ pub mod pg_bgwirter;
 pub mod pg_database;
 pub mod pg_locks;
 pub mod pg_postmaster;
+pub mod pg_wal;
 
 use async_trait::async_trait;
 use dyn_clone::DynClone;
