@@ -1,4 +1,5 @@
 use actix_web::rt::task::JoinError;
+use anyhow::anyhow;
 pub(crate) use derive_more::derive::{Display, Error};
 
 #[derive(Debug, Display, Error)]
@@ -17,6 +18,6 @@ impl From<anyhow::Error> for CustomError {
 
 impl From<JoinError> for CustomError {
     fn from(err: JoinError) -> CustomError {
-        CustomError { err: err.into() }
+        CustomError { err: anyhow!("internal error: {:?}", err) }
     }
 }
