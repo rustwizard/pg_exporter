@@ -14,6 +14,7 @@ const POSTGRES_WAL_QUERY_LATEST: &str =
 		wal_bytes, wal_buffers_full, wal_write, wal_sync, wal_write_time, wal_sync_time, extract('epoch' from stats_reset) as reset_time 
 		FROM pg_stat_wal";
 
+#[derive(sqlx::FromRow, Debug)]
 pub struct PGWALStats {
     recovery: i64,
     wal_records: i64,
@@ -24,5 +25,5 @@ pub struct PGWALStats {
     wal_write: i64,
     wal_sync: i64,
     wal_write_time: f64,
-    reset_time: BigDecimal
+    reset_time: BigDecimal,
 }
