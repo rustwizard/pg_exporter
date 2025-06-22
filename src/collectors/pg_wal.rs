@@ -1,4 +1,9 @@
-use bigdecimal::BigDecimal;
+use std::sync::{Arc, RwLock};
+
+use bigdecimal::{BigDecimal, FromPrimitive};
+use prometheus::core::Desc;
+
+use crate::instance;
 
 const POSTGRES_WAL_QUERY96: &str =
     "SELECT pg_is_in_recovery()::int AS recovery, 
@@ -26,4 +31,27 @@ pub struct PGWALStats {
     wal_sync: i64,
     wal_write_time: f64,
     reset_time: BigDecimal,
+}
+
+impl PGWALStats {
+    fn new() -> Self {
+        PGWALStats{ 
+            recovery: (0), 
+            wal_records: (0), 
+            wal_fpi: (0), 
+            wal_written: BigDecimal::from_i64(0).unwrap(),  
+            wal_bytes: BigDecimal::from_i64(0).unwrap(), 
+            wal_buffers_full: (0), 
+            wal_write: (0), 
+            wal_sync: (0), 
+            wal_write_time: (0.0), 
+            reset_time: BigDecimal::from_i64(0).unwrap(), 
+        }
+    }
+}
+
+pub struct PGWALCollector {
+    dbi: Arc<instance::PostgresDB>,
+    data: Arc<RwLock<PGWALStats>>,
+    descs: Vec<Desc>,
 }
