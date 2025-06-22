@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 
 use bigdecimal::{BigDecimal, FromPrimitive};
-use prometheus::core::Desc;
+use prometheus::{core::Desc, Counter, Gauge, IntCounter};
 
 use crate::instance;
 
@@ -54,4 +54,15 @@ pub struct PGWALCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGWALStats>>,
     descs: Vec<Desc>,
+    recovery_info: Gauge,
+    records_total: IntCounter,
+    fpi_total: IntCounter,
+    bytes_total: Counter,
+    written_bytes_total: Counter,
+    buffers_full_total: IntCounter,
+    write_total: IntCounter,
+    sync_total: IntCounter,
+    seconds_all_total: Counter,
+    seconds_total: Counter,
+    stats_reset_time: Counter
 }
