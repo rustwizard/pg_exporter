@@ -1,7 +1,9 @@
 use std::sync::{Arc, RwLock};
 
 use bigdecimal::{BigDecimal, FromPrimitive};
-use prometheus::{core::Desc, Counter, Gauge, IntCounter};
+use prometheus::core::{Collector, Desc, Opts};
+use prometheus::proto;
+use prometheus::{Counter, IntCounter, IntGauge};
 
 use crate::instance;
 
@@ -35,26 +37,27 @@ pub struct PGWALStats {
 
 impl PGWALStats {
     fn new() -> Self {
-        PGWALStats{ 
-            recovery: (0), 
-            wal_records: (0), 
-            wal_fpi: (0), 
-            wal_written: BigDecimal::from_i64(0).unwrap(),  
-            wal_bytes: BigDecimal::from_i64(0).unwrap(), 
-            wal_buffers_full: (0), 
-            wal_write: (0), 
-            wal_sync: (0), 
-            wal_write_time: (0.0), 
-            reset_time: BigDecimal::from_i64(0).unwrap(), 
+        PGWALStats {
+            recovery: (0),
+            wal_records: (0),
+            wal_fpi: (0),
+            wal_written: BigDecimal::from_i64(0).unwrap(),
+            wal_bytes: BigDecimal::from_i64(0).unwrap(),
+            wal_buffers_full: (0),
+            wal_write: (0),
+            wal_sync: (0),
+            wal_write_time: (0.0),
+            reset_time: BigDecimal::from_i64(0).unwrap(),
         }
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct PGWALCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<PGWALStats>>,
     descs: Vec<Desc>,
-    recovery_info: Gauge,
+    recovery_info: IntGauge,
     records_total: IntCounter,
     fpi_total: IntCounter,
     bytes_total: Counter,
@@ -64,5 +67,178 @@ pub struct PGWALCollector {
     sync_total: IntCounter,
     seconds_all_total: Counter,
     seconds_total: Counter,
-    stats_reset_time: Counter
+    stats_reset_time: IntGauge,
+}
+
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGWALCollector {
+    PGWALCollector::new(dbi)
+}
+
+impl PGWALCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> PGWALCollector {
+        let mut descs = Vec::new();
+
+        let data = Arc::new(RwLock::new(PGWALStats::new()));
+
+        let recovery_info = IntGauge::with_opts(
+            Opts::new(
+                "info",
+                "Current recovery state, 0 - not in recovery; 1 - in recovery.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("recovery")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(recovery_info.desc().into_iter().cloned());
+
+        let records_total = IntCounter::with_opts(
+            Opts::new(
+                "records_total",
+                "Total number of WAL records generated (zero in case of standby).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("wal")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(records_total.desc().into_iter().cloned());
+
+        let fpi_total = IntCounter::with_opts(
+            Opts::new(
+                "fpi_total",
+                "Total number of WAL full page images generated (zero in case of standby).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("wal")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(fpi_total.desc().into_iter().cloned());
+
+        let bytes_total = Counter::with_opts(
+            Opts::new(
+                "bytes_total",
+                "Total amount of WAL generated (zero in case of standby) since last stats reset, in bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("wal")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(bytes_total.desc().into_iter().cloned());
+
+        let written_bytes_total = Counter::with_opts(
+            Opts::new(
+                "written_bytes_total",
+                "Total amount of WAL written (or received in case of standby) since cluster init, in bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("wal")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(written_bytes_total.desc().into_iter().cloned());
+
+        let buffers_full_total = IntCounter::with_opts(
+            Opts::new(
+                "buffers_full_total",
+                "Total number of times WAL data was written to disk because WAL buffers became full (zero in case of standby).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("wal")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(buffers_full_total.desc().into_iter().cloned());
+
+        let write_total = IntCounter::with_opts(
+            Opts::new(
+                "write_total",
+                "Total number of times WAL buffers were written out to disk via XLogWrite request (zero in case of standby).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("wal")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(write_total.desc().into_iter().cloned());
+
+        let sync_total = IntCounter::with_opts(
+            Opts::new(
+                "sync_total",
+                "Total number of times WAL files were synced to disk via issue_xlog_fsync request (zero in case of standby).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("wal")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(sync_total.desc().into_iter().cloned());
+
+        let seconds_all_total = Counter::with_opts(
+            Opts::new(
+                "seconds_all_total",
+                "Total amount of time spent processing WAL buffers (zero in case of standby), in seconds.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("wal")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(seconds_all_total.desc().into_iter().cloned());
+
+        let seconds_total = Counter::with_opts(
+            Opts::new(
+                "seconds_total",
+                "Total amount of time spent processing WAL buffers (zero in case of standby), in seconds.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("wal")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(seconds_total.desc().into_iter().cloned());
+
+        let seconds_total = Counter::with_opts(
+            Opts::new(
+                "seconds_total",
+                "Total amount of time spent processing WAL buffers by each operation (zero in case of standby), in seconds.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("wal")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(seconds_total.desc().into_iter().cloned());
+
+        let stats_reset_time = IntGauge::with_opts(
+            Opts::new(
+                "stats_reset_time",
+                "Time at which WAL statistics were last reset, in unixtime.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("wal")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(stats_reset_time.desc().into_iter().cloned());
+
+        PGWALCollector {
+            dbi,
+            data,
+            descs,
+            recovery_info,
+            records_total,
+            fpi_total,
+            bytes_total,
+            written_bytes_total,
+            buffers_full_total,
+            write_total,
+            sync_total,
+            seconds_all_total,
+            seconds_total,
+            stats_reset_time,
+        }
+    }
 }
