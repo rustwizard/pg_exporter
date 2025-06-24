@@ -248,7 +248,7 @@ impl PGWALCollector {
 
 impl Collector for PGWALCollector {
     fn desc(&self) -> std::vec::Vec<&Desc> {
-        todo!()
+       self.descs.iter().collect()
     }
     fn collect(&self) -> std::vec::Vec<MetricFamily> {
         todo!()
