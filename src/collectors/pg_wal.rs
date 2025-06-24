@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use anyhow::bail;
 use async_trait::async_trait;
-use bigdecimal::{BigDecimal, FromPrimitive};
+
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
 use prometheus::{Counter, IntCounter, IntGauge};
@@ -12,30 +12,31 @@ use crate::instance;
 
 const POSTGRES_WAL_QUERY96: &str =
     "SELECT pg_is_in_recovery()::int AS recovery, 
-		(CASE pg_is_in_recovery() WHEN 't' THEN pg_last_xlog_receive_location() ELSE pg_current_xlog_location() END) - '0/00000000' AS wal_written";
+		((CASE pg_is_in_recovery() WHEN 't' THEN pg_last_xlog_receive_location() ELSE pg_current_xlog_location() END) - '0/00000000')::FLOAT8 AS wal_written";
 
 const POSTGRES_WAL_QUERY13: &str =
     "SELECT pg_is_in_recovery()::int AS recovery, 
-		(CASE pg_is_in_recovery() WHEN 't' THEN pg_last_wal_receive_lsn() ELSE pg_current_wal_lsn() END) - '0/00000000' AS wal_written";
+		((CASE pg_is_in_recovery() WHEN 't' THEN pg_last_wal_receive_lsn() ELSE pg_current_wal_lsn() END) - '0/00000000')::FLOAT8 AS wal_written";
 
 const POSTGRES_WAL_QUERY_LATEST: &str =
     "SELECT pg_is_in_recovery()::int AS recovery, wal_records, wal_fpi, 
-		(CASE pg_is_in_recovery() WHEN 't' THEN pg_last_wal_receive_lsn() - '0/00000000' ELSE pg_current_wal_lsn() - '0/00000000' END) AS wal_written, 
-		wal_bytes, wal_buffers_full, wal_write, wal_sync, wal_write_time, wal_sync_time, extract('epoch' from stats_reset) as reset_time 
+		(CASE pg_is_in_recovery() WHEN 't' THEN pg_last_wal_receive_lsn() - '0/00000000' ELSE pg_current_wal_lsn() - '0/00000000' END)::FLOAT8 AS wal_written, 
+		wal_bytes::FLOAT8, wal_buffers_full, wal_write, wal_sync, wal_write_time, wal_sync_time, extract('epoch' from stats_reset)::INT8 as reset_time 
 		FROM pg_stat_wal";
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct PGWALStats {
-    recovery: i64,
+    recovery: i32,
     wal_records: i64,
     wal_fpi: i64,
-    wal_written: BigDecimal,
-    wal_bytes: BigDecimal,
+    wal_written: f64,
+    wal_bytes: f64,
     wal_buffers_full: i64,
     wal_write: i64,
     wal_sync: i64,
     wal_write_time: f64,
-    reset_time: BigDecimal,
+    wal_sync_time: f64,
+    reset_time: i64,
 }
 
 impl PGWALStats {
@@ -44,13 +45,14 @@ impl PGWALStats {
             recovery: (0),
             wal_records: (0),
             wal_fpi: (0),
-            wal_written: BigDecimal::from_i64(0).unwrap(),
-            wal_bytes: BigDecimal::from_i64(0).unwrap(),
+            wal_written: (0.0),
+            wal_bytes: (0.0),
             wal_buffers_full: (0),
             wal_write: (0),
             wal_sync: (0),
             wal_write_time: (0.0),
-            reset_time: BigDecimal::from_i64(0).unwrap(),
+            wal_sync_time: (0.0),
+            reset_time: (0),
         }
     }
 }
@@ -194,18 +196,6 @@ impl PGWALCollector {
         let seconds_total = Counter::with_opts(
             Opts::new(
                 "seconds_total",
-                "Total amount of time spent processing WAL buffers (zero in case of standby), in seconds.",
-            )
-            .namespace(super::NAMESPACE)
-            .subsystem("wal")
-            .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
-        descs.extend(seconds_total.desc().into_iter().cloned());
-
-        let seconds_total = Counter::with_opts(
-            Opts::new(
-                "seconds_total",
                 "Total amount of time spent processing WAL buffers by each operation (zero in case of standby), in seconds.",
             )
             .namespace(super::NAMESPACE)
@@ -251,7 +241,29 @@ impl Collector for PGWALCollector {
        self.descs.iter().collect()
     }
     fn collect(&self) -> std::vec::Vec<MetricFamily> {
-        todo!()
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(1);
+
+        let data_lock = self.data.read().expect("can't acuire lock");
+
+        self.recovery_info.set(data_lock.recovery as i64);
+        self.records_total.inc_by(data_lock.wal_records as u64);
+        self.buffers_full_total.inc_by(data_lock.wal_buffers_full as u64);
+        self.bytes_total.inc_by(data_lock.wal_bytes);
+        self.fpi_total.inc_by(data_lock.wal_fpi as u64);
+        self.seconds_all_total.inc_by(data_lock.wal_write_time);
+        self.seconds_total.inc_by(data_lock.wal_sync_time);
+        self.stats_reset_time.set(data_lock.reset_time);
+        self.sync_total.inc_by(data_lock.wal_sync as u64);
+        self.write_total.inc_by(data_lock.wal_write as u64);
+        self.written_bytes_total.inc_by(data_lock.wal_written);
+
+
+        mfs.extend(self.recovery_info.collect());
+        mfs.extend(self.records_total.collect());
+
+        mfs
+
     }
 }
 
