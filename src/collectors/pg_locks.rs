@@ -28,7 +28,7 @@ const PGLOCKS_SUBSYSTEM: &str = "locks";
 #[derive(Debug, Clone)]
 pub struct PGLocksCollector {
     dbi: Arc<instance::PostgresDB>,
-    data: Arc<RwLock<LocksStat>>, // TODO: maybe RWMutex?
+    data: Arc<RwLock<LocksStat>>,
     descs: Vec<Desc>,
     access_share_lock: IntGauge,
     row_share_lock: IntGauge,
