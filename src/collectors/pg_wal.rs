@@ -1,10 +1,13 @@
 use std::sync::{Arc, RwLock};
 
+use anyhow::bail;
+use async_trait::async_trait;
 use bigdecimal::{BigDecimal, FromPrimitive};
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::proto;
+use prometheus::proto::MetricFamily;
 use prometheus::{Counter, IntCounter, IntGauge};
 
+use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V14};
 use crate::instance;
 
 const POSTGRES_WAL_QUERY96: &str =
@@ -240,5 +243,53 @@ impl PGWALCollector {
             seconds_total,
             stats_reset_time,
         }
+    }
+}
+
+impl Collector for PGWALCollector {
+    fn desc(&self) -> std::vec::Vec<&Desc> {
+        todo!()
+    }
+    fn collect(&self) -> std::vec::Vec<MetricFamily> {
+        todo!()
+    }
+}
+
+#[async_trait]
+impl PG for PGWALCollector {
+    async fn update(&self) -> Result<(), anyhow::Error> {
+        let maybe_pg_wal_stats = if self.dbi.cfg.pg_version < POSTGRES_V10 {
+            sqlx::query_as::<_, PGWALStats>(POSTGRES_WAL_QUERY96)
+                .fetch_optional(&self.dbi.db)
+                .await?
+        } else if self.dbi.cfg.pg_version < POSTGRES_V14 {
+            sqlx::query_as::<_, PGWALStats>(POSTGRES_WAL_QUERY13)
+                .fetch_optional(&self.dbi.db)
+                .await?
+        } else {
+            sqlx::query_as::<_, PGWALStats>(POSTGRES_WAL_QUERY_LATEST)
+                .fetch_optional(&self.dbi.db)
+                .await?
+        };
+
+        if let Some(pg_wal_stats) = maybe_pg_wal_stats {
+            let mut data_lock = match self.data.write() {
+                Ok(data_lock) => data_lock,
+                Err(e) => bail!("can't unwrap lock. {}", e)
+            };
+
+            data_lock.recovery = pg_wal_stats.recovery;
+            data_lock.reset_time = pg_wal_stats.reset_time;
+            data_lock.wal_buffers_full = pg_wal_stats.wal_buffers_full;
+            data_lock.wal_bytes = pg_wal_stats.wal_bytes;
+            data_lock.wal_fpi = pg_wal_stats.wal_fpi;
+            data_lock.wal_records = pg_wal_stats.wal_records;
+            data_lock.wal_sync = pg_wal_stats.wal_sync;
+            data_lock.wal_write = pg_wal_stats.wal_write;
+            data_lock.wal_write_time = pg_wal_stats.wal_write_time;
+            data_lock.wal_written = pg_wal_stats.wal_written;
+        }
+
+        Ok(())
     }
 }
