@@ -243,7 +243,7 @@ impl Collector for PGWALCollector {
     }
     fn collect(&self) -> std::vec::Vec<MetricFamily> {
         // collect MetricFamilies.
-        let mut mfs = Vec::with_capacity(1);
+        let mut mfs = Vec::new();
 
         let data_lock = self.data.read().expect("can't acuire lock");
 
