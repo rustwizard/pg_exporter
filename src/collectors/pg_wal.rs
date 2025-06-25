@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
-use prometheus::{Counter, IntCounter, IntGauge};
+use prometheus::{Counter, CounterVec, IntCounter, IntGauge};
 
 use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V14};
 use crate::instance;
@@ -71,7 +71,7 @@ pub struct PGWALCollector {
     write_total: IntCounter,
     sync_total: IntCounter,
     seconds_all_total: Counter,
-    seconds_total: Counter,
+    seconds_total: CounterVec,
     stats_reset_time: IntGauge,
 }
 
@@ -193,7 +193,7 @@ impl PGWALCollector {
         .unwrap();
         descs.extend(seconds_all_total.desc().into_iter().cloned());
 
-        let seconds_total = Counter::with_opts(
+        let seconds_total = CounterVec::new(
             Opts::new(
                 "seconds_total",
                 "Total amount of time spent processing WAL buffers by each operation (zero in case of standby), in seconds.",
@@ -201,6 +201,7 @@ impl PGWALCollector {
             .namespace(super::NAMESPACE)
             .subsystem("wal")
             .const_labels(dbi.labels.clone()),
+            &["op"],
         )
         .unwrap();
         descs.extend(seconds_total.desc().into_iter().cloned());
@@ -251,8 +252,9 @@ impl Collector for PGWALCollector {
         self.buffers_full_total.inc_by(data_lock.wal_buffers_full as u64);
         self.bytes_total.inc_by(data_lock.wal_bytes);
         self.fpi_total.inc_by(data_lock.wal_fpi as u64);
-        self.seconds_all_total.inc_by(data_lock.wal_write_time);
-        self.seconds_total.inc_by(data_lock.wal_sync_time);
+        self.seconds_all_total.inc_by(data_lock.wal_write_time + data_lock.wal_sync_time);
+        self.seconds_total.with_label_values(&["write"]).inc_by(data_lock.wal_write_time);
+        self.seconds_total.with_label_values(&["sync"]).inc_by(data_lock.wal_sync_time);
         self.stats_reset_time.set(data_lock.reset_time);
         self.sync_total.inc_by(data_lock.wal_sync as u64);
         self.write_total.inc_by(data_lock.wal_write as u64);
