@@ -689,7 +689,7 @@ impl Collector for PGActivityCollector {
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
         // collect MetricFamilies.
-        let mut mfs = Vec::new();
+        let mut mfs = Vec::with_capacity(9);
 
         let data_lock_result = self.data.read();
 
