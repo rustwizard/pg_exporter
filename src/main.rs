@@ -49,7 +49,7 @@ async fn main() -> std::io::Result<()> {
     };
 
     for (instance, config) in pge_config.instances {
-        println!("starting connection for instance: {:?}", instance);
+        println!("starting connection for instance: {instance}");
 
         let pgi = instance::new(
             config.dsn,
