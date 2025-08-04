@@ -12,7 +12,7 @@ use actix_web::{
 use config::Config;
 use prometheus::{Encoder, Registry};
 
-use crate::error::CustomError;
+use crate::error::MetricsError;
 
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
 struct PGEConfig {
@@ -104,7 +104,7 @@ async fn hello() -> impl Responder {
     HttpResponse::Ok().body("This is a pg_exporter for Prometheus written in Rust")
 }
 
-async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpResponse, CustomError> {
+async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpResponse, MetricsError> {
     println!(
         "processing the request from {:?}",
         req.headers()
