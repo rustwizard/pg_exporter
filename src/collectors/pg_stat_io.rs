@@ -146,6 +146,9 @@ impl Collector for PGStatIOCollector {
             .with_label_values(vals.as_slice())
             .set(data_lock.reads);
 
+
+        mfs.extend(self.reads.collect());
+
         mfs
     }
 }
@@ -170,6 +173,9 @@ impl PG for PGStatIOCollector {
             };
 
             data_lock.reads = pg_statio_stats.reads;
+            data_lock.backend_type = pg_statio_stats.backend_type;
+            data_lock.io_context = pg_statio_stats.io_context;
+            data_lock.io_object = pg_statio_stats.io_object;
             
         }
 
