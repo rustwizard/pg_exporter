@@ -27,3 +27,26 @@ const POSTGRES_STAT_IO_LATEST: &str = "SELECT backend_type, object, context, COA
 		COALESCE(fsyncs, 0) AS fsyncs, COALESCE(fsync_time, 0) AS fsync_time, 
 		COALESCE(read_bytes, 0) AS read_bytes, COALESCE(write_bytes, 0) AS write_bytes, COALESCE(extend_bytes, 0) AS extend_bytes 
 		FROM pg_stat_io";
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct PGStatIoStats {
+    backend_type: String, // a backend type like "autovacuum worker"
+    io_object: String,    // "relation" or "temp relation"
+    io_context: String,   // "normal", "vacuum", "bulkread" or "bulkwrite"
+    reads: i64,
+    read_time: f64,
+    writes: i64,
+    write_time: f64,
+    write_backs: i64,
+    writeback_time: f64,
+    extends: i64,
+    extend_time: f64,
+    hits: i64,
+    evictions: i64,
+    reuses: i64,
+    fsyncs: i64,
+    fsync_time: f64,
+    read_bytes: i64,
+    write_bytes: i64,
+    extend_bytes: i64,
+}
