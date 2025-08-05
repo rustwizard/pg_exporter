@@ -1,12 +1,11 @@
 mod collectors;
-mod instance;
 mod error;
+mod instance;
 
 use std::{collections::HashMap, sync::Arc};
 
 use actix_web::{
-    get, http::header::ContentType, web, App, HttpRequest, HttpResponse, HttpServer,
-    Responder,
+    App, HttpRequest, HttpResponse, HttpServer, Responder, get, http::header::ContentType, web,
 };
 
 use config::Config;
@@ -55,8 +54,10 @@ async fn main() -> std::io::Result<()> {
             config.dsn,
             config.exclude_db_names.clone(),
             config.const_labels.clone(),
-        ).await.unwrap();
-        
+        )
+        .await
+        .unwrap();
+
         let arc_pgi = Arc::new(pgi);
 
         let pc = collectors::pg_locks::new(arc_pgi.clone());
@@ -77,6 +78,12 @@ async fn main() -> std::io::Result<()> {
         let pgwalc = collectors::pg_wal::new(arc_pgi.clone());
         app.registry.register(Box::new(pgwalc.clone())).unwrap();
 
+        let pg_statio_c = collectors::pg_stat_io::new(arc_pgi.clone());
+        if pg_statio_c.is_some() {
+            let c = pg_statio_c.unwrap();
+            app.registry.register(Box::new(c.clone())).unwrap();
+            app.collectors.push(Box::new(c.clone()));
+        }
 
         app.collectors.push(Box::new(pc));
         app.collectors.push(Box::new(pc_pstm));
@@ -84,6 +91,7 @@ async fn main() -> std::io::Result<()> {
         app.collectors.push(Box::new(pca));
         app.collectors.push(Box::new(pbgwr));
         app.collectors.push(Box::new(pgwalc));
+        
 
         app.instances.push(arc_pgi);
     }
@@ -130,7 +138,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
     for task in tasks {
         task.await?;
     }
-    
+
     let process_metrics = prometheus::gather();
 
     let mut buffer = Vec::new();
@@ -148,7 +156,4 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
         .body(response);
 
     Ok(resp)
-
-
-
 }
