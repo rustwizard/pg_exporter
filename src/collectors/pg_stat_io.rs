@@ -29,7 +29,7 @@ const POSTGRES_STAT_IO_LATEST: &str = "SELECT backend_type, object, context, COA
 		FROM pg_stat_io";
 
 #[derive(sqlx::FromRow, Debug)]
-pub struct PGStatIoStats {
+pub struct PGStatIOStats {
     backend_type: String, // a backend type like "autovacuum worker"
     io_object: String,    // "relation" or "temp relation"
     io_context: String,   // "normal", "vacuum", "bulkread" or "bulkwrite"
@@ -49,4 +49,37 @@ pub struct PGStatIoStats {
     read_bytes: i64,
     write_bytes: i64,
     extend_bytes: i64,
+}
+
+impl PGStatIOStats {
+    fn new() -> Self {
+        PGStatIOStats {
+            backend_type: String::new(),
+            io_object: String::new(),
+            io_context: String::new(),
+            reads: 0,
+            read_time: 0.0,
+            writes: 0,
+            write_time: 0.0,
+            write_backs: 0,
+            writeback_time: 0.0,
+            extends: 0,
+            extend_time: 0.0,
+            hits: 0,
+            evictions: 0,
+            reuses: 0,
+            fsyncs: 0,
+            fsync_time: 0.0,
+            read_bytes: 0,
+            write_bytes: 0,
+            extend_bytes: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PGStatIOCollector {
+    dbi: Arc<instance::PostgresDB>,
+    data: Arc<RwLock<PGStatIOStats>>,
+    descs: Vec<Desc>,
 }
