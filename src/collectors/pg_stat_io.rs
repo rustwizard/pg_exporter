@@ -83,3 +83,40 @@ pub struct PGStatIOCollector {
     data: Arc<RwLock<PGStatIOStats>>,
     descs: Vec<Desc>,
 }
+
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGStatIOCollector {
+    PGStatIOCollector::new(dbi)
+}
+
+impl PGStatIOCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> PGStatIOCollector {
+        let mut descs = Vec::new();
+        let data = Arc::new(RwLock::new(PGStatIOStats::new()));
+
+        PGStatIOCollector{
+            dbi,
+            data,
+            descs
+        }
+
+    }
+}
+
+impl Collector for PGStatIOCollector {
+    fn desc(&self) -> std::vec::Vec<&Desc> {
+       self.descs.iter().collect()
+    }
+    fn collect(&self) -> std::vec::Vec<MetricFamily> {
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(16);
+
+        mfs
+    }
+}
+
+#[async_trait]
+impl PG for PGStatIOCollector {
+    async fn update(&self) -> Result<(), anyhow::Error> {
+        todo!()
+    }
+}
