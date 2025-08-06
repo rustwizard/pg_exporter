@@ -666,7 +666,7 @@ impl PG for PGActivityCollector {
                         total += v
                     }
                 } else {
-                    println!("create state '{:?}' activity failed: insufficient number of fields in key '{:?}'; skip", tag, k);
+                    println!("create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip");
                 }
             }
         }
