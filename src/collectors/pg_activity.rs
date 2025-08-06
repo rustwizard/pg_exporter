@@ -666,7 +666,7 @@ impl PG for PGActivityCollector {
                         total += v
                     }
                 } else {
-                    println!("create state '{:?}' activity failed: insufficient number of fields in key '{:?}'; skip", tag, k);
+                    println!("create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip");
                 }
             }
         }
@@ -723,7 +723,7 @@ impl Collector for PGActivityCollector {
                         total += v
                     }
                 } else {
-                    println!("create state '{:?}' activity failed: insufficient number of fields in key '{:?}'; skip", tag, k);
+                    println!("create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip");
                 }
             }
         }
@@ -746,7 +746,7 @@ impl Collector for PGActivityCollector {
                         .with_label_values(&[names[0], names[1], ff[0], ff[1]])
                         .set(*v);
                 } else {
-                    println!("create state '{:?}' activity failed: insufficient number of fields in key '{:?}'; skip", tag, k);
+                    println!("create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip");
                 }
             }
         }
@@ -759,10 +759,7 @@ impl Collector for PGActivityCollector {
                     .with_label_values(&[labels[0], labels[1]])
                     .set(*v)
             } else {
-                println!(
-                    "create wait_event activity failed: invalid input '{:?}'; skip",
-                    k
-                );
+                println!("create wait_event activity failed: invalid input '{k}'; skip");
             }
         }
 
