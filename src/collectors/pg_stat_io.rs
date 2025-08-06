@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
-use prometheus::{Counter, CounterVec, IntCounter, IntGauge, IntGaugeVec};
+use prometheus::{IntGaugeVec};
 
 use crate::collectors::{PG, POSTGRES_V16, POSTGRES_V18};
 use crate::instance;
