@@ -172,6 +172,7 @@ impl PG for PGStatIOCollector {
 
         // TODO: rethink how we colect and update our metrics. There is something wrong!!!
         for statio in pg_statio_stats_rows {
+            println!("backend_type: {}, io_context: {}, io_object: {}, reads: {}", statio.backend_type, statio.io_context, statio.io_object, statio.reads);
             data_lock.backend_type = statio.backend_type;
             data_lock.io_context = statio.io_context;
             data_lock.io_object = statio.io_object;
