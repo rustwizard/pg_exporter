@@ -759,10 +759,7 @@ impl Collector for PGActivityCollector {
                     .with_label_values(&[labels[0], labels[1]])
                     .set(*v)
             } else {
-                println!(
-                    "create wait_event activity failed: invalid input '{:?}'; skip",
-                    k
-                );
+                println!("create wait_event activity failed: invalid input '{k}'; skip");
             }
         }
 
