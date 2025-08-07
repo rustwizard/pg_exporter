@@ -90,7 +90,8 @@ pub struct PGStatIOCollector {
     writes: IntGaugeVec,
     write_time: GaugeVec,
     write_backs: IntGaugeVec,
-    writeback_time: GaugeVec
+    writeback_time: GaugeVec,
+    extends: IntGaugeVec
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -187,6 +188,19 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(writeback_time.desc().into_iter().cloned());
 
+        let extends = IntGaugeVec::new(
+            Opts::new(
+                "extends",
+                "Number of relation extend operations, each of the size specified in op_bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(extends.desc().into_iter().cloned());
+
         PGStatIOCollector {
             dbi,
             data,
@@ -196,7 +210,8 @@ impl PGStatIOCollector {
             writes,
             write_time,
             write_backs,
-            writeback_time
+            writeback_time,
+            extends
         }
     }
 }
@@ -224,6 +239,7 @@ impl Collector for PGStatIOCollector {
             self.write_time.with_label_values(vals.as_slice()).set(row.write_time);
             self.write_backs.with_label_values(vals.as_slice()).set(row.write_backs);
             self.writeback_time.with_label_values(vals.as_slice()).set(row.writeback_time);
+            self.extends.with_label_values(vals.as_slice()).set(row.extends);
 
         }
 
@@ -233,6 +249,7 @@ impl Collector for PGStatIOCollector {
         mfs.extend(self.write_time.collect());
         mfs.extend(self.write_backs.collect());
         mfs.extend(self.writeback_time.collect());
+        mfs.extend(self.extends.collect());
 
 
         mfs
