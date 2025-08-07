@@ -89,7 +89,8 @@ pub struct PGStatIOCollector {
     read_time: GaugeVec,
     writes: IntGaugeVec,
     write_time: GaugeVec,
-    write_backs: IntGaugeVec
+    write_backs: IntGaugeVec,
+    writeback_time: GaugeVec
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -150,7 +151,7 @@ impl PGStatIOCollector {
         let write_time = GaugeVec::new(
             Opts::new(
                 "write_time",
-                "Time spent in write operations in milliseconds (if track_io_timing is enabled, otherwise zero)",
+                "Time spent in write operations in milliseconds (if track_io_timing is enabled, otherwise zero).",
             )
             .namespace(super::NAMESPACE)
             .subsystem("stat_io")
@@ -173,6 +174,19 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(write_backs.desc().into_iter().cloned());
 
+        let writeback_time = GaugeVec::new(
+            Opts::new(
+                "writeback_time",
+                "Time spent in writeback operations in milliseconds (if track_io_timing is enabled, otherwise zero).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(writeback_time.desc().into_iter().cloned());
+
         PGStatIOCollector {
             dbi,
             data,
@@ -181,7 +195,8 @@ impl PGStatIOCollector {
             read_time,
             writes,
             write_time,
-            write_backs
+            write_backs,
+            writeback_time
         }
     }
 }
@@ -208,6 +223,7 @@ impl Collector for PGStatIOCollector {
             self.writes.with_label_values(vals.as_slice()).set(row.writes);
             self.write_time.with_label_values(vals.as_slice()).set(row.write_time);
             self.write_backs.with_label_values(vals.as_slice()).set(row.write_backs);
+            self.writeback_time.with_label_values(vals.as_slice()).set(row.writeback_time);
 
         }
 
@@ -216,6 +232,7 @@ impl Collector for PGStatIOCollector {
         mfs.extend(self.writes.collect());
         mfs.extend(self.write_time.collect());
         mfs.extend(self.write_backs.collect());
+        mfs.extend(self.writeback_time.collect());
 
 
         mfs
