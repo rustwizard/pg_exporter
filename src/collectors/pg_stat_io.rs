@@ -87,6 +87,7 @@ pub struct PGStatIOCollector {
     descs: Vec<Desc>,
     reads: IntGaugeVec,
     read_time: GaugeVec,
+    writes: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -131,12 +132,26 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(read_time.desc().into_iter().cloned());
 
+         let writes = IntGaugeVec::new(
+            Opts::new(
+                "writes",
+                "Number of write operations, each of the size specified in op_bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(writes.desc().into_iter().cloned());
+
         PGStatIOCollector {
             dbi,
             data,
             descs,
             reads,
             read_time,
+            writes
         }
     }
 }
@@ -160,11 +175,13 @@ impl Collector for PGStatIOCollector {
 
             self.reads.with_label_values(vals.as_slice()).set(row.reads);
             self.read_time.with_label_values(vals.as_slice()).set(row.read_time);
+            self.writes.with_label_values(vals.as_slice()).set(row.writes);
 
         }
 
         mfs.extend(self.reads.collect());
         mfs.extend(self.read_time.collect());
+        mfs.extend(self.writes.collect());
 
 
         mfs
