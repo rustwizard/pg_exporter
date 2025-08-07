@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
-use prometheus::{IntGaugeVec};
+use prometheus::{GaugeVec, IntGaugeVec};
 
 use crate::collectors::{PG, POSTGRES_V16, POSTGRES_V18};
 use crate::instance;
@@ -83,9 +83,16 @@ impl PGStatIOStats {
 #[derive(Debug, Clone)]
 pub struct PGStatIOCollector {
     dbi: Arc<instance::PostgresDB>,
-    data: Arc<RwLock<PGStatIOStats>>,
+    data: Arc<RwLock<Vec<PGStatIOStats>>>,
     descs: Vec<Desc>,
     reads: IntGaugeVec,
+    read_time: GaugeVec,
+    writes: IntGaugeVec,
+    write_time: GaugeVec,
+    write_backs: IntGaugeVec,
+    writeback_time: GaugeVec,
+    extends: IntGaugeVec,
+    extend_time: GaugeVec
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -100,7 +107,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
 impl PGStatIOCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> PGStatIOCollector {
         let mut descs = Vec::new();
-        let data = Arc::new(RwLock::new(PGStatIOStats::new()));
+        let data = Arc::new(RwLock::new(vec![PGStatIOStats::new()]));
 
         let var_labels = vec!["backend_type", "object", "context"];
 
@@ -117,11 +124,109 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(reads.desc().into_iter().cloned());
 
+        let read_time = GaugeVec::new(
+            Opts::new(
+                "read_time",
+                "Time spent in read operations in milliseconds (if track_io_timing is enabled, otherwise zero)",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(read_time.desc().into_iter().cloned());
+
+        let writes = IntGaugeVec::new(
+            Opts::new(
+                "writes",
+                "Number of write operations, each of the size specified in op_bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(writes.desc().into_iter().cloned());
+
+        let write_time = GaugeVec::new(
+            Opts::new(
+                "write_time",
+                "Time spent in write operations in milliseconds (if track_io_timing is enabled, otherwise zero).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(write_time.desc().into_iter().cloned());
+
+        let write_backs = IntGaugeVec::new(
+            Opts::new(
+                "writebacks",
+                "Number of units of size op_bytes which the process requested the kernel write out to permanent storage.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(write_backs.desc().into_iter().cloned());
+
+        let writeback_time = GaugeVec::new(
+            Opts::new(
+                "writeback_time",
+                "Time spent in writeback operations in milliseconds (if track_io_timing is enabled, otherwise zero).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(writeback_time.desc().into_iter().cloned());
+
+        let extends = IntGaugeVec::new(
+            Opts::new(
+                "extends",
+                "Number of relation extend operations, each of the size specified in op_bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(extends.desc().into_iter().cloned());
+
+        let extend_time = GaugeVec::new(
+            Opts::new(
+                "extend_time",
+                "Time spent in extend operations in milliseconds (if track_io_timing is enabled, otherwise zero)",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(extend_time.desc().into_iter().cloned());
+
         PGStatIOCollector {
             dbi,
             data,
             descs,
             reads,
+            read_time,
+            writes,
+            write_time,
+            write_backs,
+            writeback_time,
+            extends,
+            extend_time
         }
     }
 }
@@ -136,17 +241,33 @@ impl Collector for PGStatIOCollector {
 
         let data_lock = self.data.read().expect("can't acuire lock");
 
-        let vals = vec![
-            data_lock.backend_type.as_str(),
-            data_lock.io_object.as_str(),
-            data_lock.io_context.as_str(),
-        ];
+        for row in data_lock.iter() {
+            let vals = vec![
+                row.backend_type.as_str(),
+                row.io_object.as_str(),
+                row.io_context.as_str(),
+            ];
 
-        self.reads
-            .with_label_values(vals.as_slice())
-            .set(data_lock.reads);
+            self.reads.with_label_values(vals.as_slice()).set(row.reads);
+            self.read_time.with_label_values(vals.as_slice()).set(row.read_time);
+            self.writes.with_label_values(vals.as_slice()).set(row.writes);
+            self.write_time.with_label_values(vals.as_slice()).set(row.write_time);
+            self.write_backs.with_label_values(vals.as_slice()).set(row.write_backs);
+            self.writeback_time.with_label_values(vals.as_slice()).set(row.writeback_time);
+            self.extends.with_label_values(vals.as_slice()).set(row.extends);
+            self.extend_time.with_label_values(vals.as_slice()).set(row.extend_time);
+
+        }
 
         mfs.extend(self.reads.collect());
+        mfs.extend(self.read_time.collect());
+        mfs.extend(self.writes.collect());
+        mfs.extend(self.write_time.collect());
+        mfs.extend(self.write_backs.collect());
+        mfs.extend(self.writeback_time.collect());
+        mfs.extend(self.extends.collect());
+        mfs.extend(self.extend_time.collect());
+
 
         mfs
     }
@@ -155,7 +276,7 @@ impl Collector for PGStatIOCollector {
 #[async_trait]
 impl PG for PGStatIOCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let pg_statio_stats_rows = if self.dbi.cfg.pg_version < POSTGRES_V18 {
+        let mut pg_statio_stats_rows = if self.dbi.cfg.pg_version < POSTGRES_V18 {
             sqlx::query_as::<_, PGStatIOStats>(POSTGRES_STAT_IO_QUERY17)
                 .fetch_all(&self.dbi.db)
                 .await?
@@ -170,14 +291,9 @@ impl PG for PGStatIOCollector {
             Err(e) => bail!("can't unwrap lock. {}", e),
         };
 
-        // TODO: rethink how we colect and update our metrics. There is something wrong!!!
-        for statio in pg_statio_stats_rows {
-            println!("backend_type: {}, io_context: {}, io_object: {}, reads: {}", statio.backend_type, statio.io_context, statio.io_object, statio.reads);
-            data_lock.backend_type = statio.backend_type;
-            data_lock.io_context = statio.io_context;
-            data_lock.io_object = statio.io_object;
-            data_lock.reads = statio.reads;
-        }
+        data_lock.clear();
+
+        data_lock.append(&mut pg_statio_stats_rows);
 
         Ok(())
     }
