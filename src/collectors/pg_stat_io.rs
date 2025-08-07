@@ -92,7 +92,8 @@ pub struct PGStatIOCollector {
     write_backs: IntGaugeVec,
     writeback_time: GaugeVec,
     extends: IntGaugeVec,
-    extend_time: GaugeVec
+    extend_time: GaugeVec,
+    hits: IntGaugeVec
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -215,6 +216,19 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(extend_time.desc().into_iter().cloned());
 
+        let hits = IntGaugeVec::new(
+            Opts::new(
+                "hits",
+                "The number of times a desired block was found in a shared buffer.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(hits.desc().into_iter().cloned());
+
         PGStatIOCollector {
             dbi,
             data,
@@ -226,7 +240,8 @@ impl PGStatIOCollector {
             write_backs,
             writeback_time,
             extends,
-            extend_time
+            extend_time,
+            hits
         }
     }
 }
@@ -256,6 +271,7 @@ impl Collector for PGStatIOCollector {
             self.writeback_time.with_label_values(vals.as_slice()).set(row.writeback_time);
             self.extends.with_label_values(vals.as_slice()).set(row.extends);
             self.extend_time.with_label_values(vals.as_slice()).set(row.extend_time);
+            self.hits.with_label_values(vals.as_slice()).set(row.hits);
 
         }
 
@@ -267,6 +283,7 @@ impl Collector for PGStatIOCollector {
         mfs.extend(self.writeback_time.collect());
         mfs.extend(self.extends.collect());
         mfs.extend(self.extend_time.collect());
+        mfs.extend(self.hits.collect());
 
 
         mfs
