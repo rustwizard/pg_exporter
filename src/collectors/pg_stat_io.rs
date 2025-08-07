@@ -91,7 +91,8 @@ pub struct PGStatIOCollector {
     write_time: GaugeVec,
     write_backs: IntGaugeVec,
     writeback_time: GaugeVec,
-    extends: IntGaugeVec
+    extends: IntGaugeVec,
+    extend_time: GaugeVec
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -201,6 +202,19 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(extends.desc().into_iter().cloned());
 
+        let extend_time = GaugeVec::new(
+            Opts::new(
+                "extend_time",
+                "Time spent in extend operations in milliseconds (if track_io_timing is enabled, otherwise zero)",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(extend_time.desc().into_iter().cloned());
+
         PGStatIOCollector {
             dbi,
             data,
@@ -211,7 +225,8 @@ impl PGStatIOCollector {
             write_time,
             write_backs,
             writeback_time,
-            extends
+            extends,
+            extend_time
         }
     }
 }
@@ -240,6 +255,7 @@ impl Collector for PGStatIOCollector {
             self.write_backs.with_label_values(vals.as_slice()).set(row.write_backs);
             self.writeback_time.with_label_values(vals.as_slice()).set(row.writeback_time);
             self.extends.with_label_values(vals.as_slice()).set(row.extends);
+            self.extend_time.with_label_values(vals.as_slice()).set(row.extend_time);
 
         }
 
@@ -250,6 +266,7 @@ impl Collector for PGStatIOCollector {
         mfs.extend(self.write_backs.collect());
         mfs.extend(self.writeback_time.collect());
         mfs.extend(self.extends.collect());
+        mfs.extend(self.extend_time.collect());
 
 
         mfs
