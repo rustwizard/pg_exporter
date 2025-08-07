@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
-use prometheus::{IntGaugeVec};
+use prometheus::{GaugeVec, IntGaugeVec};
 
 use crate::collectors::{PG, POSTGRES_V16, POSTGRES_V18};
 use crate::instance;
@@ -86,6 +86,7 @@ pub struct PGStatIOCollector {
     data: Arc<RwLock<Vec<PGStatIOStats>>>,
     descs: Vec<Desc>,
     reads: IntGaugeVec,
+    read_time: GaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -117,11 +118,25 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(reads.desc().into_iter().cloned());
 
+        let read_time = GaugeVec::new(
+            Opts::new(
+                "read_time",
+                "Time spent in read operations in milliseconds (if track_io_timing is enabled, otherwise zero)",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(read_time.desc().into_iter().cloned());
+
         PGStatIOCollector {
             dbi,
             data,
             descs,
             reads,
+            read_time,
         }
     }
 }
@@ -143,13 +158,14 @@ impl Collector for PGStatIOCollector {
                 row.io_context.as_str(),
             ];
 
-            
-        self.reads
-            .with_label_values(vals.as_slice())
-            .set(row.reads);
+            self.reads.with_label_values(vals.as_slice()).set(row.reads);
+            self.read_time.with_label_values(vals.as_slice()).set(row.read_time);
+
         }
 
         mfs.extend(self.reads.collect());
+        mfs.extend(self.read_time.collect());
+
 
         mfs
     }
