@@ -83,7 +83,7 @@ impl PGStatIOStats {
 #[derive(Debug, Clone)]
 pub struct PGStatIOCollector {
     dbi: Arc<instance::PostgresDB>,
-    data: Arc<RwLock<PGStatIOStats>>,
+    data: Arc<RwLock<Vec<PGStatIOStats>>>,
     descs: Vec<Desc>,
     reads: IntGaugeVec,
 }
@@ -100,7 +100,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
 impl PGStatIOCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> PGStatIOCollector {
         let mut descs = Vec::new();
-        let data = Arc::new(RwLock::new(PGStatIOStats::new()));
+        let data = Arc::new(RwLock::new(vec![PGStatIOStats::new()]));
 
         let var_labels = vec!["backend_type", "object", "context"];
 
@@ -136,15 +136,18 @@ impl Collector for PGStatIOCollector {
 
         let data_lock = self.data.read().expect("can't acuire lock");
 
-        let vals = vec![
-            data_lock.backend_type.as_str(),
-            data_lock.io_object.as_str(),
-            data_lock.io_context.as_str(),
-        ];
+        for row in data_lock.iter() {
+            let vals = vec![
+                row.backend_type.as_str(),
+                row.io_object.as_str(),
+                row.io_context.as_str(),
+            ];
 
+            
         self.reads
             .with_label_values(vals.as_slice())
-            .set(data_lock.reads);
+            .set(row.reads);
+        }
 
         mfs.extend(self.reads.collect());
 
@@ -155,7 +158,7 @@ impl Collector for PGStatIOCollector {
 #[async_trait]
 impl PG for PGStatIOCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let pg_statio_stats_rows = if self.dbi.cfg.pg_version < POSTGRES_V18 {
+        let mut pg_statio_stats_rows = if self.dbi.cfg.pg_version < POSTGRES_V18 {
             sqlx::query_as::<_, PGStatIOStats>(POSTGRES_STAT_IO_QUERY17)
                 .fetch_all(&self.dbi.db)
                 .await?
@@ -170,14 +173,9 @@ impl PG for PGStatIOCollector {
             Err(e) => bail!("can't unwrap lock. {}", e),
         };
 
-        // TODO: rethink how we colect and update our metrics. There is something wrong!!!
-        for statio in pg_statio_stats_rows {
-            println!("backend_type: {}, io_context: {}, io_object: {}, reads: {}", statio.backend_type, statio.io_context, statio.io_object, statio.reads);
-            data_lock.backend_type = statio.backend_type;
-            data_lock.io_context = statio.io_context;
-            data_lock.io_object = statio.io_object;
-            data_lock.reads = statio.reads;
-        }
+        data_lock.clear();
+
+        data_lock.append(&mut pg_statio_stats_rows);
 
         Ok(())
     }
