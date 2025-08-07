@@ -89,6 +89,7 @@ pub struct PGStatIOCollector {
     read_time: GaugeVec,
     writes: IntGaugeVec,
     write_time: GaugeVec,
+    write_backs: IntGaugeVec
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -133,7 +134,7 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(read_time.desc().into_iter().cloned());
 
-         let writes = IntGaugeVec::new(
+        let writes = IntGaugeVec::new(
             Opts::new(
                 "writes",
                 "Number of write operations, each of the size specified in op_bytes.",
@@ -159,6 +160,19 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(write_time.desc().into_iter().cloned());
 
+        let write_backs = IntGaugeVec::new(
+            Opts::new(
+                "writebacks",
+                "Number of units of size op_bytes which the process requested the kernel write out to permanent storage.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(write_backs.desc().into_iter().cloned());
+
         PGStatIOCollector {
             dbi,
             data,
@@ -166,7 +180,8 @@ impl PGStatIOCollector {
             reads,
             read_time,
             writes,
-            write_time
+            write_time,
+            write_backs
         }
     }
 }
@@ -192,6 +207,7 @@ impl Collector for PGStatIOCollector {
             self.read_time.with_label_values(vals.as_slice()).set(row.read_time);
             self.writes.with_label_values(vals.as_slice()).set(row.writes);
             self.write_time.with_label_values(vals.as_slice()).set(row.write_time);
+            self.write_backs.with_label_values(vals.as_slice()).set(row.write_backs);
 
         }
 
@@ -199,6 +215,7 @@ impl Collector for PGStatIOCollector {
         mfs.extend(self.read_time.collect());
         mfs.extend(self.writes.collect());
         mfs.extend(self.write_time.collect());
+        mfs.extend(self.write_backs.collect());
 
 
         mfs
