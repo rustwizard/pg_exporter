@@ -96,7 +96,8 @@ pub struct PGStatIOCollector {
     hits: IntGaugeVec,
     evictions: IntGaugeVec,
     reuses: IntGaugeVec,
-    fsyncs: IntGaugeVec
+    fsyncs: IntGaugeVec,
+    fsync_time: GaugeVec
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -271,6 +272,20 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(fsyncs.desc().into_iter().cloned());
 
+        let fsync_time = GaugeVec::new(
+            Opts::new(
+                "fsync_time",
+                "Time spent in fsync operations in milliseconds (if track_io_timing is enabled, otherwise zero)",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(fsync_time.desc().into_iter().cloned());
+
+
         PGStatIOCollector {
             dbi,
             data,
@@ -286,7 +301,8 @@ impl PGStatIOCollector {
             hits,
             evictions,
             reuses,
-            fsyncs
+            fsyncs,
+            fsync_time
         }
     }
 }
@@ -320,6 +336,7 @@ impl Collector for PGStatIOCollector {
             self.evictions.with_label_values(vals.as_slice()).set(row.evictions);
             self.reuses.with_label_values(vals.as_slice()).set(row.reuses);
             self.fsyncs.with_label_values(vals.as_slice()).set(row.fsyncs);
+            self.fsync_time.with_label_values(vals.as_slice()).set(row.fsync_time);
 
         }
 
@@ -335,6 +352,7 @@ impl Collector for PGStatIOCollector {
         mfs.extend(self.evictions.collect());
         mfs.extend(self.reuses.collect());
         mfs.extend(self.fsyncs.collect());
+        mfs.extend(self.fsync_time.collect());
 
 
         mfs
