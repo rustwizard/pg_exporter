@@ -100,6 +100,7 @@ pub struct PGStatIOCollector {
     fsync_time: GaugeVec,
     read_bytes: IntGaugeVec,
     write_bytes: IntGaugeVec,
+    extend_bytes: IntGaugeVec
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -313,6 +314,19 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(write_bytes.desc().into_iter().cloned());
 
+        let extend_bytes = IntGaugeVec::new(
+            Opts::new(
+                "extend_bytes",
+                "Number of relation extend, in bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(extend_bytes.desc().into_iter().cloned());
+
 
         PGStatIOCollector {
             dbi,
@@ -332,7 +346,8 @@ impl PGStatIOCollector {
             fsyncs,
             fsync_time,
             read_bytes,
-            write_bytes
+            write_bytes,
+            extend_bytes
         }
     }
 }
@@ -369,6 +384,7 @@ impl Collector for PGStatIOCollector {
             self.fsync_time.with_label_values(vals.as_slice()).set(row.fsync_time);
             self.read_bytes.with_label_values(vals.as_slice()).set(row.read_bytes);
             self.write_bytes.with_label_values(vals.as_slice()).set(row.write_bytes);
+            self.extend_bytes.with_label_values(vals.as_slice()).set(row.extend_bytes);
 
         }
 
@@ -387,6 +403,7 @@ impl Collector for PGStatIOCollector {
         mfs.extend(self.fsync_time.collect());
         mfs.extend(self.read_bytes.collect());
         mfs.extend(self.write_bytes.collect());
+        mfs.extend(self.extend_bytes.collect());
 
 
         mfs
