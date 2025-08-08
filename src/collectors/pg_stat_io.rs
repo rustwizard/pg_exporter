@@ -97,7 +97,8 @@ pub struct PGStatIOCollector {
     evictions: IntGaugeVec,
     reuses: IntGaugeVec,
     fsyncs: IntGaugeVec,
-    fsync_time: GaugeVec
+    fsync_time: GaugeVec,
+    read_bytes: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -285,6 +286,19 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(fsync_time.desc().into_iter().cloned());
 
+        let read_bytes = IntGaugeVec::new(
+            Opts::new(
+                "read_bytes",
+                "Number of read, in bytes",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(read_bytes.desc().into_iter().cloned());
+
 
         PGStatIOCollector {
             dbi,
@@ -302,7 +316,8 @@ impl PGStatIOCollector {
             evictions,
             reuses,
             fsyncs,
-            fsync_time
+            fsync_time,
+            read_bytes
         }
     }
 }
@@ -337,6 +352,7 @@ impl Collector for PGStatIOCollector {
             self.reuses.with_label_values(vals.as_slice()).set(row.reuses);
             self.fsyncs.with_label_values(vals.as_slice()).set(row.fsyncs);
             self.fsync_time.with_label_values(vals.as_slice()).set(row.fsync_time);
+            self.read_bytes.with_label_values(vals.as_slice()).set(row.read_bytes);
 
         }
 
@@ -353,6 +369,7 @@ impl Collector for PGStatIOCollector {
         mfs.extend(self.reuses.collect());
         mfs.extend(self.fsyncs.collect());
         mfs.extend(self.fsync_time.collect());
+        mfs.extend(self.read_bytes.collect());
 
 
         mfs
