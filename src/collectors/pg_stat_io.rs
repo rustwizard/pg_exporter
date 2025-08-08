@@ -261,7 +261,7 @@ impl PGStatIOCollector {
         let fsyncs = IntGaugeVec::new(
             Opts::new(
                 "fsyncs",
-                "The number of times an existing buffer in a size-limited ring buffer outside of shared buffers was reused as part of an I/O operation in the bulkread, bulkwrite, or vacuum contexts.",
+                "Number of fsync calls. These are only tracked in context normal.",
             )
             .namespace(super::NAMESPACE)
             .subsystem("stat_io")
