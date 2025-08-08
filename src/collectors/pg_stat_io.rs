@@ -93,7 +93,8 @@ pub struct PGStatIOCollector {
     writeback_time: GaugeVec,
     extends: IntGaugeVec,
     extend_time: GaugeVec,
-    hits: IntGaugeVec
+    hits: IntGaugeVec,
+    evictions: IntGaugeVec
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -229,6 +230,19 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(hits.desc().into_iter().cloned());
 
+        let evictions = IntGaugeVec::new(
+            Opts::new(
+                "evictions",
+                "Number of times a block has been written out from a shared or local buffer in order to make it available for another use.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(evictions.desc().into_iter().cloned());
+
         PGStatIOCollector {
             dbi,
             data,
@@ -241,7 +255,8 @@ impl PGStatIOCollector {
             writeback_time,
             extends,
             extend_time,
-            hits
+            hits,
+            evictions
         }
     }
 }
@@ -272,6 +287,7 @@ impl Collector for PGStatIOCollector {
             self.extends.with_label_values(vals.as_slice()).set(row.extends);
             self.extend_time.with_label_values(vals.as_slice()).set(row.extend_time);
             self.hits.with_label_values(vals.as_slice()).set(row.hits);
+            self.evictions.with_label_values(vals.as_slice()).set(row.evictions);
 
         }
 
@@ -284,6 +300,7 @@ impl Collector for PGStatIOCollector {
         mfs.extend(self.extends.collect());
         mfs.extend(self.extend_time.collect());
         mfs.extend(self.hits.collect());
+        mfs.extend(self.evictions.collect());
 
 
         mfs
