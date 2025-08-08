@@ -92,7 +92,15 @@ pub struct PGStatIOCollector {
     write_backs: IntGaugeVec,
     writeback_time: GaugeVec,
     extends: IntGaugeVec,
-    extend_time: GaugeVec
+    extend_time: GaugeVec,
+    hits: IntGaugeVec,
+    evictions: IntGaugeVec,
+    reuses: IntGaugeVec,
+    fsyncs: IntGaugeVec,
+    fsync_time: GaugeVec,
+    read_bytes: IntGaugeVec,
+    write_bytes: IntGaugeVec,
+    extend_bytes: IntGaugeVec
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -215,6 +223,111 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(extend_time.desc().into_iter().cloned());
 
+        let hits = IntGaugeVec::new(
+            Opts::new(
+                "hits",
+                "The number of times a desired block was found in a shared buffer.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(hits.desc().into_iter().cloned());
+
+        let evictions = IntGaugeVec::new(
+            Opts::new(
+                "evictions",
+                "Number of times a block has been written out from a shared or local buffer in order to make it available for another use.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(evictions.desc().into_iter().cloned());
+
+        let reuses = IntGaugeVec::new(
+            Opts::new(
+                "reuses",
+                "The number of times an existing buffer in a size-limited ring buffer outside of shared buffers was reused as part of an I/O operation in the bulkread, bulkwrite, or vacuum contexts.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(reuses.desc().into_iter().cloned());
+
+        let fsyncs = IntGaugeVec::new(
+            Opts::new(
+                "fsyncs",
+                "Number of fsync calls. These are only tracked in context normal.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(fsyncs.desc().into_iter().cloned());
+
+        let fsync_time = GaugeVec::new(
+            Opts::new(
+                "fsync_time",
+                "Time spent in fsync operations in milliseconds (if track_io_timing is enabled, otherwise zero)",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(fsync_time.desc().into_iter().cloned());
+
+        let read_bytes = IntGaugeVec::new(
+            Opts::new(
+                "read_bytes",
+                "Number of read, in bytes",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(read_bytes.desc().into_iter().cloned());
+
+        let write_bytes = IntGaugeVec::new(
+            Opts::new(
+                "write_bytes",
+                "Number of write, in bytes",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(write_bytes.desc().into_iter().cloned());
+
+        let extend_bytes = IntGaugeVec::new(
+            Opts::new(
+                "extend_bytes",
+                "Number of relation extend, in bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(extend_bytes.desc().into_iter().cloned());
+
+
         PGStatIOCollector {
             dbi,
             data,
@@ -226,7 +339,15 @@ impl PGStatIOCollector {
             write_backs,
             writeback_time,
             extends,
-            extend_time
+            extend_time,
+            hits,
+            evictions,
+            reuses,
+            fsyncs,
+            fsync_time,
+            read_bytes,
+            write_bytes,
+            extend_bytes
         }
     }
 }
@@ -256,6 +377,14 @@ impl Collector for PGStatIOCollector {
             self.writeback_time.with_label_values(vals.as_slice()).set(row.writeback_time);
             self.extends.with_label_values(vals.as_slice()).set(row.extends);
             self.extend_time.with_label_values(vals.as_slice()).set(row.extend_time);
+            self.hits.with_label_values(vals.as_slice()).set(row.hits);
+            self.evictions.with_label_values(vals.as_slice()).set(row.evictions);
+            self.reuses.with_label_values(vals.as_slice()).set(row.reuses);
+            self.fsyncs.with_label_values(vals.as_slice()).set(row.fsyncs);
+            self.fsync_time.with_label_values(vals.as_slice()).set(row.fsync_time);
+            self.read_bytes.with_label_values(vals.as_slice()).set(row.read_bytes);
+            self.write_bytes.with_label_values(vals.as_slice()).set(row.write_bytes);
+            self.extend_bytes.with_label_values(vals.as_slice()).set(row.extend_bytes);
 
         }
 
@@ -267,6 +396,14 @@ impl Collector for PGStatIOCollector {
         mfs.extend(self.writeback_time.collect());
         mfs.extend(self.extends.collect());
         mfs.extend(self.extend_time.collect());
+        mfs.extend(self.hits.collect());
+        mfs.extend(self.evictions.collect());
+        mfs.extend(self.reuses.collect());
+        mfs.extend(self.fsyncs.collect());
+        mfs.extend(self.fsync_time.collect());
+        mfs.extend(self.read_bytes.collect());
+        mfs.extend(self.write_bytes.collect());
+        mfs.extend(self.extend_bytes.collect());
 
 
         mfs
