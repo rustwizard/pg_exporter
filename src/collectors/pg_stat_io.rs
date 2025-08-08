@@ -94,7 +94,8 @@ pub struct PGStatIOCollector {
     extends: IntGaugeVec,
     extend_time: GaugeVec,
     hits: IntGaugeVec,
-    evictions: IntGaugeVec
+    evictions: IntGaugeVec,
+    reuses: IntGaugeVec
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -243,6 +244,19 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(evictions.desc().into_iter().cloned());
 
+        let reuses = IntGaugeVec::new(
+            Opts::new(
+                "reuses",
+                "The number of times an existing buffer in a size-limited ring buffer outside of shared buffers was reused as part of an I/O operation in the bulkread, bulkwrite, or vacuum contexts.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("stat_io")
+            .const_labels(dbi.labels.clone()),
+            &var_labels,
+        )
+        .unwrap();
+        descs.extend(reuses.desc().into_iter().cloned());
+
         PGStatIOCollector {
             dbi,
             data,
@@ -256,7 +270,8 @@ impl PGStatIOCollector {
             extends,
             extend_time,
             hits,
-            evictions
+            evictions,
+            reuses
         }
     }
 }
@@ -288,6 +303,7 @@ impl Collector for PGStatIOCollector {
             self.extend_time.with_label_values(vals.as_slice()).set(row.extend_time);
             self.hits.with_label_values(vals.as_slice()).set(row.hits);
             self.evictions.with_label_values(vals.as_slice()).set(row.evictions);
+            self.reuses.with_label_values(vals.as_slice()).set(row.reuses);
 
         }
 
@@ -301,6 +317,7 @@ impl Collector for PGStatIOCollector {
         mfs.extend(self.extend_time.collect());
         mfs.extend(self.hits.collect());
         mfs.extend(self.evictions.collect());
+        mfs.extend(self.reuses.collect());
 
 
         mfs
