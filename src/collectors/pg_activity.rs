@@ -191,10 +191,8 @@ impl PGActivityStats {
             }
         } else {
             let v = self.max_idle_user.get(&key);
-            if v.is_some() {
-                if value > *v.unwrap() {
-                    self.max_idle_user.insert(key, value);
-                }
+            if let Some(v) = v && value > *v {
+                    self.max_idle_user.insert(key, value);                
             } else {
                 self.max_idle_user.insert(key, value);
             }
