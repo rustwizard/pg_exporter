@@ -230,10 +230,8 @@ impl PGActivityStats {
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
             let v = self.max_active_maint.get(&key);
-            if v.is_some() {
-                if value > *v.unwrap() {
+            if let Some(v) = v && value > *v {
                     self.max_active_maint.insert(key, value);
-                }
             } else {
                 self.max_active_maint.insert(key, value);
             }
