@@ -168,11 +168,9 @@ impl PGActivityStats {
             return;
         }
 
-        if let Some(state) = state {
-            if state != ST_IDLE_XACT && state != ST_IDLE_XACT_ABORTED {
+        if let Some(state) = state && state != ST_IDLE_XACT && state != ST_IDLE_XACT_ABORTED {
                 return;
             }
-        }
 
         // all validations ok, update stats
 
@@ -186,10 +184,8 @@ impl PGActivityStats {
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
             let v = self.max_idle_maint.get(&key);
-            if v.is_some() {
-                if value > *v.unwrap() {
-                    self.max_idle_maint.insert(key, value);
-                }
+            if let Some(v) = v && value > *v {
+                    self.max_idle_maint.insert(key, value);               
             } else {
                 self.max_idle_maint.insert(key, value);
             }
