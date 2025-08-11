@@ -280,10 +280,8 @@ impl PGActivityStats {
             }
         } else {
             let v = self.max_wait_user.get(&key);
-            if v.is_some() {
-                if value > *v.unwrap() {
+            if let Some(v) = v && value > *v {
                     self.max_wait_user.insert(key, value);
-                }
             } else {
                 self.max_wait_user.insert(key, value);
             }
