@@ -23,4 +23,10 @@ impl From<JoinError> for MetricsError {
     }
 }
 
+impl From<prometheus::Error> for MetricsError {
+    fn from(err: prometheus::Error) -> MetricsError {
+        MetricsError { err: anyhow!("internal error: {:?}", err) }
+    }
+}
+
 

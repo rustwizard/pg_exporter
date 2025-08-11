@@ -35,9 +35,9 @@ async fn main() -> std::io::Result<()> {
         // Eg.. `PGE_DEBUG=1 ./target/app` would set the `debug` key
         .add_source(config::Environment::with_prefix("PGE"))
         .build()
-        .unwrap();
+        .expect("settings should be initialized");
 
-    let pge_config: PGEConfig = settings.try_deserialize().unwrap();
+    let pge_config: PGEConfig = settings.try_deserialize().expect("config should be initialized");
 
     println!("starting pg_exporter at {:?}", pge_config.listen_addr);
 
@@ -55,33 +55,32 @@ async fn main() -> std::io::Result<()> {
             config.exclude_db_names.clone(),
             config.const_labels.clone(),
         )
-        .await
-        .unwrap();
+        .await.expect("postgres instance should be initialized");
 
         let arc_pgi = Arc::new(pgi);
 
         let pc = collectors::pg_locks::new(arc_pgi.clone());
-        app.registry.register(Box::new(pc.clone())).unwrap();
+        app.registry.register(Box::new(pc.clone())).expect("pg locks collector should be initialized");
 
         let pc_pstm = collectors::pg_postmaster::new(arc_pgi.clone());
-        app.registry.register(Box::new(pc_pstm.clone())).unwrap();
+        app.registry.register(Box::new(pc_pstm.clone())).expect("pg postmaster collector should be initialized");
 
         let pcdb = collectors::pg_database::new(arc_pgi.clone());
-        app.registry.register(Box::new(pcdb.clone())).unwrap();
+        app.registry.register(Box::new(pcdb.clone())).expect("pg database collector should be initialized");
 
         let pca = collectors::pg_activity::new(arc_pgi.clone());
-        app.registry.register(Box::new(pca.clone())).unwrap();
+        app.registry.register(Box::new(pca.clone())).expect("pg activity collector should be initialized");
 
         let pbgwr = collectors::pg_bgwirter::new(arc_pgi.clone());
-        app.registry.register(Box::new(pbgwr.clone())).unwrap();
+        app.registry.register(Box::new(pbgwr.clone())).expect("pg bg writer collector should be initialized");
 
         let pgwalc = collectors::pg_wal::new(arc_pgi.clone());
-        app.registry.register(Box::new(pgwalc.clone())).unwrap();
+        app.registry.register(Box::new(pgwalc.clone())).expect("pg wal collector should be initialized");
 
         let pg_statio_c = collectors::pg_stat_io::new(arc_pgi.clone());
         if pg_statio_c.is_some() {
-            let c = pg_statio_c.unwrap();
-            app.registry.register(Box::new(c.clone())).unwrap();
+            let c = pg_statio_c.expect("pg statio collector should be initialized");;
+            app.registry.register(Box::new(c.clone())).expect("pg locks collector should be registered");;
             app.collectors.push(Box::new(c.clone()));
         }
 
@@ -145,8 +144,8 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
     let encoder = prometheus::TextEncoder::new();
 
     let postgres_metrics = data.registry.gather();
-    encoder.encode(&postgres_metrics, &mut buffer).unwrap();
-    encoder.encode(&process_metrics, &mut buffer).unwrap();
+    encoder.encode(&postgres_metrics, &mut buffer)?;
+    encoder.encode(&process_metrics, &mut buffer)?;
 
     let response = String::from_utf8(buffer.clone()).expect("Failed to convert bytes to string");
     buffer.clear();

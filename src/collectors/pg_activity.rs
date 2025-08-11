@@ -1,11 +1,11 @@
-use regex::Regex;
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::{proto, GaugeVec, IntGaugeVec};
 use prometheus::{Gauge, IntGauge};
+use prometheus::{GaugeVec, IntGaugeVec, proto};
+use regex::Regex;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 use crate::instance;
 
@@ -168,10 +168,11 @@ impl PGActivityStats {
             return;
         }
 
-        if let Some(state) = state {
-            if state != ST_IDLE_XACT && state != ST_IDLE_XACT_ABORTED {
-                return;
-            }
+        if let Some(state) = state
+            && state != ST_IDLE_XACT
+            && state != ST_IDLE_XACT_ABORTED
+        {
+            return;
         }
 
         // all validations ok, update stats
@@ -186,19 +187,19 @@ impl PGActivityStats {
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
             let v = self.max_idle_maint.get(&key);
-            if v.is_some() {
-                if value > *v.unwrap() {
-                    self.max_idle_maint.insert(key, value);
-                }
+            if let Some(v) = v
+                && value > *v
+            {
+                self.max_idle_maint.insert(key, value);
             } else {
                 self.max_idle_maint.insert(key, value);
             }
         } else {
             let v = self.max_idle_user.get(&key);
-            if v.is_some() {
-                if value > *v.unwrap() {
-                    self.max_idle_user.insert(key, value);
-                }
+            if let Some(v) = v
+                && value > *v
+            {
+                self.max_idle_user.insert(key, value);
             } else {
                 self.max_idle_user.insert(key, value);
             }
@@ -236,19 +237,19 @@ impl PGActivityStats {
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
             let v = self.max_active_maint.get(&key);
-            if v.is_some() {
-                if value > *v.unwrap() {
-                    self.max_active_maint.insert(key, value);
-                }
+            if let Some(v) = v
+                && value > *v
+            {
+                self.max_active_maint.insert(key, value);
             } else {
                 self.max_active_maint.insert(key, value);
             }
         } else {
             let v = self.max_active_user.get(&key);
-            if v.is_some() {
-                if value > *v.unwrap() {
-                    self.max_active_user.insert(key, value);
-                }
+            if let Some(v) = v
+                && value > *v
+            {
+                self.max_active_user.insert(key, value);
             } else {
                 self.max_active_user.insert(key, value);
             }
@@ -283,19 +284,19 @@ impl PGActivityStats {
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
             let v = self.max_wait_maint.get(&key);
-            if v.is_some() {
-                if value > *v.unwrap() {
-                    self.max_wait_maint.insert(key, value);
-                }
+            if let Some(v) = v
+                && value > *v
+            {
+                self.max_wait_maint.insert(key, value);
             } else {
                 self.max_wait_maint.insert(key, value);
             }
         } else {
             let v = self.max_wait_user.get(&key);
-            if v.is_some() {
-                if value > *v.unwrap() {
-                    self.max_wait_user.insert(key, value);
-                }
+            if let Some(v) = v
+                && value > *v
+            {
+                self.max_wait_user.insert(key, value);
             } else {
                 self.max_wait_user.insert(key, value);
             }
@@ -342,7 +343,7 @@ impl PGActivityStats {
 
         if !str.is_empty() {
             self.query_maint += 1;
-            
+
             if str.starts_with("autovacuum:") && str.contains("(to prevent wraparound)") {
                 *self.vacuum_ops.entry("wraparound".to_string()).or_insert(0) += 1;
                 return;
@@ -368,7 +369,7 @@ impl PGActivityStats {
         }
 
         // still here? ok, increment others and return
-	    self.query_other += 1;
+        self.query_other += 1;
     }
 }
 
@@ -595,12 +596,10 @@ impl PG for PGActivityCollector {
         data_lock.query_with = 0;
 
         for activity in &pg_activity_rows {
-            if let Some(u) = &activity.user {
-                if let Some(d) = &activity.database {
-                    if let Some(s) = &activity.state {
-                        data_lock.update_state(u.as_str(), d.as_str(), s.as_str());
-                    }
-                }
+            if let Some(u) = &activity.user
+                && let Some(d) = &activity.database
+                && let Some(s) = &activity.state {
+                data_lock.update_state(u.as_str(), d.as_str(), s.as_str());
             }
 
             if let Some(asec) = &activity.active_seconds {
@@ -666,7 +665,9 @@ impl PG for PGActivityCollector {
                         total += v
                     }
                 } else {
-                    println!("create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip");
+                    println!(
+                        "create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip"
+                    );
                 }
             }
         }
@@ -723,7 +724,9 @@ impl Collector for PGActivityCollector {
                         total += v
                     }
                 } else {
-                    println!("create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip");
+                    println!(
+                        "create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip"
+                    );
                 }
             }
         }
@@ -746,7 +749,9 @@ impl Collector for PGActivityCollector {
                         .with_label_values(&[names[0], names[1], ff[0], ff[1]])
                         .set(*v);
                 } else {
-                    println!("create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip");
+                    println!(
+                        "create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip"
+                    );
                 }
             }
         }
@@ -764,19 +769,32 @@ impl Collector for PGActivityCollector {
         }
 
         // in flight queries
-        self.inflight.with_label_values(&["select"]).set(data_lock.query_select);
-        self.inflight.with_label_values(&["mod"]).set(data_lock.query_mod);
-        self.inflight.with_label_values(&["ddl"]).set(data_lock.query_ddl);
-        self.inflight.with_label_values(&["maintenance"]).set(data_lock.query_maint);
-        self.inflight.with_label_values(&["with"]).set(data_lock.query_with);
-        self.inflight.with_label_values(&["copy"]).set(data_lock.query_copy);
-        self.inflight.with_label_values(&["other"]).set(data_lock.query_other);
+        self.inflight
+            .with_label_values(&["select"])
+            .set(data_lock.query_select);
+        self.inflight
+            .with_label_values(&["mod"])
+            .set(data_lock.query_mod);
+        self.inflight
+            .with_label_values(&["ddl"])
+            .set(data_lock.query_ddl);
+        self.inflight
+            .with_label_values(&["maintenance"])
+            .set(data_lock.query_maint);
+        self.inflight
+            .with_label_values(&["with"])
+            .set(data_lock.query_with);
+        self.inflight
+            .with_label_values(&["copy"])
+            .set(data_lock.query_copy);
+        self.inflight
+            .with_label_values(&["other"])
+            .set(data_lock.query_other);
 
         // vacuums
         for (k, v) in &data_lock.vacuum_ops {
             self.vacuums.with_label_values(&[k]).set(*v);
         }
-
 
         // All activity metrics collected successfully, now we can collect up metric.
         self.up.set(1.0);
