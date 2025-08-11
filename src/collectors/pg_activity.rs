@@ -237,10 +237,8 @@ impl PGActivityStats {
             }
         } else {
             let v = self.max_active_user.get(&key);
-            if v.is_some() {
-                if value > *v.unwrap() {
+            if let Some(v) = v && value > *v {
                     self.max_active_user.insert(key, value);
-                }
             } else {
                 self.max_active_user.insert(key, value);
             }
@@ -275,10 +273,8 @@ impl PGActivityStats {
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
             let v = self.max_wait_maint.get(&key);
-            if v.is_some() {
-                if value > *v.unwrap() {
+            if let Some(v) = v && value > *v {
                     self.max_wait_maint.insert(key, value);
-                }
             } else {
                 self.max_wait_maint.insert(key, value);
             }
