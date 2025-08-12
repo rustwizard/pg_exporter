@@ -128,11 +128,7 @@ impl PGActivityStats {
 
     pub fn update_wait_events(&mut self, ev_type: &str, state: &str) {
         let key = format!("{}{}{}", ev_type, "/", state);
-        if let Some(count) = self.wait_events.get(&key) {
-            self.wait_events.insert(key, count + 1);
-        } else {
-            self.wait_events.insert(key, 1);
-        }
+        self.wait_events.entry(key).and_modify(|count| *count += 1).or_insert(1);
     }
 
     pub fn update_max_idletime_duration(
