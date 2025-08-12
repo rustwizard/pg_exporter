@@ -115,19 +115,11 @@ impl PGActivityStats {
             }
 
             ST_FAST_PATH | ST_DISABLED => {
-                if let Some(count) = self.other.get(&key) {
-                    self.other.insert(key, count + 1);
-                } else {
-                    self.other.insert(key, 1);
-                }
+                self.other.entry(key).and_modify(|count| *count += 1).or_insert(1);
             }
 
             ST_WAITING => {
-                if let Some(count) = self.waiting.get(&key) {
-                    self.waiting.insert(key, count + 1);
-                } else {
-                    self.waiting.insert(key, 1);
-                }
+                self.waiting.entry(key).and_modify(|count| *count += 1).or_insert(1);
             }
 
             _ => println!("pg activity stats: unknown state"),
