@@ -208,19 +208,10 @@ impl PGActivityStats {
         );
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
-            let v = self.max_active_maint.get(&key);
-            if let Some(v) = v && value > *v {
-                self.max_active_maint.insert(key, value);
-            } else {
-                self.max_active_maint.insert(key, value);
-            }
+
+            self.max_active_maint.entry(key).and_modify(|val| { if *val < value { *val = value } }).or_insert(value);
         } else {
-            let v = self.max_active_user.get(&key);
-            if let Some(v) = v && value > *v {
-                self.max_active_user.insert(key, value);
-            } else {
-                self.max_active_user.insert(key, value);
-            }
+            self.max_active_user.entry(key).and_modify(|val| { if *val < value { *val = value } }).or_insert(value);
         }
     }
 
