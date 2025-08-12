@@ -103,23 +103,15 @@ impl PGActivityStats {
 
         match state {
             ST_ACTIVE => {
-                self.active.entry(key).and_modify(|counter| *counter += 1).or_insert(1);
+                self.active.entry(key).and_modify(|count| *count += 1).or_insert(1);
             }
 
             ST_IDLE => {
-                if let Some(count) = self.idle.get(&key) {
-                    self.idle.insert(key, count + 1);
-                } else {
-                    self.idle.insert(key, 1);
-                }
+                self.idle.entry(key).and_modify(|count| *count += 1).or_insert(1);
             }
 
             ST_IDLE_XACT | ST_IDLE_XACT_ABORTED => {
-                if let Some(count) = self.idlexact.get(&key) {
-                    self.idlexact.insert(key, count + 1);
-                } else {
-                    self.idlexact.insert(key, 1);
-                }
+                self.idlexact.entry(key).and_modify(|count| *count += 1).or_insert(1);
             }
 
             ST_FAST_PATH | ST_DISABLED => {
