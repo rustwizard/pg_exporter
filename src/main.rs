@@ -78,6 +78,7 @@ async fn main() -> std::io::Result<()> {
         app.registry.register(Box::new(pgwalc.clone())).expect("pg wal collector should be initialized");
 
         let pg_statio_c = collectors::pg_stat_io::new(arc_pgi.clone());
+        // TODO:  change to if let Some(pg_statio_c) = pg_statio_c
         if pg_statio_c.is_some() {
             let c = pg_statio_c.expect("pg statio collector should be initialized");
             app.registry.register(Box::new(c.clone())).expect("pg locks collector should be registered");

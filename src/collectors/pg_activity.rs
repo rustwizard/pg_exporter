@@ -103,11 +103,7 @@ impl PGActivityStats {
 
         match state {
             ST_ACTIVE => {
-                if let Some(count) = self.active.get(&key) {
-                    self.active.insert(key, count + 1);
-                } else {
-                    self.active.insert(key, 1);
-                }
+                self.active.entry(key).and_modify(|counter| *counter += 1).or_insert(1);
             }
 
             ST_IDLE => {
