@@ -163,18 +163,14 @@ impl PGActivityStats {
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
             let v = self.max_idle_maint.get(&key);
-            if let Some(v) = v
-                && value > *v
-            {
+            if let Some(v) = v && value > *v {
                 self.max_idle_maint.insert(key, value);
             } else {
                 self.max_idle_maint.insert(key, value);
             }
         } else {
             let v = self.max_idle_user.get(&key);
-            if let Some(v) = v
-                && value > *v
-            {
+            if let Some(v) = v && value > *v {
                 self.max_idle_user.insert(key, value);
             } else {
                 self.max_idle_user.insert(key, value);
@@ -213,18 +209,14 @@ impl PGActivityStats {
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
             let v = self.max_active_maint.get(&key);
-            if let Some(v) = v
-                && value > *v
-            {
+            if let Some(v) = v && value > *v {
                 self.max_active_maint.insert(key, value);
             } else {
                 self.max_active_maint.insert(key, value);
             }
         } else {
             let v = self.max_active_user.get(&key);
-            if let Some(v) = v
-                && value > *v
-            {
+            if let Some(v) = v && value > *v {
                 self.max_active_user.insert(key, value);
             } else {
                 self.max_active_user.insert(key, value);
