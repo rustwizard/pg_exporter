@@ -62,37 +62,37 @@ async fn main() -> std::io::Result<()> {
 
         let arc_pgi = Arc::new(pgi);
 
-        let pc = collectors::pg_locks::new(arc_pgi.clone());
+        let pc = collectors::pg_locks::new(Arc::clone(&arc_pgi));
         app.registry
             .register(Box::new(pc.clone()))
             .expect("pg locks collector should be initialized");
 
-        let pc_pstm = collectors::pg_postmaster::new(arc_pgi.clone());
+        let pc_pstm = collectors::pg_postmaster::new(Arc::clone(&arc_pgi));
         app.registry
             .register(Box::new(pc_pstm.clone()))
             .expect("pg postmaster collector should be initialized");
 
-        let pcdb = collectors::pg_database::new(arc_pgi.clone());
+        let pcdb = collectors::pg_database::new(Arc::clone(&arc_pgi));
         app.registry
             .register(Box::new(pcdb.clone()))
             .expect("pg database collector should be initialized");
 
-        let pca = collectors::pg_activity::new(arc_pgi.clone());
+        let pca = collectors::pg_activity::new(Arc::clone(&arc_pgi));
         app.registry
             .register(Box::new(pca.clone()))
             .expect("pg activity collector should be initialized");
 
-        let pbgwr = collectors::pg_bgwirter::new(arc_pgi.clone());
+        let pbgwr = collectors::pg_bgwirter::new(Arc::clone(&arc_pgi));
         app.registry
             .register(Box::new(pbgwr.clone()))
             .expect("pg bg writer collector should be initialized");
 
-        let pgwalc = collectors::pg_wal::new(arc_pgi.clone());
+        let pgwalc = collectors::pg_wal::new(Arc::clone(&arc_pgi));
         app.registry
             .register(Box::new(pgwalc.clone()))
             .expect("pg wal collector should be initialized");
 
-        let pg_statio_c = collectors::pg_stat_io::new(arc_pgi.clone());
+        let pg_statio_c = collectors::pg_stat_io::new(Arc::clone(&arc_pgi));
         // TODO:  change to if let Some(pg_statio_c) = pg_statio_c
         if pg_statio_c.is_some() {
             let c = pg_statio_c.expect("pg statio collector should be initialized");
@@ -100,6 +100,13 @@ async fn main() -> std::io::Result<()> {
                 .register(Box::new(c.clone()))
                 .expect("pg locks collector should be registered");
             app.collectors.push(Box::new(c.clone()));
+        }
+
+        if let Some(pgarch_c) = collectors::pg_archiver::new(Arc::clone(&arc_pgi)) {
+            app.registry
+                .register(Box::new(pgarch_c.clone()))
+                .expect("pg archiver collector should be initialized");
+            app.collectors.push(Box::new(pgarch_c));
         }
 
         app.collectors.push(Box::new(pc));

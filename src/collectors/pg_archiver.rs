@@ -7,7 +7,7 @@ use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
 use prometheus::{Gauge, GaugeVec, IntCounter, IntGauge, IntGaugeVec};
 
-use crate::collectors::POSTGRES_V12;
+use crate::collectors::{PG, POSTGRES_V12};
 use crate::instance;
 
 const POSTGRES_WAL_ARCHIVING_QUERY: &str = "SELECT archived_count, failed_count, 
@@ -17,26 +17,26 @@ const POSTGRES_WAL_ARCHIVING_QUERY: &str = "SELECT archived_count, failed_count,
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct PGArchiverStats {
-    archived: f64,
-    failed: f64,
+    archived: i64,
+    failed: i64,
     since_archived_secinds: f64,
-    lag_files: f64,
+    lag_files: i64,
 }
 
 impl PGArchiverStats {
     fn new() -> Self {
         Self {
-            archived: 0.0,
-            failed: 0.0,
+            archived: 0,
+            failed: 0,
             since_archived_secinds: 0.0,
-            lag_files: 0.0,
+            lag_files: 0,
         }
     }
 }
-
+#[derive(Debug, Clone)]
 pub struct PGArchiverCollector {
     dbi: Arc<instance::PostgresDB>,
-    data: Arc<RwLock<PGArchiverStats>>,
+    data: Arc<RwLock<Vec<PGArchiverStats>>>,
     descs: Vec<Desc>,
     archived_total: IntCounter,
     failed_total: Gauge,
@@ -56,7 +56,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGArchiverCollector> {
 impl PGArchiverCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> Self {
         let mut descs = Vec::new();
-        let data = Arc::new(RwLock::new(PGArchiverStats::new()));
+        let data = Arc::new(RwLock::new(vec![PGArchiverStats::new()]));
 
         let archived_total = IntCounter::with_opts(
             Opts::new(
@@ -87,6 +87,37 @@ impl Collector for PGArchiverCollector {
         self.descs.iter().collect()
     }
     fn collect(&self) -> std::vec::Vec<MetricFamily> {
-        todo!()
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(4);
+
+        let data_lock = self.data.read().expect("can't acuire lock");
+        for row in data_lock.iter() {
+            self.archived_total.inc_by(row.archived as u64);
+        }
+
+        mfs.extend(self.archived_total.collect());
+
+        mfs
+    }
+}
+
+#[async_trait]
+impl PG for PGArchiverCollector {
+    async fn update(&self) -> Result<(), anyhow::Error> {
+        let mut pg_archiver_stats_rows =
+            sqlx::query_as::<_, PGArchiverStats>(POSTGRES_WAL_ARCHIVING_QUERY)
+                .fetch_all(&self.dbi.db)
+                .await?;
+
+        let mut data_lock = match self.data.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!("can't unwrap lock. {}", e),
+        };
+
+        data_lock.clear();
+
+        data_lock.append(&mut pg_archiver_stats_rows);
+
+        Ok(())
     }
 }
