@@ -1,4 +1,5 @@
 pub mod pg_activity;
+pub mod pg_archiver;
 pub mod pg_bgwirter;
 pub mod pg_database;
 pub mod pg_locks;
