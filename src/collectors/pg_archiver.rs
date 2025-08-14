@@ -39,7 +39,7 @@ pub struct PGArchiverCollector {
     data: Arc<RwLock<Vec<PGArchiverStats>>>,
     descs: Vec<Desc>,
     archived_total: IntCounter,
-    failed_total: Gauge,
+    failed_total: IntCounter,
     since_last_archive_seconds: Gauge,
     lag_bytes: Gauge,
 }
@@ -70,12 +70,24 @@ impl PGArchiverCollector {
         .unwrap();
         descs.extend(archived_total.desc().into_iter().cloned());
 
+        let failed_total = IntCounter::with_opts(
+            Opts::new(
+                "failed_total",
+                "Total number of attempts when WAL segments had been failed to archive.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("archiver")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(failed_total.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
             descs,
             archived_total,
-            failed_total: todo!(),
+            failed_total,
             since_last_archive_seconds: todo!(),
             lag_bytes: todo!(),
         }
@@ -93,6 +105,7 @@ impl Collector for PGArchiverCollector {
         let data_lock = self.data.read().expect("can't acuire lock");
         for row in data_lock.iter() {
             self.archived_total.inc_by(row.archived as u64);
+            self.failed_total.inc_by(row.failed as u64);
         }
 
         mfs.extend(self.archived_total.collect());
