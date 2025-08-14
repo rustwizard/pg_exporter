@@ -46,7 +46,7 @@ pub struct PGArchiverCollector {
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGArchiverCollector> {
     // some system functions are not available, required Postgres 12 or newer
-    if dbi.cfg.pg_version < POSTGRES_V12 {
+    if dbi.cfg.pg_version > POSTGRES_V12 {
         Some(PGArchiverCollector::new(dbi))
     } else {
         None
