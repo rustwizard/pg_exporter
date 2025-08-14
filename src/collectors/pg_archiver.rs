@@ -40,8 +40,8 @@ pub struct PGArchiverCollector {
     descs: Vec<Desc>,
     archived_total: IntCounter,
     failed_total: IntCounter,
-    since_last_archive_seconds: Gauge,
-    lag_bytes: Gauge,
+    // since_last_archive_seconds: Gauge,
+    // lag_bytes: Gauge,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGArchiverCollector> {
@@ -88,8 +88,6 @@ impl PGArchiverCollector {
             descs,
             archived_total,
             failed_total,
-            since_last_archive_seconds: todo!(),
-            lag_bytes: todo!(),
         }
     }
 }
