@@ -19,7 +19,7 @@ const POSTGRES_WAL_ARCHIVING_QUERY: &str = "SELECT archived_count, failed_count,
 pub struct PGArchiverStats {
     archived: i64,
     failed: i64,
-    since_archived_secinds: f64,
+    since_archived_seconds: f64,
     lag_files: i64,
 }
 
@@ -28,7 +28,7 @@ impl PGArchiverStats {
         Self {
             archived: 0,
             failed: 0,
-            since_archived_secinds: 0.0,
+            since_archived_seconds: 0.0,
             lag_files: 0,
         }
     }
