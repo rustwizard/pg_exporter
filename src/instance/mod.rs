@@ -1,5 +1,7 @@
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use std::collections::HashMap;
+
+use crate::collectors;
 
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
 pub struct Config {
@@ -7,7 +9,6 @@ pub struct Config {
     pub exclude_db_names: Vec<String>,
     pub const_labels: HashMap<String, String>,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct PGConfig {
@@ -21,7 +22,7 @@ pub struct PostgresDB {
     pub db: Pool<Postgres>,
     pub excluded_db_names: Vec<String>,
     pub labels: HashMap<String, String>,
-    pub cfg: PGConfig
+    pub cfg: PGConfig,
 }
 
 pub async fn new(
@@ -40,27 +41,42 @@ pub async fn new(
         }
     };
 
-    let version = sqlx::query_scalar::<_, String>("SELECT setting FROM pg_settings WHERE name = 'server_version_num'")
-            .fetch_one(&pool).await?;
+    let version = sqlx::query_scalar::<_, String>(
+        "SELECT setting FROM pg_settings WHERE name = 'server_version_num'",
+    )
+    .fetch_one(&pool)
+    .await?;
 
     let pg_version = version.parse()?;
 
-    let block_size = sqlx::query_scalar::<_, String>("SELECT setting FROM pg_settings WHERE name = 'block_size'")
-            .fetch_one(&pool).await?;
+    if pg_version < collectors::POSTGRES_VMIN_NUM {
+        println!(
+            "Postgres version is too old, some collectors functions won't work. Minimal required version is {:?}",
+            collectors::POSTGRES_VMIN_NUM
+        );
+    }
+
+    let block_size = sqlx::query_scalar::<_, String>(
+        "SELECT setting FROM pg_settings WHERE name = 'block_size'",
+    )
+    .fetch_one(&pool)
+    .await?;
 
     let pg_block_size = block_size.parse()?;
 
-
-    let wal_segment_size = sqlx::query_scalar::<_, String>("SELECT setting FROM pg_settings WHERE name = 'wal_segment_size'")
-            .fetch_one(&pool).await?;
+    let wal_segment_size = sqlx::query_scalar::<_, String>(
+        "SELECT setting FROM pg_settings WHERE name = 'wal_segment_size'",
+    )
+    .fetch_one(&pool)
+    .await?;
 
     let pg_wal_segment_size = wal_segment_size.parse()?;
-    
-    let cfg = PGConfig{ 
-            pg_version, 
-            pg_block_size, 
-            pg_wal_segment_size
-        };
+
+    let cfg = PGConfig {
+        pg_version,
+        pg_block_size,
+        pg_wal_segment_size,
+    };
 
     Ok(PostgresDB::new(pool, excluded_dbnames, labels, cfg))
 }
@@ -70,13 +86,13 @@ impl PostgresDB {
         db: Pool<Postgres>,
         excluded_db_names: Vec<String>,
         labels: HashMap<String, String>,
-        cfg: PGConfig
+        cfg: PGConfig,
     ) -> Self {
         Self {
             db,
             excluded_db_names,
             labels,
-            cfg
+            cfg,
         }
     }
 }
