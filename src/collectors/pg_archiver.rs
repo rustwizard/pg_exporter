@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
-use prometheus::{Gauge, GaugeVec, IntCounter, IntGauge, IntGaugeVec};
+use prometheus::{Gauge, IntCounter};
 
 use crate::collectors::{PG, POSTGRES_V12};
 use crate::instance;
@@ -40,7 +40,7 @@ pub struct PGArchiverCollector {
     descs: Vec<Desc>,
     archived_total: IntCounter,
     failed_total: IntCounter,
-    // since_last_archive_seconds: Gauge,
+    since_last_archive_seconds: Gauge,
     // lag_bytes: Gauge,
 }
 
@@ -82,12 +82,25 @@ impl PGArchiverCollector {
         .unwrap();
         descs.extend(failed_total.desc().into_iter().cloned());
 
+        let since_last_archive_seconds = Gauge::with_opts(
+            Opts::new(
+                "since_last_archive_seconds",
+                "Number of seconds since last WAL segment had been successfully archived.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("archiver")
+            .const_labels(dbi.labels.clone()),
+        )
+        .unwrap();
+        descs.extend(since_last_archive_seconds.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
             descs,
             archived_total,
             failed_total,
+            since_last_archive_seconds,
         }
     }
 }
@@ -104,6 +117,8 @@ impl Collector for PGArchiverCollector {
         for row in data_lock.iter() {
             self.archived_total.inc_by(row.archived as u64);
             self.failed_total.inc_by(row.failed as u64);
+            self.since_last_archive_seconds
+                .set(row.since_archived_seconds);
         }
 
         mfs.extend(self.archived_total.collect());
