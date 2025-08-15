@@ -26,7 +26,7 @@ const POSTGRES_V17: i64 = 170000;
 const POSTGRES_V18: i64 = 180000;
 
 // Minimal required version is 9.5
-const POSTGRES_VMIN_NUM: i64 = POSTGRES_V95;
+pub const POSTGRES_VMIN_NUM: i64 = POSTGRES_V95;
 
 #[async_trait]
 pub trait PG: DynClone + Send + Sync {
