@@ -103,23 +103,38 @@ impl PGActivityStats {
 
         match state {
             ST_ACTIVE => {
-                self.active.entry(key).and_modify(|count| *count += 1).or_insert(1);
+                self.active
+                    .entry(key)
+                    .and_modify(|count| *count += 1)
+                    .or_insert(1);
             }
 
             ST_IDLE => {
-                self.idle.entry(key).and_modify(|count| *count += 1).or_insert(1);
+                self.idle
+                    .entry(key)
+                    .and_modify(|count| *count += 1)
+                    .or_insert(1);
             }
 
             ST_IDLE_XACT | ST_IDLE_XACT_ABORTED => {
-                self.idlexact.entry(key).and_modify(|count| *count += 1).or_insert(1);
+                self.idlexact
+                    .entry(key)
+                    .and_modify(|count| *count += 1)
+                    .or_insert(1);
             }
 
             ST_FAST_PATH | ST_DISABLED => {
-                self.other.entry(key).and_modify(|count| *count += 1).or_insert(1);
+                self.other
+                    .entry(key)
+                    .and_modify(|count| *count += 1)
+                    .or_insert(1);
             }
 
             ST_WAITING => {
-                self.waiting.entry(key).and_modify(|count| *count += 1).or_insert(1);
+                self.waiting
+                    .entry(key)
+                    .and_modify(|count| *count += 1)
+                    .or_insert(1);
             }
 
             _ => println!("pg activity stats: unknown state"),
@@ -128,7 +143,10 @@ impl PGActivityStats {
 
     pub fn update_wait_events(&mut self, ev_type: &str, state: &str) {
         let key = format!("{}{}{}", ev_type, "/", state);
-        self.wait_events.entry(key).and_modify(|count| *count += 1).or_insert(1);
+        self.wait_events
+            .entry(key)
+            .and_modify(|count| *count += 1)
+            .or_insert(1);
     }
 
     pub fn update_max_idletime_duration(
@@ -163,14 +181,18 @@ impl PGActivityStats {
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
             let v = self.max_idle_maint.get(&key);
-            if let Some(v) = v && value > *v {
+            if let Some(v) = v
+                && value > *v
+            {
                 self.max_idle_maint.insert(key, value);
             } else {
                 self.max_idle_maint.insert(key, value);
             }
         } else {
             let v = self.max_idle_user.get(&key);
-            if let Some(v) = v && value > *v {
+            if let Some(v) = v
+                && value > *v
+            {
                 self.max_idle_user.insert(key, value);
             } else {
                 self.max_idle_user.insert(key, value);
@@ -204,13 +226,27 @@ impl PGActivityStats {
             "{}{}{}",
             usename.clone().unwrap(),
             "/",
-            datname.clone().unwrap()
+            datname.clone().unwrap_or("".to_string())
         );
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
-            self.max_active_maint.entry(key).and_modify(|val| { if *val < value { *val = value } }).or_insert(value);
+            self.max_active_maint
+                .entry(key)
+                .and_modify(|val| {
+                    if *val < value {
+                        *val = value
+                    }
+                })
+                .or_insert(value);
         } else {
-            self.max_active_user.entry(key).and_modify(|val| { if *val < value { *val = value } }).or_insert(value);
+            self.max_active_user
+                .entry(key)
+                .and_modify(|val| {
+                    if *val < value {
+                        *val = value
+                    }
+                })
+                .or_insert(value);
         }
     }
 
@@ -241,9 +277,23 @@ impl PGActivityStats {
         );
 
         if self.re.vacanl.is_match(&query.clone().unwrap()) {
-            self.max_wait_maint.entry(key).and_modify(|val| { if *val < value { *val = value } }).or_insert(value);
+            self.max_wait_maint
+                .entry(key)
+                .and_modify(|val| {
+                    if *val < value {
+                        *val = value
+                    }
+                })
+                .or_insert(value);
         } else {
-            self.max_wait_user.entry(key).and_modify(|val| { if *val < value { *val = value } }).or_insert(value);
+            self.max_wait_user
+                .entry(key)
+                .and_modify(|val| {
+                    if *val < value {
+                        *val = value
+                    }
+                })
+                .or_insert(value);
         }
     }
 
@@ -542,7 +592,8 @@ impl PG for PGActivityCollector {
         for activity in &pg_activity_rows {
             if let Some(u) = &activity.user
                 && let Some(d) = &activity.database
-                && let Some(s) = &activity.state {
+                && let Some(s) = &activity.state
+            {
                 data_lock.update_state(u.as_str(), d.as_str(), s.as_str());
             }
 
