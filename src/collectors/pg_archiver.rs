@@ -135,7 +135,8 @@ impl Collector for PGArchiverCollector {
             self.failed_total.inc_by(row.failed as u64);
             self.since_last_archive_seconds
                 .set(row.since_archived_seconds);
-            self.lag_bytes.set(row.lag_files);
+            self.lag_bytes
+                .set(row.lag_files * self.dbi.cfg.pg_wal_segment_size);
         }
 
         mfs.extend(self.archived_total.collect());
