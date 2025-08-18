@@ -112,6 +112,10 @@ impl PG for PGConflictCollector {
         };
 
         if let Some(conflict_stats) = maybe_conflict_stats {
+            if conflict_stats.database.is_empty() {
+                return Ok(());
+            }
+
             let mut data_lock = match self.data.write() {
                 Ok(data_lock) => data_lock,
                 Err(e) => bail!("can't unwrap lock. {}", e),
