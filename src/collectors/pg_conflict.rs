@@ -48,3 +48,33 @@ pub struct PGConflictCollector {
     descs: Vec<Desc>,
     conflicts_total: IntCounterVec,
 }
+
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGConflictCollector {
+    PGConflictCollector::new(dbi)
+}
+
+impl PGConflictCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGConflictCollector {
+        let conflicts_total = IntCounterVec::new(
+            Opts::new(
+                "conflicts_total",
+                "Total number of recovery conflicts occurred by each conflict type.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("recovery")
+            .const_labels(dbi.labels.clone()),
+            &["database", "conflict"],
+        )
+        .unwrap();
+
+        let mut descs = Vec::new();
+        descs.extend(conflicts_total.desc().into_iter().cloned());
+
+        PGConflictCollector {
+            dbi,
+            data: Arc::new(RwLock::new(PGConflictStats::new())),
+            descs,
+            conflicts_total,
+        }
+    }
+}
