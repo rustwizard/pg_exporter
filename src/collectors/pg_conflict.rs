@@ -3,11 +3,11 @@ use std::sync::{Arc, RwLock};
 use anyhow::bail;
 use async_trait::async_trait;
 
+use prometheus::IntCounterVec;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
-use prometheus::{Gauge, IntCounter, IntCounterVec, IntGauge};
 
-use crate::collectors::{PG, POSTGRES_V15};
+use crate::collectors::{PG, POSTGRES_V16};
 use crate::instance;
 
 const POSTGRES_DATABASE_CONFLICT15: &str = "SELECT datname AS database, 
@@ -31,7 +31,7 @@ pub struct PGConflictStats {
     bufferpin: i64,
     #[sqlx(rename = "confl_deadlock")]
     deadlock: i64,
-    #[sqlx(default)]
+    #[sqlx(default, rename = "confl_active_logicalslot")]
     active_logical_slot: i64,
 }
 
@@ -101,7 +101,7 @@ impl Collector for PGConflictCollector {
 #[async_trait]
 impl PG for PGConflictCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let maybe_conflict_stats = if self.dbi.cfg.pg_version < POSTGRES_V15 {
+        let maybe_conflict_stats = if self.dbi.cfg.pg_version < POSTGRES_V16 {
             sqlx::query_as::<_, PGConflictStats>(POSTGRES_DATABASE_CONFLICT15)
                 .fetch_optional(&self.dbi.db)
                 .await?
@@ -112,7 +112,10 @@ impl PG for PGConflictCollector {
         };
 
         if let Some(conflict_stats) = maybe_conflict_stats {
-            let mut data_lock = self.data.write().unwrap();
+            let mut data_lock = match self.data.write() {
+                Ok(data_lock) => data_lock,
+                Err(e) => bail!("can't unwrap lock. {}", e),
+            };
 
             data_lock.database = conflict_stats.database;
             data_lock.deadlock = conflict_stats.deadlock;
