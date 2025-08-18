@@ -97,3 +97,32 @@ impl Collector for PGConflictCollector {
         mfs
     }
 }
+
+#[async_trait]
+impl PG for PGConflictCollector {
+    async fn update(&self) -> Result<(), anyhow::Error> {
+        let maybe_conflict_stats = if self.dbi.cfg.pg_version < POSTGRES_V15 {
+            sqlx::query_as::<_, PGConflictStats>(POSTGRES_DATABASE_CONFLICT15)
+                .fetch_optional(&self.dbi.db)
+                .await?
+        } else {
+            sqlx::query_as::<_, PGConflictStats>(POSTGRES_DATABASE_CONFLICT_LATEST)
+                .fetch_optional(&self.dbi.db)
+                .await?
+        };
+
+        if let Some(conflict_stats) = maybe_conflict_stats {
+            let mut data_lock = self.data.write().unwrap();
+
+            data_lock.database = conflict_stats.database;
+            data_lock.deadlock = conflict_stats.deadlock;
+            data_lock.active_logical_slot = conflict_stats.active_logical_slot;
+            data_lock.bufferpin = conflict_stats.bufferpin;
+            data_lock.snapshot = conflict_stats.snapshot;
+            data_lock.tablespace = conflict_stats.tablespace;
+            data_lock.lock = conflict_stats.lock;
+        }
+
+        Ok(())
+    }
+}
