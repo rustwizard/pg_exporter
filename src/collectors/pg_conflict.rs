@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
-use prometheus::{Gauge, IntCounter, IntGauge};
+use prometheus::{Gauge, IntCounter, IntCounterVec, IntGauge};
 
 use crate::collectors::{PG, POSTGRES_V15};
 use crate::instance;
@@ -18,7 +18,7 @@ const POSTGRES_DATABASE_CONFLICT_LATEST: &str = "SELECT datname AS database,
 confl_tablespace, confl_lock, confl_snapshot, confl_bufferpin, confl_deadlock, confl_active_logicalslot
 		FROM pg_stat_database_conflicts WHERE pg_is_in_recovery() = 't'";
 
-#[derive(sqlx::FromRow, Debug)]
+#[derive(sqlx::FromRow, Debug, Default)]
 pub struct PGConflictStats {
     database: String,
     #[sqlx(rename = "confl_tablespace")]
@@ -33,4 +33,18 @@ pub struct PGConflictStats {
     deadlock: i64,
     #[sqlx(default)]
     active_logical_slot: i64,
+}
+
+impl PGConflictStats {
+    fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PGConflictCollector {
+    dbi: Arc<instance::PostgresDB>,
+    data: Arc<RwLock<PGConflictStats>>,
+    descs: Vec<Desc>,
+    conflicts_total: IntCounterVec,
 }
