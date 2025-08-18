@@ -109,12 +109,18 @@ async fn main() -> std::io::Result<()> {
             app.collectors.push(Box::new(pgarch_c));
         }
 
+        let pgconflc = collectors::pg_conflict::new(Arc::clone(&arc_pgi));
+        app.registry
+            .register(Box::new(pgconflc.clone()))
+            .expect("pg conflict collector should be initialized");
+
         app.collectors.push(Box::new(pc));
         app.collectors.push(Box::new(pc_pstm));
         app.collectors.push(Box::new(pcdb));
         app.collectors.push(Box::new(pca));
         app.collectors.push(Box::new(pbgwr));
         app.collectors.push(Box::new(pgwalc));
+        app.collectors.push(Box::new(pgconflc));
 
         app.instances.push(arc_pgi);
     }
