@@ -4,7 +4,7 @@ use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::proto::MetricFamily;
+use prometheus::proto;
 use prometheus::{Gauge, IntCounter, IntCounterVec, IntGauge};
 
 use crate::collectors::{PG, POSTGRES_V15};
@@ -76,5 +76,24 @@ impl PGConflictCollector {
             descs,
             conflicts_total,
         }
+    }
+}
+
+impl Collector for PGConflictCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        self.descs.iter().collect()
+    }
+
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(1);
+
+        let data_lock = self.data.read().unwrap();
+        self.conflicts_total
+            .with_label_values(&[&data_lock.database, "tablespace"])
+            .inc_by(data_lock.tablespace as u64);
+
+        mfs.extend(self.conflicts_total.collect());
+        mfs
     }
 }
