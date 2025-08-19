@@ -104,6 +104,9 @@ impl Collector for PGConflictCollector {
         self.conflicts_total
             .with_label_values(&[&data_lock.database, "deadlock"])
             .inc_by(data_lock.deadlock as u64);
+        self.conflicts_total
+            .with_label_values(&[&data_lock.database, "active_logicalslot"])
+            .inc_by(data_lock.active_logical_slot as u64);
 
         mfs.extend(self.conflicts_total.collect());
         mfs
