@@ -92,6 +92,21 @@ impl Collector for PGConflictCollector {
         self.conflicts_total
             .with_label_values(&[&data_lock.database, "tablespace"])
             .inc_by(data_lock.tablespace as u64);
+        self.conflicts_total
+            .with_label_values(&[&data_lock.database, "lock"])
+            .inc_by(data_lock.lock as u64);
+        self.conflicts_total
+            .with_label_values(&[&data_lock.database, "snapshot"])
+            .inc_by(data_lock.snapshot as u64);
+        self.conflicts_total
+            .with_label_values(&[&data_lock.database, "bufferpin"])
+            .inc_by(data_lock.bufferpin as u64);
+        self.conflicts_total
+            .with_label_values(&[&data_lock.database, "deadlock"])
+            .inc_by(data_lock.deadlock as u64);
+        self.conflicts_total
+            .with_label_values(&[&data_lock.database, "active_logicalslot"])
+            .inc_by(data_lock.active_logical_slot as u64);
 
         mfs.extend(self.conflicts_total.collect());
         mfs
@@ -112,6 +127,10 @@ impl PG for PGConflictCollector {
         };
 
         if let Some(conflict_stats) = maybe_conflict_stats {
+            if conflict_stats.database.is_empty() {
+                return Ok(());
+            }
+
             let mut data_lock = match self.data.write() {
                 Ok(data_lock) => data_lock,
                 Err(e) => bail!("can't unwrap lock. {}", e),
