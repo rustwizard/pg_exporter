@@ -92,6 +92,9 @@ impl Collector for PGConflictCollector {
         self.conflicts_total
             .with_label_values(&[&data_lock.database, "tablespace"])
             .inc_by(data_lock.tablespace as u64);
+        self.conflicts_total
+            .with_label_values(&[&data_lock.database, "lock"])
+            .inc_by(data_lock.lock as u64);
 
         mfs.extend(self.conflicts_total.collect());
         mfs
