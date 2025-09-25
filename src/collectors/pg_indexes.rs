@@ -35,3 +35,6 @@ const USER_INDEXES_QUERY_TOPK: &str = "WITH stat AS (SELECT schemaname AS schema
 		NULLIF(SUM(COALESCE(idx_scan,0)),0), NULLIF(SUM(COALESCE(idx_tup_fetch,0)),0), NULLIF(SUM(COALESCE(idx_tup_read,0)),0), 
 		NULLIF(SUM(COALESCE(idx_blks_read,0)),0), NULLIF(SUM(COALESCE(idx_blks_hit,0)),0), 
 		NULLIF(SUM(COALESCE(size_bytes,0)),0) FROM stat WHERE NOT visible HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)";
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct PGIndexesStats {}
