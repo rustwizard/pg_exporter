@@ -37,4 +37,17 @@ const USER_INDEXES_QUERY_TOPK: &str = "WITH stat AS (SELECT schemaname AS schema
 		NULLIF(SUM(COALESCE(size_bytes,0)),0) FROM stat WHERE NOT visible HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)";
 
 #[derive(sqlx::FromRow, Debug)]
-pub struct PGIndexesStats {}
+pub struct PGIndexesStats {
+    database: String,
+    schema: String,
+    table: String,
+    index: String,
+    key: bool,
+    isvalid: bool,
+    idx_scan: i64,
+    idx_tup_read: i64,
+    idx_tup_fetch: i64,
+    idx_blks_read: i64,
+    idx_blks_hit: i64,
+    size_bytes: i64,
+}
