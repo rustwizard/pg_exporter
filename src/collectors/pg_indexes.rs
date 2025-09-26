@@ -92,10 +92,13 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGIndexesCollector> {
 
 impl PGIndexesCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> PGIndexesCollector {
+        let mut descs = Vec::new();
+        let data = Arc::new(RwLock::new(vec![PGIndexesStats::new()]));
+
         Self {
-            dbi: todo!(),
-            data: todo!(),
-            descs: todo!(),
+            dbi,
+            data,
+            descs,
             indexes: todo!(),
             tuples: todo!(),
             io: todo!(),
