@@ -3,9 +3,9 @@ use std::sync::{Arc, RwLock};
 use anyhow::bail;
 use async_trait::async_trait;
 
-use prometheus::IntCounterVec;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
+use prometheus::{GaugeVec, IntCounterVec};
 
 use crate::collectors::{PG, POSTGRES_V16};
 use crate::instance;
@@ -35,3 +35,71 @@ const USER_INDEXES_QUERY_TOPK: &str = "WITH stat AS (SELECT schemaname AS schema
 		NULLIF(SUM(COALESCE(idx_scan,0)),0), NULLIF(SUM(COALESCE(idx_tup_fetch,0)),0), NULLIF(SUM(COALESCE(idx_tup_read,0)),0), 
 		NULLIF(SUM(COALESCE(idx_blks_read,0)),0), NULLIF(SUM(COALESCE(idx_blks_hit,0)),0), 
 		NULLIF(SUM(COALESCE(size_bytes,0)),0) FROM stat WHERE NOT visible HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)";
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct PGIndexesStats {
+    database: String,
+    schema: String,
+    table: String,
+    index: String,
+    key: bool,
+    isvalid: bool,
+    idx_scan: i64,
+    idx_tup_read: i64,
+    idx_tup_fetch: i64,
+    idx_blks_read: i64,
+    idx_blks_hit: i64,
+    size_bytes: i64,
+}
+
+impl PGIndexesStats {
+    fn new() -> Self {
+        Self {
+            database: String::new(),
+            schema: String::new(),
+            table: String::new(),
+            index: String::new(),
+            key: false,
+            isvalid: false,
+            idx_scan: (0),
+            idx_tup_read: (0),
+            idx_tup_fetch: (0),
+            idx_blks_read: (0),
+            idx_blks_hit: (0),
+            size_bytes: (0),
+        }
+    }
+}
+
+// NewPostgresIndexesCollector returns a new Collector exposing postgres indexes stats.
+// For details see
+// https://www.postgresql.org/docs/current/monitoring-stats.html#PG-STAT-ALL-INDEXES-VIEW
+// https://www.postgresql.org/docs/current/monitoring-stats.html#PG-STATIO-ALL-INDEXES-VIEW
+#[derive(Debug, Clone)]
+pub struct PGIndexesCollector {
+    dbi: Arc<instance::PostgresDB>,
+    data: Arc<RwLock<Vec<PGIndexesStats>>>,
+    descs: Vec<Desc>,
+    indexes: IntCounterVec,
+    tuples: IntCounterVec,
+    io: IntCounterVec,
+    sizes: GaugeVec,
+}
+
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGIndexesCollector> {
+    Some(PGIndexesCollector::new(dbi))
+}
+
+impl PGIndexesCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> PGIndexesCollector {
+        Self {
+            dbi: todo!(),
+            data: todo!(),
+            descs: todo!(),
+            indexes: todo!(),
+            tuples: todo!(),
+            io: todo!(),
+            sizes: todo!(),
+        }
+    }
+}
