@@ -3,9 +3,9 @@ use std::sync::{Arc, RwLock};
 use anyhow::bail;
 use async_trait::async_trait;
 
-use prometheus::IntCounterVec;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
+use prometheus::{GaugeVec, IntCounterVec};
 
 use crate::collectors::{PG, POSTGRES_V16};
 use crate::instance;
@@ -67,6 +67,39 @@ impl PGIndexesStats {
             idx_blks_read: (0),
             idx_blks_hit: (0),
             size_bytes: (0),
+        }
+    }
+}
+
+// NewPostgresIndexesCollector returns a new Collector exposing postgres indexes stats.
+// For details see
+// https://www.postgresql.org/docs/current/monitoring-stats.html#PG-STAT-ALL-INDEXES-VIEW
+// https://www.postgresql.org/docs/current/monitoring-stats.html#PG-STATIO-ALL-INDEXES-VIEW
+#[derive(Debug, Clone)]
+pub struct PGIndexesCollector {
+    dbi: Arc<instance::PostgresDB>,
+    data: Arc<RwLock<Vec<PGIndexesStats>>>,
+    descs: Vec<Desc>,
+    indexes: IntCounterVec,
+    tuples: IntCounterVec,
+    io: IntCounterVec,
+    sizes: GaugeVec,
+}
+
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGIndexesCollector> {
+    Some(PGIndexesCollector::new(dbi))
+}
+
+impl PGIndexesCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> PGIndexesCollector {
+        Self {
+            dbi: todo!(),
+            data: todo!(),
+            descs: todo!(),
+            indexes: todo!(),
+            tuples: todo!(),
+            io: todo!(),
+            sizes: todo!(),
         }
     }
 }
