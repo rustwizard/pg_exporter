@@ -51,3 +51,22 @@ pub struct PGIndexesStats {
     idx_blks_hit: i64,
     size_bytes: i64,
 }
+
+impl PGIndexesStats {
+    fn new() -> Self {
+        Self {
+            database: String::new(),
+            schema: String::new(),
+            table: String::new(),
+            index: String::new(),
+            key: false,
+            isvalid: false,
+            idx_scan: (0),
+            idx_tup_read: (0),
+            idx_tup_fetch: (0),
+            idx_blks_read: (0),
+            idx_blks_hit: (0),
+            size_bytes: (0),
+        }
+    }
+}
