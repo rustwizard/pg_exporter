@@ -128,6 +128,16 @@ impl PGIndexesCollector {
         .unwrap();
         descs.extend(io.desc().into_iter().cloned());
 
+        let sizes = GaugeVec::new(
+            Opts::new("size_bytes", "Total size of the index, in bytes.")
+                .namespace(super::NAMESPACE)
+                .subsystem("index")
+                .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table", "index"],
+        )
+        .unwrap();
+        descs.extend(sizes.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
@@ -135,7 +145,7 @@ impl PGIndexesCollector {
             indexes,
             tuples,
             io,
-            sizes: todo!(),
+            sizes,
         }
     }
 }
