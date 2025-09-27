@@ -152,7 +152,7 @@ impl PGIndexesCollector {
 
 impl Collector for PGIndexesCollector {
     fn desc(&self) -> Vec<&Desc> {
-        todo!()
+        self.descs.iter().collect()
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
