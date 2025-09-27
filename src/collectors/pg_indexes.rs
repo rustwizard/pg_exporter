@@ -156,7 +156,35 @@ impl Collector for PGIndexesCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        todo!()
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(4);
+
+        let data_lock = self.data.read().expect("can't acuire lock");
+
+        for row in data_lock.iter() {
+            // always send idx scan metrics and indexes size
+            self.indexes
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                    row.index.as_str(),
+                    row.key.to_string().as_str(),
+                    row.isvalid.to_string().as_str(),
+                ])
+                .inc_by(row.idx_scan as u64);
+
+            self.sizes
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                    row.index.as_str(),
+                ])
+                .set(row.size_bytes as f64);
+        }
+
+        mfs
     }
 }
 
