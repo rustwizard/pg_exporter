@@ -95,11 +95,21 @@ impl PGIndexesCollector {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGIndexesStats::new()]));
 
+        let indexes = IntCounterVec::new(
+            Opts::new("scans_total", "Total number of index scans initiated.")
+                .namespace(super::NAMESPACE)
+                .subsystem("indexes")
+                .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table", "index", "key", "isvalid"],
+        )
+        .unwrap();
+        descs.extend(indexes.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
             descs,
-            indexes: todo!(),
+            indexes,
             tuples: todo!(),
             io: todo!(),
             sizes: todo!(),
