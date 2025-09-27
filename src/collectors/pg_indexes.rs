@@ -98,19 +98,32 @@ impl PGIndexesCollector {
         let indexes = IntCounterVec::new(
             Opts::new("scans_total", "Total number of index scans initiated.")
                 .namespace(super::NAMESPACE)
-                .subsystem("indexes")
+                .subsystem("index")
                 .const_labels(dbi.labels.clone()),
             &["database", "schema", "table", "index", "key", "isvalid"],
         )
         .unwrap();
         descs.extend(indexes.desc().into_iter().cloned());
 
+        let tuples = IntCounterVec::new(
+            Opts::new(
+                "tuples_total",
+                "Total number of index entries processed by scans.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("index")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table", "index", "tuples"],
+        )
+        .unwrap();
+        descs.extend(tuples.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
             descs,
             indexes,
-            tuples: todo!(),
+            tuples,
             io: todo!(),
             sizes: todo!(),
         }
