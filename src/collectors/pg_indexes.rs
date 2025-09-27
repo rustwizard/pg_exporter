@@ -230,6 +230,11 @@ impl Collector for PGIndexesCollector {
             }
         }
 
+        mfs.extend(self.indexes.collect());
+        mfs.extend(self.sizes.collect());
+        mfs.extend(self.io.collect());
+        mfs.extend(self.tuples.collect());
+
         mfs
     }
 }
