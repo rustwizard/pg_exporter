@@ -92,14 +92,156 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGIndexesCollector> {
 
 impl PGIndexesCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> PGIndexesCollector {
+        let mut descs = Vec::new();
+        let data = Arc::new(RwLock::new(vec![PGIndexesStats::new()]));
+
+        let indexes = IntCounterVec::new(
+            Opts::new("scans_total", "Total number of index scans initiated.")
+                .namespace(super::NAMESPACE)
+                .subsystem("index")
+                .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table", "index", "key", "isvalid"],
+        )
+        .unwrap();
+        descs.extend(indexes.desc().into_iter().cloned());
+
+        let tuples = IntCounterVec::new(
+            Opts::new(
+                "tuples_total",
+                "Total number of index entries processed by scans.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("index")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table", "index", "tuples"],
+        )
+        .unwrap();
+        descs.extend(tuples.desc().into_iter().cloned());
+
+        let io = IntCounterVec::new(
+            Opts::new("blocks_total", "Total number of indexes blocks processed.")
+                .namespace(super::NAMESPACE)
+                .subsystem("index_io")
+                .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table", "index", "access"],
+        )
+        .unwrap();
+        descs.extend(io.desc().into_iter().cloned());
+
+        let sizes = GaugeVec::new(
+            Opts::new("size_bytes", "Total size of the index, in bytes.")
+                .namespace(super::NAMESPACE)
+                .subsystem("index")
+                .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table", "index"],
+        )
+        .unwrap();
+        descs.extend(sizes.desc().into_iter().cloned());
+
         Self {
-            dbi: todo!(),
-            data: todo!(),
-            descs: todo!(),
-            indexes: todo!(),
-            tuples: todo!(),
-            io: todo!(),
-            sizes: todo!(),
+            dbi,
+            data,
+            descs,
+            indexes,
+            tuples,
+            io,
+            sizes,
         }
+    }
+}
+
+impl Collector for PGIndexesCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        self.descs.iter().collect()
+    }
+
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(4);
+
+        let data_lock = self.data.read().expect("can't acuire lock");
+
+        for row in data_lock.iter() {
+            // always send idx scan metrics and indexes size
+            self.indexes
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                    row.index.as_str(),
+                    row.key.to_string().as_str(),
+                    row.isvalid.to_string().as_str(),
+                ])
+                .inc_by(row.idx_scan as u64);
+
+            self.sizes
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                    row.index.as_str(),
+                ])
+                .set(row.size_bytes as f64);
+
+            // avoid metrics spamming and send metrics only if they greater than zero.
+            if row.idx_tup_read > 0 {
+                self.tuples
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        row.index.as_str(),
+                        "read",
+                    ])
+                    .inc_by(row.idx_tup_read as u64);
+            }
+            if row.idx_tup_fetch > 0 {
+                self.tuples
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        row.index.as_str(),
+                        "fetched",
+                    ])
+                    .inc_by(row.idx_tup_fetch as u64);
+            }
+            if row.idx_blks_read > 0 {
+                self.tuples
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        row.index.as_str(),
+                        "read",
+                    ])
+                    .inc_by(row.idx_blks_read as u64);
+            }
+            if row.idx_blks_hit > 0 {
+                self.tuples
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        row.index.as_str(),
+                        "hit",
+                    ])
+                    .inc_by(row.idx_blks_hit as u64);
+            }
+        }
+
+        mfs.extend(self.indexes.collect());
+        mfs.extend(self.sizes.collect());
+        mfs.extend(self.io.collect());
+        mfs.extend(self.tuples.collect());
+
+        mfs
+    }
+}
+
+#[async_trait]
+impl PG for PGIndexesCollector {
+    async fn update(&self) -> Result<(), anyhow::Error> {
+        Ok(())
     }
 }
