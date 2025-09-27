@@ -149,3 +149,20 @@ impl PGIndexesCollector {
         }
     }
 }
+
+impl Collector for PGIndexesCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        todo!()
+    }
+
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        todo!()
+    }
+}
+
+#[async_trait]
+impl PG for PGIndexesCollector {
+    async fn update(&self) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+}
