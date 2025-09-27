@@ -118,13 +118,23 @@ impl PGIndexesCollector {
         .unwrap();
         descs.extend(tuples.desc().into_iter().cloned());
 
+        let io = IntCounterVec::new(
+            Opts::new("blocks_total", "Total number of indexes blocks processed.")
+                .namespace(super::NAMESPACE)
+                .subsystem("index_io")
+                .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table", "index", "access"],
+        )
+        .unwrap();
+        descs.extend(io.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
             descs,
             indexes,
             tuples,
-            io: todo!(),
+            io,
             sizes: todo!(),
         }
     }
