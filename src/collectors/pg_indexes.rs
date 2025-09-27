@@ -182,6 +182,52 @@ impl Collector for PGIndexesCollector {
                     row.index.as_str(),
                 ])
                 .set(row.size_bytes as f64);
+
+            // avoid metrics spamming and send metrics only if they greater than zero.
+            if row.idx_tup_read > 0 {
+                self.tuples
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        row.index.as_str(),
+                        "read",
+                    ])
+                    .inc_by(row.idx_tup_read as u64);
+            }
+            if row.idx_tup_fetch > 0 {
+                self.tuples
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        row.index.as_str(),
+                        "fetched",
+                    ])
+                    .inc_by(row.idx_tup_fetch as u64);
+            }
+            if row.idx_blks_read > 0 {
+                self.tuples
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        row.index.as_str(),
+                        "read",
+                    ])
+                    .inc_by(row.idx_blks_read as u64);
+            }
+            if row.idx_blks_hit > 0 {
+                self.tuples
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        row.index.as_str(),
+                        "hit",
+                    ])
+                    .inc_by(row.idx_blks_hit as u64);
+            }
         }
 
         mfs
