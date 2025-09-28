@@ -252,6 +252,15 @@ impl PG for PGIndexesCollector {
                 .await?
         };
 
+        let mut data_lock = match self.data.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!("can't unwrap lock. {}", e),
+        };
+
+        data_lock.clear();
+
+        data_lock.append(&mut pg_idx_stats_rows);
+
         Ok(())
     }
 }
