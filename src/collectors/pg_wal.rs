@@ -7,7 +7,7 @@ use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
 use prometheus::{Counter, CounterVec, IntCounter, IntGauge};
 
-use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V14};
+use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V14, POSTGRES_V18};
 use crate::instance;
 
 const POSTGRES_WAL_QUERY96: &str =
@@ -18,10 +18,17 @@ const POSTGRES_WAL_QUERY13: &str =
     "SELECT pg_is_in_recovery()::int AS recovery, 
 		((CASE pg_is_in_recovery() WHEN 't' THEN pg_last_wal_receive_lsn() ELSE pg_current_wal_lsn() END) - '0/00000000')::FLOAT8 AS wal_written";
 
-const POSTGRES_WAL_QUERY_LATEST: &str =
+const POSTGRES_WAL_QUERY17: &str =
     "SELECT pg_is_in_recovery()::int AS recovery, wal_records, wal_fpi, 
 		(CASE pg_is_in_recovery() WHEN 't' THEN pg_last_wal_receive_lsn() - '0/00000000' ELSE pg_current_wal_lsn() - '0/00000000' END)::FLOAT8 AS wal_written, 
 		wal_bytes::FLOAT8, wal_buffers_full, wal_write, wal_sync, wal_write_time, wal_sync_time, extract('epoch' from stats_reset)::INT8 as reset_time 
+		FROM pg_stat_wal";
+
+const POSTGRES_WAL_QUERY_LATEST: &str = "SELECT pg_is_in_recovery()::int AS recovery,
+		(CASE pg_is_in_recovery() WHEN 'f' THEN FALSE::int ELSE pg_is_wal_replay_paused()::int END) AS recovery_paused,
+		wal_records, wal_fpi, 
+		(CASE pg_is_in_recovery() WHEN 't' THEN pg_last_wal_receive_lsn() - '0/00000000' ELSE pg_current_wal_lsn() - '0/00000000' END) AS wal_written, 
+		wal_bytes, wal_buffers_full, extract('epoch' from stats_reset) as reset_time 
 		FROM pg_stat_wal";
 
 #[derive(sqlx::FromRow, Debug)]
@@ -239,7 +246,7 @@ impl PGWALCollector {
 
 impl Collector for PGWALCollector {
     fn desc(&self) -> std::vec::Vec<&Desc> {
-       self.descs.iter().collect()
+        self.descs.iter().collect()
     }
     fn collect(&self) -> std::vec::Vec<MetricFamily> {
         // collect MetricFamilies.
@@ -249,17 +256,22 @@ impl Collector for PGWALCollector {
 
         self.recovery_info.set(data_lock.recovery as i64);
         self.records_total.inc_by(data_lock.wal_records as u64);
-        self.buffers_full_total.inc_by(data_lock.wal_buffers_full as u64);
+        self.buffers_full_total
+            .inc_by(data_lock.wal_buffers_full as u64);
         self.bytes_total.inc_by(data_lock.wal_bytes);
         self.fpi_total.inc_by(data_lock.wal_fpi as u64);
-        self.seconds_all_total.inc_by(data_lock.wal_write_time + data_lock.wal_sync_time);
-        self.seconds_total.with_label_values(&["write"]).inc_by(data_lock.wal_write_time);
-        self.seconds_total.with_label_values(&["sync"]).inc_by(data_lock.wal_sync_time);
+        self.seconds_all_total
+            .inc_by(data_lock.wal_write_time + data_lock.wal_sync_time);
+        self.seconds_total
+            .with_label_values(&["write"])
+            .inc_by(data_lock.wal_write_time);
+        self.seconds_total
+            .with_label_values(&["sync"])
+            .inc_by(data_lock.wal_sync_time);
         self.stats_reset_time.set(data_lock.reset_time);
         self.sync_total.inc_by(data_lock.wal_sync as u64);
         self.write_total.inc_by(data_lock.wal_write as u64);
         self.written_bytes_total.inc_by(data_lock.wal_written);
-
 
         mfs.extend(self.recovery_info.collect());
         mfs.extend(self.records_total.collect());
@@ -274,7 +286,6 @@ impl Collector for PGWALCollector {
         mfs.extend(self.written_bytes_total.collect());
 
         mfs
-
     }
 }
 
@@ -289,6 +300,10 @@ impl PG for PGWALCollector {
             sqlx::query_as::<_, PGWALStats>(POSTGRES_WAL_QUERY13)
                 .fetch_optional(&self.dbi.db)
                 .await?
+        } else if self.dbi.cfg.pg_version < POSTGRES_V18 {
+            sqlx::query_as::<_, PGWALStats>(POSTGRES_WAL_QUERY17)
+                .fetch_optional(&self.dbi.db)
+                .await?
         } else {
             sqlx::query_as::<_, PGWALStats>(POSTGRES_WAL_QUERY_LATEST)
                 .fetch_optional(&self.dbi.db)
@@ -298,7 +313,7 @@ impl PG for PGWALCollector {
         if let Some(pg_wal_stats) = maybe_pg_wal_stats {
             let mut data_lock = match self.data.write() {
                 Ok(data_lock) => data_lock,
-                Err(e) => bail!("can't unwrap lock. {}", e)
+                Err(e) => bail!("can't unwrap lock. {}", e),
             };
 
             data_lock.recovery = pg_wal_stats.recovery;
