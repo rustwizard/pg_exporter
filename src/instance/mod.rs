@@ -15,6 +15,7 @@ pub struct PGConfig {
     pub pg_version: i64,
     pub pg_block_size: i64,
     pub pg_wal_segment_size: i64,
+    pub pg_collect_topidx: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -76,6 +77,7 @@ pub async fn new(
         pg_version,
         pg_block_size,
         pg_wal_segment_size,
+        pg_collect_topidx: 10,
     };
 
     Ok(PostgresDB::new(pool, excluded_dbnames, labels, cfg))

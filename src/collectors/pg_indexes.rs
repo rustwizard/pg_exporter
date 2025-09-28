@@ -4,37 +4,37 @@ use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::proto;
 use prometheus::{GaugeVec, IntCounterVec};
+use prometheus::{IntGaugeVec, proto};
 
-use crate::collectors::{PG, POSTGRES_V16};
+use crate::collectors::PG;
 use crate::instance;
 
-const USER_INDEXES_QUERY: &str = "SELECT current_database() AS database, schemaname AS schema, relname AS table, 
+const USER_INDEXES_QUERY: &str = "SELECT current_database() AS database, schemaname AS schema, relname AS table,
         indexrelname AS index, (i.indisprimary OR i.indisunique) AS key,
-		i.indisvalid AS isvalid, idx_scan, idx_tup_read, idx_tup_fetch, idx_blks_read, idx_blks_hit, pg_relation_size(s1.indexrelid) AS size_bytes 
-		FROM pg_stat_user_indexes s1 
-		JOIN pg_statio_user_indexes s2 USING (schemaname, relname, indexrelname) 
-		JOIN pg_index i ON (s1.indexrelid = i.indexrelid) 
+		i.indisvalid AS isvalid, idx_scan, idx_tup_read, idx_tup_fetch, idx_blks_read, idx_blks_hit, pg_relation_size(s1.indexrelid) AS size_bytes
+		FROM pg_stat_user_indexes s1
+		JOIN pg_statio_user_indexes s2 USING (schemaname, relname, indexrelname)
+		JOIN pg_index i ON (s1.indexrelid = i.indexrelid)
 		WHERE NOT EXISTS (SELECT 1 FROM pg_locks WHERE relation = s1.indexrelid AND mode = 'AccessExclusiveLock' AND granted)";
 
-const USER_INDEXES_QUERY_TOPK: &str = "WITH stat AS (SELECT schemaname AS schema, relname AS table, indexrelname AS index, 
-        (i.indisprimary OR i.indisunique) AS key, 
-		i.indisvalid AS isvalid, idx_scan, idx_tup_read, idx_tup_fetch, idx_blks_read, idx_blks_hit, pg_relation_size(s1.indexrelid) AS size_bytes, 
-		NOT i.indisvalid OR /* unused and size > 50mb */ (idx_scan = 0 AND pg_relation_size(s1.indexrelid) > 50*1024*1024) OR 
-		(row_number() OVER (ORDER BY idx_scan DESC NULLS LAST) < $1) OR (row_number() OVER (ORDER BY idx_tup_read DESC NULLS LAST) < $1) OR 
-		(row_number() OVER (ORDER BY idx_tup_fetch DESC NULLS LAST) < $1) OR (row_number() OVER (ORDER BY idx_blks_read DESC NULLS LAST) < $1) OR 
-		(row_number() OVER (ORDER BY idx_blks_hit DESC NULLS LAST) < $1) OR (row_number() OVER (ORDER BY pg_relation_size(s1.indexrelid) DESC NULLS LAST) < $1) AS visible 
-		FROM pg_stat_user_indexes s1 
-		JOIN pg_statio_user_indexes s2 USING (schemaname, relname, indexrelname) 
-		JOIN pg_index i ON (s1.indexrelid = i.indexrelid) 
-		WHERE NOT EXISTS ( SELECT 1 FROM pg_locks WHERE relation = s1.indexrelid AND mode = 'AccessExclusiveLock' AND granted)) 
-		SELECT current_database() AS database, \"schema\", \"table\", \"index\", \"key\", isvalid, idx_scan, idx_tup_read, idx_tup_fetch, 
-		idx_blks_read, idx_blks_hit, size_bytes FROM stat WHERE visible 
-		UNION ALL SELECT current_database() AS database, 'all_shemas', 'all_other_tables', 'all_other_indexes', true, null, 
-		NULLIF(SUM(COALESCE(idx_scan,0)),0), NULLIF(SUM(COALESCE(idx_tup_fetch,0)),0), NULLIF(SUM(COALESCE(idx_tup_read,0)),0), 
-		NULLIF(SUM(COALESCE(idx_blks_read,0)),0), NULLIF(SUM(COALESCE(idx_blks_hit,0)),0), 
-		NULLIF(SUM(COALESCE(size_bytes,0)),0) FROM stat WHERE NOT visible HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)";
+const USER_INDEXES_QUERY_TOPK: &str = "WITH stat AS (SELECT schemaname AS schema, relname AS table, indexrelname AS index,
+        (i.indisprimary OR i.indisunique) AS key,
+		i.indisvalid AS isvalid, idx_scan, idx_tup_read, idx_tup_fetch, idx_blks_read, idx_blks_hit, pg_relation_size(s1.indexrelid) AS size_bytes,
+		NOT i.indisvalid OR /* unused and size > 50mb */ (idx_scan = 0 AND pg_relation_size(s1.indexrelid) > 50*1024*1024) OR
+		(row_number() OVER (ORDER BY idx_scan DESC NULLS LAST) < $1) OR (row_number() OVER (ORDER BY idx_tup_read DESC NULLS LAST) < $1) OR
+		(row_number() OVER (ORDER BY idx_tup_fetch DESC NULLS LAST) < $1) OR (row_number() OVER (ORDER BY idx_blks_read DESC NULLS LAST) < $1) OR
+		(row_number() OVER (ORDER BY idx_blks_hit DESC NULLS LAST) < $1) OR (row_number() OVER (ORDER BY pg_relation_size(s1.indexrelid) DESC NULLS LAST) < $1) AS visible
+		FROM pg_stat_user_indexes s1
+		JOIN pg_statio_user_indexes s2 USING (schemaname, relname, indexrelname)
+		JOIN pg_index i ON (s1.indexrelid = i.indexrelid)
+		WHERE NOT EXISTS ( SELECT 1 FROM pg_locks WHERE relation = s1.indexrelid AND mode = 'AccessExclusiveLock' AND granted))
+		SELECT current_database() AS database, \"schema\", \"table\", \"index\", \"key\", isvalid, idx_scan::INT8, idx_tup_read::INT8, idx_tup_fetch::INT8,
+		idx_blks_read::INT8, idx_blks_hit::INT8, size_bytes::INT8 FROM stat WHERE visible
+		UNION ALL SELECT current_database() AS database, 'all_shemas', 'all_other_tables', 'all_other_indexes', true, null,
+		NULLIF(SUM(COALESCE(idx_scan,0)),0)::INT8, NULLIF(SUM(COALESCE(idx_tup_fetch,0)),0)::INT8, NULLIF(SUM(COALESCE(idx_tup_read,0)),0)::INT8,
+		NULLIF(SUM(COALESCE(idx_blks_read,0)),0)::INT8, NULLIF(SUM(COALESCE(idx_blks_hit,0)),0)::INT8,
+		NULLIF(SUM(COALESCE(size_bytes,0)),0)::INT8 FROM stat WHERE NOT visible HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)";
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct PGIndexesStats {
@@ -80,8 +80,8 @@ pub struct PGIndexesCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<Vec<PGIndexesStats>>>,
     descs: Vec<Desc>,
-    indexes: IntCounterVec,
-    tuples: IntCounterVec,
+    indexes: IntGaugeVec,
+    tuples: IntGaugeVec,
     io: IntCounterVec,
     sizes: GaugeVec,
 }
@@ -95,7 +95,7 @@ impl PGIndexesCollector {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGIndexesStats::new()]));
 
-        let indexes = IntCounterVec::new(
+        let indexes = IntGaugeVec::new(
             Opts::new("scans_total", "Total number of index scans initiated.")
                 .namespace(super::NAMESPACE)
                 .subsystem("index")
@@ -105,7 +105,7 @@ impl PGIndexesCollector {
         .unwrap();
         descs.extend(indexes.desc().into_iter().cloned());
 
-        let tuples = IntCounterVec::new(
+        let tuples = IntGaugeVec::new(
             Opts::new(
                 "tuples_total",
                 "Total number of index entries processed by scans.",
@@ -172,7 +172,7 @@ impl Collector for PGIndexesCollector {
                     row.key.to_string().as_str(),
                     row.isvalid.to_string().as_str(),
                 ])
-                .inc_by(row.idx_scan as u64);
+                .set(row.idx_scan);
 
             self.sizes
                 .with_label_values(&[
@@ -193,7 +193,7 @@ impl Collector for PGIndexesCollector {
                         row.index.as_str(),
                         "read",
                     ])
-                    .inc_by(row.idx_tup_read as u64);
+                    .set(row.idx_tup_read);
             }
             if row.idx_tup_fetch > 0 {
                 self.tuples
@@ -204,7 +204,7 @@ impl Collector for PGIndexesCollector {
                         row.index.as_str(),
                         "fetched",
                     ])
-                    .inc_by(row.idx_tup_fetch as u64);
+                    .set(row.idx_tup_fetch);
             }
             if row.idx_blks_read > 0 {
                 self.tuples
@@ -215,7 +215,7 @@ impl Collector for PGIndexesCollector {
                         row.index.as_str(),
                         "read",
                     ])
-                    .inc_by(row.idx_blks_read as u64);
+                    .set(row.idx_blks_read);
             }
             if row.idx_blks_hit > 0 {
                 self.tuples
@@ -226,7 +226,7 @@ impl Collector for PGIndexesCollector {
                         row.index.as_str(),
                         "hit",
                     ])
-                    .inc_by(row.idx_blks_hit as u64);
+                    .set(row.idx_blks_hit);
             }
         }
 
@@ -242,6 +242,26 @@ impl Collector for PGIndexesCollector {
 #[async_trait]
 impl PG for PGIndexesCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
+        let mut pg_idx_stats_rows = if self.dbi.cfg.pg_collect_topidx > 0 {
+            sqlx::query_as::<_, PGIndexesStats>(USER_INDEXES_QUERY_TOPK)
+                .bind(self.dbi.cfg.pg_collect_topidx)
+                .fetch_all(&self.dbi.db)
+                .await?
+        } else {
+            sqlx::query_as::<_, PGIndexesStats>(USER_INDEXES_QUERY)
+                .fetch_all(&self.dbi.db)
+                .await?
+        };
+
+        let mut data_lock = match self.data.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!("can't unwrap lock. {}", e),
+        };
+
+        data_lock.clear();
+
+        data_lock.append(&mut pg_idx_stats_rows);
+
         Ok(())
     }
 }

@@ -114,6 +114,13 @@ async fn main() -> std::io::Result<()> {
             .register(Box::new(pgconflc.clone()))
             .expect("pg conflict collector should be initialized");
 
+        if let Some(pgidx_c) = collectors::pg_indexes::new(Arc::clone(&arc_pgi)) {
+            app.registry
+                .register(Box::new(pgidx_c.clone()))
+                .expect("pg indexes collector should be initialized");
+            app.collectors.push(Box::new(pgidx_c));
+        }
+
         app.collectors.push(Box::new(pc));
         app.collectors.push(Box::new(pc_pstm));
         app.collectors.push(Box::new(pcdb));
