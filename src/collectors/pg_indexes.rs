@@ -7,7 +7,7 @@ use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
 use prometheus::{GaugeVec, IntCounterVec};
 
-use crate::collectors::{PG, POSTGRES_V16};
+use crate::collectors::PG;
 use crate::instance;
 
 const USER_INDEXES_QUERY: &str = "SELECT current_database() AS database, schemaname AS schema, relname AS table,
