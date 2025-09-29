@@ -6,4 +6,5 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --po
     GRANT pg_monitor to postgres_exporter;
     CREATE DATABASE db2;
     CREATE DATABASE db3;
+    CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 EOSQL
