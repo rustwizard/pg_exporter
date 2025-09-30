@@ -17,7 +17,7 @@ const STATEMENTS_QUERY16: &str = "SELECT d.datname AS database, pg_get_userbyid(
 		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
 		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
 		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written, 
-		NULLIF(p.wal_records, 0) AS wal_records, NULLIF(p.wal_fpi, 0) AS wal_fpi, NULLIF(p.wal_bytes, 0) AS wal_bytes 
+		NULLIF(p.wal_records, 0) AS wal_records, NULLIF(p.wal_fpi, 0) AS wal_fpi, NULLIF(p.wal_bytes, 0)::FLOAT8 AS wal_bytes 
 		FROM %s.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid";
 
 const STATEMENTS_QUERY16_TOPK: &str = "WITH stat AS (SELECT d.datname AS DATABASE, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
@@ -130,3 +130,31 @@ const STATEMENTS_QUERY_LATEST_TOP_K: &str = "WITH stat AS (SELECT d.datname AS D
     NULLIF(SUM(COALESCE(temp_blks_written, 0)), 0), NULLIF(SUM(COALESCE(wal_records, 0)), 0), NULLIF(SUM(COALESCE(wal_fpi, 0)), 0), 
     NULLIF(SUM(COALESCE(wal_bytes, 0)), 0), NULLIF(SUM(COALESCE(wal_buffers_full, 0)), 0) FROM stat WHERE NOT visible 
     GROUP BY DATABASE HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)";
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct PGStatementsStat {
+    database: String,
+    user: String,
+    queryid: i64,
+    query: String,
+    calls: i64,
+    rows: i64,
+    total_exec_time: f64,
+    total_plan_time: f64,
+    blk_read_time: f64,
+    blk_write_time: f64,
+    shared_blks_hit: i64,
+    shared_blks_read: i64,
+    shared_blks_dirtied: i64,
+    shared_blks_written: i64,
+    local_blks_hit: i64,
+    local_blks_read: i64,
+    local_blks_dirtied: i64,
+    local_blks_written: i64,
+    temp_blks_read: i64,
+    temp_blks_written: i64,
+    wal_records: f64,
+    wal_fpi: f64,
+    wal_bytes: f64,
+    wal_buffers: f64,
+}
