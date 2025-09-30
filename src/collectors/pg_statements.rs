@@ -153,8 +153,39 @@ pub struct PGStatementsStat {
     local_blks_written: i64,
     temp_blks_read: i64,
     temp_blks_written: i64,
-    wal_records: f64,
-    wal_fpi: f64,
-    wal_bytes: f64,
-    wal_buffers: f64,
+    wal_records: i64,
+    wal_fpi: i64,
+    wal_bytes: i64,
+    wal_buffers: i64,
+}
+
+impl PGStatementsStat {
+    fn new() -> Self {
+        Self {
+            database: String::new(),
+            user: String::new(),
+            queryid: 0,
+            query: String::new(),
+            calls: 0,
+            rows: 0,
+            total_exec_time: 0.0,
+            total_plan_time: 0.0,
+            blk_read_time: 0.0,
+            blk_write_time: 0.0,
+            shared_blks_hit: 0,
+            shared_blks_read: 0,
+            shared_blks_dirtied: 0,
+            shared_blks_written: 0,
+            local_blks_hit: 0,
+            local_blks_read: 0,
+            local_blks_dirtied: 0,
+            local_blks_written: 0,
+            temp_blks_read: 0,
+            temp_blks_written: 0,
+            wal_records: 0,
+            wal_fpi: 0,
+            wal_bytes: 0,
+            wal_buffers: 0,
+        }
+    }
 }
