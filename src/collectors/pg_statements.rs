@@ -7,7 +7,7 @@ use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{IntGaugeVec, proto};
 use sqlx::QueryBuilder;
 
-use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13};
+use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18};
 use crate::instance;
 
 // defines query for querying statements metrics for PG12 and older.
@@ -310,14 +310,46 @@ impl PGStatementsCollector {
                     query_column, self.dbi.cfg.pg_stat_statements_schema
                 )
             }
+        } else if self.dbi.cfg.pg_version > POSTGRES_V12 && self.dbi.cfg.pg_version < POSTGRES_V17 {
+            if self.dbi.cfg.pg_collect_topq > 0 {
+                format!(
+                    statements_query16_topk!(),
+                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                )
+            } else {
+                format!(
+                    statements_query16!(),
+                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                )
+            }
+        } else if self.dbi.cfg.pg_version > POSTGRES_V16 && self.dbi.cfg.pg_version < POSTGRES_V18 {
+            if self.dbi.cfg.pg_collect_topq > 0 {
+                format!(
+                    statements_query17_topk!(),
+                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                )
+            } else {
+                format!(
+                    statements_query17!(),
+                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                )
+            }
+        } else if self.dbi.cfg.pg_collect_topq > 0 {
+            format!(
+                statements_query_latest_topk!(),
+                query_column, self.dbi.cfg.pg_stat_statements_schema
+            )
         } else {
-            String::new()
+            format!(
+                statements_query_latest!(),
+                query_column, self.dbi.cfg.pg_stat_statements_schema
+            )
         }
     }
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
-    // Collecting since Postgres 15.
+    // Collecting since Postgres 12.
     if dbi.cfg.pg_version >= POSTGRES_V12 {
         Some(PGStatementsCollector::new(dbi))
     } else {
