@@ -7,6 +7,7 @@ pub mod pg_indexes;
 pub mod pg_locks;
 pub mod pg_postmaster;
 pub mod pg_stat_io;
+pub mod pg_statements;
 pub mod pg_wal;
 
 use async_trait::async_trait;
@@ -19,6 +20,7 @@ const POSTGRES_V95: i64 = 90500;
 const POSTGRES_V10: i64 = 100000;
 const POSTGRES_V12: i64 = 120000;
 const POSTGRES_V14: i64 = 140000;
+const POSTGRES_V15: i64 = 150000;
 const POSTGRES_V16: i64 = 160000;
 const POSTGRES_V17: i64 = 170000;
 const POSTGRES_V18: i64 = 180000;
