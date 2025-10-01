@@ -203,11 +203,24 @@ impl PGStatementsCollector {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGStatementsStat::new()]));
 
+        let query = IntGaugeVec::new(
+            Opts::new(
+                "query_info",
+                "Labeled info about statements has been executed.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid", "query"],
+        )
+        .unwrap();
+        descs.extend(query.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
             descs,
-            query: todo!(),
+            query,
         }
     }
 }
