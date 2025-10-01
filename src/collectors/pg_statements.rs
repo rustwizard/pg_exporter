@@ -7,7 +7,7 @@ use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{GaugeVec, IntCounterVec};
 use prometheus::{IntGaugeVec, proto};
 
-use crate::collectors::PG;
+use crate::collectors::{PG, POSTGRES_V12};
 use crate::instance;
 
 const STATEMENTS_QUERY16: &str = "SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
@@ -187,5 +187,36 @@ impl PGStatementsStat {
             wal_bytes: 0,
             wal_buffers: 0,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PGStatementsCollector {
+    dbi: Arc<instance::PostgresDB>,
+    data: Arc<RwLock<Vec<PGStatementsStat>>>,
+    descs: Vec<Desc>,
+    query: IntGaugeVec,
+}
+
+impl PGStatementsCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> Self {
+        let mut descs = Vec::new();
+        let data = Arc::new(RwLock::new(vec![PGStatementsStat::new()]));
+
+        Self {
+            dbi,
+            data,
+            descs,
+            query: todo!(),
+        }
+    }
+}
+
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
+    // Collecting pg_stat_io since Postgres 16.
+    if dbi.cfg.pg_version >= POSTGRES_V12 {
+        Some(PGStatementsCollector::new(dbi))
+    } else {
+        None
     }
 }
