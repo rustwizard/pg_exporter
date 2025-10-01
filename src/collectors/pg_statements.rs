@@ -233,3 +233,20 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
         None
     }
 }
+
+impl Collector for PGStatementsCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        todo!()
+    }
+
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        todo!()
+    }
+}
+
+#[async_trait]
+impl PG for PGStatementsCollector {
+    async fn update(&self) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+}
