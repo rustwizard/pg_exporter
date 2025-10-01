@@ -236,7 +236,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
 
 impl Collector for PGStatementsCollector {
     fn desc(&self) -> Vec<&Desc> {
-        todo!()
+        self.descs.iter().collect()
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
