@@ -298,7 +298,7 @@ impl PGStatementsCollector {
             "p.query"
         };
 
-        let query = if self.dbi.cfg.pg_version < POSTGRES_V13 {
+        if self.dbi.cfg.pg_version < POSTGRES_V13 {
             if self.dbi.cfg.pg_collect_topq > 0 {
                 format!(
                     statements_query12_topk!(),
@@ -312,9 +312,7 @@ impl PGStatementsCollector {
             }
         } else {
             String::new()
-        };
-
-        query
+        }
     }
 }
 
