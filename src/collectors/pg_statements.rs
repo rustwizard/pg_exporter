@@ -240,7 +240,24 @@ impl Collector for PGStatementsCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        todo!()
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(4);
+
+        let data_lock = self.data.read().expect("can't acuire lock");
+
+        for row in data_lock.iter() {
+            self.query
+                .with_label_values(&[
+                    row.user.as_str(),
+                    row.database.as_str(),
+                    row.queryid.to_string().as_str(),
+                    row.query.as_str(),
+                ])
+                .set(1);
+        }
+
+        mfs.extend(self.query.collect());
+        mfs
     }
 }
 
