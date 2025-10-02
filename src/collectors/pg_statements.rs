@@ -387,6 +387,22 @@ impl Collector for PGStatementsCollector {
 #[async_trait]
 impl PG for PGStatementsCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
+        let query = self.select_query();
+
+        let mut pg_statemnts_rows = sqlx::query_as::<_, PGStatementsStat>(&query)
+            .bind(self.dbi.cfg.pg_collect_topidx)
+            .fetch_all(&self.dbi.db)
+            .await?;
+
+        let mut data_lock = match self.data.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!("can't unwrap lock. {}", e),
+        };
+
+        data_lock.clear();
+
+        data_lock.append(&mut pg_statemnts_rows);
+
         Ok(())
     }
 }
