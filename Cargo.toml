@@ -10,10 +10,11 @@ config = "0.15.8"
 serde_derive = "1.0"
 serde = "1.0"
 prometheus = {version="0.13.4", features = ["process"]}
-sqlx = {version="0.8.3", features = [ "postgres", "runtime-tokio"]}
+sqlx = {version="0.8.6", features = [ "postgres", "runtime-tokio", "rust_decimal"]}
 anyhow = "1.0.96"
 async-trait = "0.1.86"
 dyn-clone = "1.0.18"
 regex = "1.11.1"
 bigdecimal = "0.4.8"
 thiserror = "2.0.12"
+rust_decimal = "1.38.0"

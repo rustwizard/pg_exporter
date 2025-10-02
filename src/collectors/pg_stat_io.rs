@@ -100,7 +100,7 @@ pub struct PGStatIOCollector {
     fsync_time: GaugeVec,
     read_bytes: IntGaugeVec,
     write_bytes: IntGaugeVec,
-    extend_bytes: IntGaugeVec
+    extend_bytes: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
@@ -289,44 +289,34 @@ impl PGStatIOCollector {
         descs.extend(fsync_time.desc().into_iter().cloned());
 
         let read_bytes = IntGaugeVec::new(
-            Opts::new(
-                "read_bytes",
-                "Number of read, in bytes",
-            )
-            .namespace(super::NAMESPACE)
-            .subsystem("stat_io")
-            .const_labels(dbi.labels.clone()),
+            Opts::new("read_bytes", "Number of read, in bytes")
+                .namespace(super::NAMESPACE)
+                .subsystem("stat_io")
+                .const_labels(dbi.labels.clone()),
             &var_labels,
         )
         .unwrap();
         descs.extend(read_bytes.desc().into_iter().cloned());
 
         let write_bytes = IntGaugeVec::new(
-            Opts::new(
-                "write_bytes",
-                "Number of write, in bytes",
-            )
-            .namespace(super::NAMESPACE)
-            .subsystem("stat_io")
-            .const_labels(dbi.labels.clone()),
+            Opts::new("write_bytes", "Number of write, in bytes")
+                .namespace(super::NAMESPACE)
+                .subsystem("stat_io")
+                .const_labels(dbi.labels.clone()),
             &var_labels,
         )
         .unwrap();
         descs.extend(write_bytes.desc().into_iter().cloned());
 
         let extend_bytes = IntGaugeVec::new(
-            Opts::new(
-                "extend_bytes",
-                "Number of relation extend, in bytes.",
-            )
-            .namespace(super::NAMESPACE)
-            .subsystem("stat_io")
-            .const_labels(dbi.labels.clone()),
+            Opts::new("extend_bytes", "Number of relation extend, in bytes.")
+                .namespace(super::NAMESPACE)
+                .subsystem("stat_io")
+                .const_labels(dbi.labels.clone()),
             &var_labels,
         )
         .unwrap();
         descs.extend(extend_bytes.desc().into_iter().cloned());
-
 
         PGStatIOCollector {
             dbi,
@@ -347,7 +337,7 @@ impl PGStatIOCollector {
             fsync_time,
             read_bytes,
             write_bytes,
-            extend_bytes
+            extend_bytes,
         }
     }
 }
@@ -370,22 +360,49 @@ impl Collector for PGStatIOCollector {
             ];
 
             self.reads.with_label_values(vals.as_slice()).set(row.reads);
-            self.read_time.with_label_values(vals.as_slice()).set(row.read_time);
-            self.writes.with_label_values(vals.as_slice()).set(row.writes);
-            self.write_time.with_label_values(vals.as_slice()).set(row.write_time);
-            self.write_backs.with_label_values(vals.as_slice()).set(row.write_backs);
-            self.writeback_time.with_label_values(vals.as_slice()).set(row.writeback_time);
-            self.extends.with_label_values(vals.as_slice()).set(row.extends);
-            self.extend_time.with_label_values(vals.as_slice()).set(row.extend_time);
+            self.read_time
+                .with_label_values(vals.as_slice())
+                .set(row.read_time);
+            self.writes
+                .with_label_values(vals.as_slice())
+                .set(row.writes);
+            self.write_time
+                .with_label_values(vals.as_slice())
+                .set(row.write_time);
+            self.write_backs
+                .with_label_values(vals.as_slice())
+                .set(row.write_backs);
+            self.writeback_time
+                .with_label_values(vals.as_slice())
+                .set(row.writeback_time);
+            self.extends
+                .with_label_values(vals.as_slice())
+                .set(row.extends);
+            self.extend_time
+                .with_label_values(vals.as_slice())
+                .set(row.extend_time);
             self.hits.with_label_values(vals.as_slice()).set(row.hits);
-            self.evictions.with_label_values(vals.as_slice()).set(row.evictions);
-            self.reuses.with_label_values(vals.as_slice()).set(row.reuses);
-            self.fsyncs.with_label_values(vals.as_slice()).set(row.fsyncs);
-            self.fsync_time.with_label_values(vals.as_slice()).set(row.fsync_time);
-            self.read_bytes.with_label_values(vals.as_slice()).set(row.read_bytes);
-            self.write_bytes.with_label_values(vals.as_slice()).set(row.write_bytes);
-            self.extend_bytes.with_label_values(vals.as_slice()).set(row.extend_bytes);
-
+            self.evictions
+                .with_label_values(vals.as_slice())
+                .set(row.evictions);
+            self.reuses
+                .with_label_values(vals.as_slice())
+                .set(row.reuses);
+            self.fsyncs
+                .with_label_values(vals.as_slice())
+                .set(row.fsyncs);
+            self.fsync_time
+                .with_label_values(vals.as_slice())
+                .set(row.fsync_time);
+            self.read_bytes
+                .with_label_values(vals.as_slice())
+                .set(row.read_bytes);
+            self.write_bytes
+                .with_label_values(vals.as_slice())
+                .set(row.write_bytes);
+            self.extend_bytes
+                .with_label_values(vals.as_slice())
+                .set(row.extend_bytes);
         }
 
         mfs.extend(self.reads.collect());
@@ -404,7 +421,6 @@ impl Collector for PGStatIOCollector {
         mfs.extend(self.read_bytes.collect());
         mfs.extend(self.write_bytes.collect());
         mfs.extend(self.extend_bytes.collect());
-
 
         mfs
     }

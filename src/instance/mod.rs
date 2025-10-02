@@ -16,6 +16,13 @@ pub struct PGConfig {
     pub pg_block_size: i64,
     pub pg_wal_segment_size: i64,
     pub pg_collect_topidx: i64,
+    pub pg_collect_topq: i64,
+    // NoTrackMode controls collector to gather and send sensitive information, such as queries texts.
+    pub notrack: bool,
+    // pg_stat_statements defines is pg_stat_statements available in shared_preload_libraries and available for queries.
+    pub pg_stat_statements: bool,
+    // pg_stat_statements_schema defines the schema name where pg_stat_statements is installed.
+    pub pg_stat_statements_schema: String,
 }
 
 #[derive(Debug, Clone)]
@@ -77,7 +84,12 @@ pub async fn new(
         pg_version,
         pg_block_size,
         pg_wal_segment_size,
+        // TODO: move to config and read from it
         pg_collect_topidx: 10,
+        pg_collect_topq: 10,
+        notrack: false,
+        pg_stat_statements: true,
+        pg_stat_statements_schema: String::from("public"),
     };
 
     Ok(PostgresDB::new(pool, excluded_dbnames, labels, cfg))

@@ -4,24 +4,73 @@ use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::{GaugeVec, IntCounterVec};
 use prometheus::{IntGaugeVec, proto};
+use rust_decimal::Decimal;
 
-use crate::collectors::{PG, POSTGRES_V15};
+use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18};
 use crate::instance;
 
-const STATEMENTS_QUERY16: &str = "SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE(%s, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.blk_read_time, p.blk_write_time, 
+// defines query for querying statements metrics for PG12 and older.
+macro_rules! statements_query12 {
+() =>  {
+	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
+		COALESCE({}, '') AS query, p.calls, p.rows, p.total_time, p.blk_read_time, p.blk_write_time, 
+		NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
+		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
+		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
+		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
+		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written 
+		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid"
+	}
+}
+
+macro_rules! statements_query12_topk {
+    () => { "WITH stat AS (SELECT d.datname AS DATABASE, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
+		COALESCE({}, '') AS query, p.calls, p.rows, p.total_time, p.blk_read_time, p.blk_write_time, 
+		NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
+		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
+		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
+		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
+		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written, 
+		(ROW_NUMBER() OVER ( ORDER BY p.calls DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.rows DESC NULLS LAST) < $1) OR 
+		(ROW_NUMBER() OVER ( ORDER BY p.total_time DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.blk_read_time DESC NULLS LAST) < $1) OR 
+		(ROW_NUMBER() OVER ( ORDER BY p.blk_read_time DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.blk_write_time DESC NULLS LAST) < $1) OR 
+		(ROW_NUMBER() OVER ( ORDER BY p.shared_blks_hit DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.shared_blks_read DESC NULLS LAST) < $1) OR 
+		(ROW_NUMBER() OVER ( ORDER BY p.shared_blks_dirtied DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.shared_blks_written DESC NULLS LAST) < $1) OR 
+		(ROW_NUMBER() OVER ( ORDER BY p.local_blks_hit DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.local_blks_read DESC NULLS LAST) < $1) OR 
+		(ROW_NUMBER() OVER ( ORDER BY p.local_blks_dirtied DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.local_blks_written DESC NULLS LAST) < $1) OR 
+		(ROW_NUMBER() OVER ( ORDER BY p.temp_blks_read DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.temp_blks_written DESC NULLS LAST) < $1) AS visible 
+		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid = p.dbid) 
+		SELECT DATABASE, \"user\", queryid, query, calls, rows, total_time, blk_read_time, blk_write_time, shared_blks_hit, 
+		shared_blks_read, shared_blks_dirtied, shared_blks_written, local_blks_hit, local_blks_read, local_blks_dirtied, local_blks_written, 
+		temp_blks_read, temp_blks_written FROM stat WHERE visible UNION ALL SELECT DATABASE, 'all_users', NULL, 
+		'all_queries', NULLIF(SUM(COALESCE(calls, 0)), 0), NULLIF(SUM(COALESCE(ROWS, 0)), 0), NULLIF(SUM(COALESCE(total_time, 0)), 0), 
+		NULLIF(SUM(COALESCE(blk_read_time, 0)), 0), NULLIF(SUM(COALESCE(blk_write_time, 0)), 0), 
+		NULLIF(SUM(COALESCE(shared_blks_hit, 0)), 0), NULLIF(SUM(COALESCE(shared_blks_read, 0)), 0), NULLIF(SUM(COALESCE(shared_blks_dirtied, 0)), 0), 
+		NULLIF(SUM(COALESCE(shared_blks_written, 0)), 0), NULLIF(SUM(COALESCE(local_blks_hit, 0)), 0), NULLIF(SUM(COALESCE(local_blks_read, 0)), 0), 
+		NULLIF(SUM(COALESCE(local_blks_dirtied, 0)), 0), NULLIF(SUM(COALESCE(local_blks_written, 0)), 0), NULLIF(SUM(COALESCE(temp_blks_read, 0)), 0), 
+		NULLIF(SUM(COALESCE(temp_blks_written, 0)), 0) FROM stat WHERE NOT visible GROUP BY DATABASE HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)"
+	}
+}
+
+macro_rules! statements_query16 {
+() =>  {
+	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
+		COALESCE({}, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.blk_read_time, p.blk_write_time, 
 		NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
 		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
 		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
 		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
 		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written, 
 		NULLIF(p.wal_records, 0) AS wal_records, NULLIF(p.wal_fpi, 0) AS wal_fpi, NULLIF(p.wal_bytes, 0)::FLOAT8 AS wal_bytes 
-		FROM %s.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid";
+		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid"
+	}
+}
 
-const STATEMENTS_QUERY16_TOPK: &str = "WITH stat AS (SELECT d.datname AS DATABASE, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE(%s, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.blk_read_time, p.blk_write_time, 
+macro_rules! statements_query16_topk {
+() =>  {
+	"WITH stat AS (SELECT d.datname AS DATABASE, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
+		COALESCE({}, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.blk_read_time, p.blk_write_time, 
 		NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
 		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
 		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
@@ -37,7 +86,7 @@ const STATEMENTS_QUERY16_TOPK: &str = "WITH stat AS (SELECT d.datname AS DATABAS
 		(ROW_NUMBER() OVER ( ORDER BY p.local_blks_dirtied DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.local_blks_written DESC NULLS LAST) < $1) OR 
 		(ROW_NUMBER() OVER ( ORDER BY p.temp_blks_read DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.temp_blks_written DESC NULLS LAST) < $1) OR 
 		(ROW_NUMBER() OVER ( ORDER BY p.wal_records DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.wal_fpi DESC NULLS LAST) < $1) OR 
-		(ROW_NUMBER() OVER ( ORDER BY p.wal_bytes DESC NULLS LAST) < $1) AS visible FROM %s.pg_stat_statements p JOIN pg_database d ON d.oid = p.dbid) 
+		(ROW_NUMBER() OVER ( ORDER BY p.wal_bytes DESC NULLS LAST) < $1) AS visible FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid = p.dbid) 
 		SELECT DATABASE, \"user\", queryid, query, calls, rows, total_exec_time, total_plan_time, blk_read_time, blk_write_time, shared_blks_hit, 
 		shared_blks_read, shared_blks_dirtied, shared_blks_written, local_blks_hit, local_blks_read, local_blks_dirtied, local_blks_written, 
 		temp_blks_read, temp_blks_written, wal_records, wal_fpi, wal_bytes FROM stat WHERE visible UNION ALL SELECT DATABASE, 'all_users', NULL, 
@@ -47,20 +96,28 @@ const STATEMENTS_QUERY16_TOPK: &str = "WITH stat AS (SELECT d.datname AS DATABAS
 		NULLIF(SUM(COALESCE(shared_blks_written, 0)), 0), NULLIF(SUM(COALESCE(local_blks_hit, 0)), 0), NULLIF(SUM(COALESCE(local_blks_read, 0)), 0), 
 		NULLIF(SUM(COALESCE(local_blks_dirtied, 0)), 0), NULLIF(SUM(COALESCE(local_blks_written, 0)), 0), NULLIF(SUM(COALESCE(temp_blks_read, 0)), 0), 
 		NULLIF(SUM(COALESCE(temp_blks_written, 0)), 0), NULLIF(SUM(COALESCE(wal_records, 0)), 0), NULLIF(SUM(COALESCE(wal_fpi, 0)), 0), 
-		NULLIF(SUM(COALESCE(wal_bytes, 0)), 0) FROM stat WHERE NOT visible GROUP BY DATABASE HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)";
+		NULLIF(SUM(COALESCE(wal_bytes, 0)), 0) FROM stat WHERE NOT visible GROUP BY DATABASE HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)"
+	}
+}
 
-const STATEMENTS_QUERY17: &str = "SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE(%s, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
+macro_rules! statements_query17 {
+() =>  {
+	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
+		COALESCE({}, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
 		p.shared_blk_write_time AS blk_write_time, NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
 		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
 		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
 		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
 		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written, 
 		NULLIF(p.wal_records, 0) AS wal_records, NULLIF(p.wal_fpi, 0) AS wal_fpi, NULLIF(p.wal_bytes, 0) AS wal_bytes 
-		FROM %s.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid";
+		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid"
+	}
+}
 
-const STATEMENTS_QUERY17_TOPK: &str = "WITH stat AS (SELECT d.datname AS DATABASE, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE(%s, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
+macro_rules! statements_query17_topk {
+() =>  {
+	"WITH stat AS (SELECT d.datname AS DATABASE, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
+		COALESCE({}, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
 		p.shared_blk_write_time AS blk_write_time, NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
 		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
 		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
@@ -76,7 +133,7 @@ const STATEMENTS_QUERY17_TOPK: &str = "WITH stat AS (SELECT d.datname AS DATABAS
 		(ROW_NUMBER() OVER ( ORDER BY p.local_blks_dirtied DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.local_blks_written DESC NULLS LAST) < $1) OR 
 		(ROW_NUMBER() OVER ( ORDER BY p.temp_blks_read DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.temp_blks_written DESC NULLS LAST) < $1) OR 
 		(ROW_NUMBER() OVER ( ORDER BY p.wal_records DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.wal_fpi DESC NULLS LAST) < $1) OR 
-		(ROW_NUMBER() OVER ( ORDER BY p.wal_bytes DESC NULLS LAST) < $1) AS visible FROM %s.pg_stat_statements p JOIN pg_database d ON d.oid = p.dbid) 
+		(ROW_NUMBER() OVER ( ORDER BY p.wal_bytes DESC NULLS LAST) < $1) AS visible FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid = p.dbid) 
 		SELECT DATABASE, \"user\", queryid, query, calls, rows, total_exec_time, total_plan_time, blk_read_time, blk_write_time, shared_blks_hit, 
 		shared_blks_read, shared_blks_dirtied, shared_blks_written, local_blks_hit, local_blks_read, local_blks_dirtied, local_blks_written, 
 		temp_blks_read, temp_blks_written, wal_records, wal_fpi, wal_bytes FROM stat WHERE visible UNION ALL SELECT DATABASE, 'all_users', NULL, 
@@ -86,10 +143,14 @@ const STATEMENTS_QUERY17_TOPK: &str = "WITH stat AS (SELECT d.datname AS DATABAS
 		NULLIF(SUM(COALESCE(shared_blks_written, 0)), 0), NULLIF(SUM(COALESCE(local_blks_hit, 0)), 0), NULLIF(SUM(COALESCE(local_blks_read, 0)), 0), 
 		NULLIF(SUM(COALESCE(local_blks_dirtied, 0)), 0), NULLIF(SUM(COALESCE(local_blks_written, 0)), 0), NULLIF(SUM(COALESCE(temp_blks_read, 0)), 0), 
 		NULLIF(SUM(COALESCE(temp_blks_written, 0)), 0), NULLIF(SUM(COALESCE(wal_records, 0)), 0), NULLIF(SUM(COALESCE(wal_fpi, 0)), 0), 
-		NULLIF(SUM(COALESCE(wal_bytes, 0)), 0) FROM stat WHERE NOT visible GROUP BY DATABASE HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)";
+		NULLIF(SUM(COALESCE(wal_bytes, 0)), 0) FROM stat WHERE NOT visible GROUP BY DATABASE HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)"
+	}
+}
 
-const	STATEMENTS_QUERY_LATEST: &str = "SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE(%s, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
+macro_rules! statements_query_latest {
+() =>  {
+	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
+		COALESCE({}, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
 		p.shared_blk_write_time AS blk_write_time, NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
 		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
 		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
@@ -97,10 +158,14 @@ const	STATEMENTS_QUERY_LATEST: &str = "SELECT d.datname AS database, pg_get_user
 		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written, 
 		NULLIF(p.wal_records, 0) AS wal_records, NULLIF(p.wal_fpi, 0) AS wal_fpi, NULLIF(p.wal_bytes, 0) AS wal_bytes, 
 		NULLIF(p.wal_buffers_full, 0) AS wal_buffers_full 
-		FROM %s.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid";
+		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid"
+	}
+}
 
-const STATEMENTS_QUERY_LATEST_TOP_K: &str = "WITH stat AS (SELECT d.datname AS DATABASE, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-    COALESCE(%s, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
+macro_rules! statements_query_latest_topk {
+() =>  {
+	"WITH stat AS (SELECT d.datname AS DATABASE, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
+    COALESCE({}, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
     p.shared_blk_write_time AS blk_write_time, NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
     NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
     NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
@@ -118,7 +183,7 @@ const STATEMENTS_QUERY_LATEST_TOP_K: &str = "WITH stat AS (SELECT d.datname AS D
     (ROW_NUMBER() OVER ( ORDER BY p.temp_blks_read DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.temp_blks_written DESC NULLS LAST) < $1) OR 
     (ROW_NUMBER() OVER ( ORDER BY p.wal_records DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.wal_fpi DESC NULLS LAST) < $1) OR 
     (ROW_NUMBER() OVER ( ORDER BY p.wal_bytes DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.wal_buffers_full DESC NULLS LAST) < $1) AS visible 
-    FROM %s.pg_stat_statements p JOIN pg_database d ON d.oid = p.dbid) 
+    FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid = p.dbid) 
     SELECT DATABASE, \"user\", queryid, query, calls, rows, total_exec_time, total_plan_time, blk_read_time, blk_write_time, shared_blks_hit, 
     shared_blks_read, shared_blks_dirtied, shared_blks_written, local_blks_hit, local_blks_read, local_blks_dirtied, local_blks_written, 
     temp_blks_read, temp_blks_written, wal_records, wal_fpi, wal_bytes, wal_buffers_full FROM stat WHERE visible UNION ALL SELECT DATABASE, 'all_users', NULL, 
@@ -129,63 +194,66 @@ const STATEMENTS_QUERY_LATEST_TOP_K: &str = "WITH stat AS (SELECT d.datname AS D
     NULLIF(SUM(COALESCE(local_blks_dirtied, 0)), 0), NULLIF(SUM(COALESCE(local_blks_written, 0)), 0), NULLIF(SUM(COALESCE(temp_blks_read, 0)), 0), 
     NULLIF(SUM(COALESCE(temp_blks_written, 0)), 0), NULLIF(SUM(COALESCE(wal_records, 0)), 0), NULLIF(SUM(COALESCE(wal_fpi, 0)), 0), 
     NULLIF(SUM(COALESCE(wal_bytes, 0)), 0), NULLIF(SUM(COALESCE(wal_buffers_full, 0)), 0) FROM stat WHERE NOT visible 
-    GROUP BY DATABASE HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)";
+    GROUP BY DATABASE HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible)"
+	}
+}
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct PGStatementsStat {
-    database: String,
-    user: String,
-    queryid: i64,
-    query: String,
-    calls: i64,
-    rows: i64,
-    total_exec_time: f64,
-    total_plan_time: f64,
-    blk_read_time: f64,
-    blk_write_time: f64,
-    shared_blks_hit: i64,
-    shared_blks_read: i64,
-    shared_blks_dirtied: i64,
-    shared_blks_written: i64,
-    local_blks_hit: i64,
-    local_blks_read: i64,
-    local_blks_dirtied: i64,
-    local_blks_written: i64,
-    temp_blks_read: i64,
-    temp_blks_written: i64,
-    wal_records: i64,
-    wal_fpi: i64,
-    wal_bytes: i64,
-    wal_buffers: i64,
+    database: Option<String>,
+    user: Option<String>,
+    queryid: Option<i64>,
+    query: Option<String>,
+    calls: Option<Decimal>,
+    rows: Option<Decimal>,
+    total_exec_time: Option<f64>,
+    total_plan_time: Option<f64>,
+    blk_read_time: Option<f64>,
+    blk_write_time: Option<f64>,
+    shared_blks_hit: Option<Decimal>,
+    shared_blks_read: Option<Decimal>,
+    shared_blks_dirtied: Option<Decimal>,
+    shared_blks_written: Option<Decimal>,
+    local_blks_hit: Option<Decimal>,
+    local_blks_read: Option<Decimal>,
+    local_blks_dirtied: Option<Decimal>,
+    local_blks_written: Option<Decimal>,
+    temp_blks_read: Option<Decimal>,
+    temp_blks_written: Option<Decimal>,
+    wal_records: Option<Decimal>,
+    wal_fpi: Option<Decimal>,
+    wal_bytes: Option<Decimal>,
+    #[sqlx(default)]
+    wal_buffers: Option<Decimal>,
 }
 
 impl PGStatementsStat {
     fn new() -> Self {
         Self {
-            database: String::new(),
-            user: String::new(),
-            queryid: 0,
-            query: String::new(),
-            calls: 0,
-            rows: 0,
-            total_exec_time: 0.0,
-            total_plan_time: 0.0,
-            blk_read_time: 0.0,
-            blk_write_time: 0.0,
-            shared_blks_hit: 0,
-            shared_blks_read: 0,
-            shared_blks_dirtied: 0,
-            shared_blks_written: 0,
-            local_blks_hit: 0,
-            local_blks_read: 0,
-            local_blks_dirtied: 0,
-            local_blks_written: 0,
-            temp_blks_read: 0,
-            temp_blks_written: 0,
-            wal_records: 0,
-            wal_fpi: 0,
-            wal_bytes: 0,
-            wal_buffers: 0,
+            database: Some(String::new()),
+            user: Some(String::new()),
+            queryid: Some(0),
+            query: Some(String::new()),
+            calls: Some(Decimal::new(131089, 0)),
+            rows: Some(Decimal::new(131089, 0)),
+            total_exec_time: Some(0.0),
+            total_plan_time: Some(0.0),
+            blk_read_time: Some(0.0),
+            blk_write_time: Some(0.0),
+            shared_blks_hit: Some(Decimal::new(131089, 0)),
+            shared_blks_read: Some(Decimal::new(131089, 0)),
+            shared_blks_dirtied: Some(Decimal::new(131089, 0)),
+            shared_blks_written: Some(Decimal::new(131089, 0)),
+            local_blks_hit: Some(Decimal::new(131089, 0)),
+            local_blks_read: Some(Decimal::new(131089, 0)),
+            local_blks_dirtied: Some(Decimal::new(131089, 0)),
+            local_blks_written: Some(Decimal::new(131089, 0)),
+            temp_blks_read: Some(Decimal::new(131089, 0)),
+            temp_blks_written: Some(Decimal::new(131089, 0)),
+            wal_records: Some(Decimal::new(131089, 0)),
+            wal_fpi: Some(Decimal::new(131089, 0)),
+            wal_bytes: Some(Decimal::new(131089, 0)),
+            wal_buffers: Some(Decimal::new(131089, 0)),
         }
     }
 }
@@ -223,11 +291,67 @@ impl PGStatementsCollector {
             query,
         }
     }
+
+    fn select_query(&self) -> String {
+        let query_column = if self.dbi.cfg.notrack {
+            "null"
+        } else {
+            "p.query"
+        };
+
+        if self.dbi.cfg.pg_version < POSTGRES_V13 {
+            if self.dbi.cfg.pg_collect_topq > 0 {
+                format!(
+                    statements_query12_topk!(),
+                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                )
+            } else {
+                format!(
+                    statements_query12!(),
+                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                )
+            }
+        } else if self.dbi.cfg.pg_version > POSTGRES_V12 && self.dbi.cfg.pg_version < POSTGRES_V17 {
+            if self.dbi.cfg.pg_collect_topq > 0 {
+                format!(
+                    statements_query16_topk!(),
+                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                )
+            } else {
+                format!(
+                    statements_query16!(),
+                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                )
+            }
+        } else if self.dbi.cfg.pg_version > POSTGRES_V16 && self.dbi.cfg.pg_version < POSTGRES_V18 {
+            if self.dbi.cfg.pg_collect_topq > 0 {
+                format!(
+                    statements_query17_topk!(),
+                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                )
+            } else {
+                format!(
+                    statements_query17!(),
+                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                )
+            }
+        } else if self.dbi.cfg.pg_collect_topq > 0 {
+            format!(
+                statements_query_latest_topk!(),
+                query_column, self.dbi.cfg.pg_stat_statements_schema
+            )
+        } else {
+            format!(
+                statements_query_latest!(),
+                query_column, self.dbi.cfg.pg_stat_statements_schema
+            )
+        }
+    }
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
-    // Collecting since Postgres 15.
-    if dbi.cfg.pg_version >= POSTGRES_V15 {
+    // Collecting since Postgres 12.
+    if dbi.cfg.pg_version >= POSTGRES_V12 {
         Some(PGStatementsCollector::new(dbi))
     } else {
         None
@@ -236,17 +360,58 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
 
 impl Collector for PGStatementsCollector {
     fn desc(&self) -> Vec<&Desc> {
-        todo!()
+        self.descs.iter().collect()
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        todo!()
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(4);
+
+        let data_lock = self.data.read().expect("can't acuire lock");
+
+        for row in data_lock.iter() {
+            let q = row.query.as_ref().unwrap();
+            let qq = q.as_str();
+            let query = if self.dbi.cfg.notrack {
+                "/* query text hidden, no-track mode enabled */"
+            } else {
+                qq
+            };
+
+            self.query
+                .with_label_values(&[
+                    row.user.clone().unwrap().as_str(), // we could do unwrap(), because user field if always not null
+                    row.database.clone().unwrap().as_str(),
+                    row.queryid.unwrap_or_default().to_string().as_str(),
+                    query,
+                ])
+                .set(1);
+        }
+
+        mfs.extend(self.query.collect());
+        mfs
     }
 }
 
 #[async_trait]
 impl PG for PGStatementsCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
+        let query = self.select_query();
+
+        let mut pg_statemnts_rows = sqlx::query_as::<_, PGStatementsStat>(&query)
+            .bind(self.dbi.cfg.pg_collect_topq)
+            .fetch_all(&self.dbi.db)
+            .await?;
+
+        let mut data_lock = match self.data.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!("can't unwrap lock. {}", e),
+        };
+
+        data_lock.clear();
+
+        data_lock.append(&mut pg_statemnts_rows);
+
         Ok(())
     }
 }
