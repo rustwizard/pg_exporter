@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{IntGaugeVec, proto};
-use sqlx::QueryBuilder;
+use rust_decimal::Decimal;
 
 use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18};
 use crate::instance;
@@ -200,59 +200,60 @@ macro_rules! statements_query_latest_topk {
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct PGStatementsStat {
-    database: String,
-    user: String,
-    queryid: i64,
-    query: String,
-    calls: i64,
-    rows: i64,
-    total_exec_time: f64,
-    total_plan_time: f64,
-    blk_read_time: f64,
-    blk_write_time: f64,
-    shared_blks_hit: i64,
-    shared_blks_read: i64,
-    shared_blks_dirtied: i64,
-    shared_blks_written: i64,
-    local_blks_hit: i64,
-    local_blks_read: i64,
-    local_blks_dirtied: i64,
-    local_blks_written: i64,
-    temp_blks_read: i64,
-    temp_blks_written: i64,
-    wal_records: i64,
-    wal_fpi: i64,
-    wal_bytes: i64,
-    wal_buffers: i64,
+    database: Option<String>,
+    user: Option<String>,
+    queryid: Option<i64>,
+    query: Option<String>,
+    calls: Option<Decimal>,
+    rows: Option<Decimal>,
+    total_exec_time: Option<f64>,
+    total_plan_time: Option<f64>,
+    blk_read_time: Option<f64>,
+    blk_write_time: Option<f64>,
+    shared_blks_hit: Option<Decimal>,
+    shared_blks_read: Option<Decimal>,
+    shared_blks_dirtied: Option<Decimal>,
+    shared_blks_written: Option<Decimal>,
+    local_blks_hit: Option<Decimal>,
+    local_blks_read: Option<Decimal>,
+    local_blks_dirtied: Option<Decimal>,
+    local_blks_written: Option<Decimal>,
+    temp_blks_read: Option<Decimal>,
+    temp_blks_written: Option<Decimal>,
+    wal_records: Option<Decimal>,
+    wal_fpi: Option<Decimal>,
+    wal_bytes: Option<Decimal>,
+    #[sqlx(default)]
+    wal_buffers: Option<Decimal>,
 }
 
 impl PGStatementsStat {
     fn new() -> Self {
         Self {
-            database: String::new(),
-            user: String::new(),
-            queryid: 0,
-            query: String::new(),
-            calls: 0,
-            rows: 0,
-            total_exec_time: 0.0,
-            total_plan_time: 0.0,
-            blk_read_time: 0.0,
-            blk_write_time: 0.0,
-            shared_blks_hit: 0,
-            shared_blks_read: 0,
-            shared_blks_dirtied: 0,
-            shared_blks_written: 0,
-            local_blks_hit: 0,
-            local_blks_read: 0,
-            local_blks_dirtied: 0,
-            local_blks_written: 0,
-            temp_blks_read: 0,
-            temp_blks_written: 0,
-            wal_records: 0,
-            wal_fpi: 0,
-            wal_bytes: 0,
-            wal_buffers: 0,
+            database: Some(String::new()),
+            user: Some(String::new()),
+            queryid: Some(0),
+            query: Some(String::new()),
+            calls: Some(Decimal::new(131089, 0)),
+            rows: Some(Decimal::new(131089, 0)),
+            total_exec_time: Some(0.0),
+            total_plan_time: Some(0.0),
+            blk_read_time: Some(0.0),
+            blk_write_time: Some(0.0),
+            shared_blks_hit: Some(Decimal::new(131089, 0)),
+            shared_blks_read: Some(Decimal::new(131089, 0)),
+            shared_blks_dirtied: Some(Decimal::new(131089, 0)),
+            shared_blks_written: Some(Decimal::new(131089, 0)),
+            local_blks_hit: Some(Decimal::new(131089, 0)),
+            local_blks_read: Some(Decimal::new(131089, 0)),
+            local_blks_dirtied: Some(Decimal::new(131089, 0)),
+            local_blks_written: Some(Decimal::new(131089, 0)),
+            temp_blks_read: Some(Decimal::new(131089, 0)),
+            temp_blks_written: Some(Decimal::new(131089, 0)),
+            wal_records: Some(Decimal::new(131089, 0)),
+            wal_fpi: Some(Decimal::new(131089, 0)),
+            wal_bytes: Some(Decimal::new(131089, 0)),
+            wal_buffers: Some(Decimal::new(131089, 0)),
         }
     }
 }
@@ -369,12 +370,20 @@ impl Collector for PGStatementsCollector {
         let data_lock = self.data.read().expect("can't acuire lock");
 
         for row in data_lock.iter() {
+            let q = row.query.as_ref().unwrap();
+            let qq = q.as_str();
+            let query = if self.dbi.cfg.notrack {
+                "/* query text hidden, no-track mode enabled */"
+            } else {
+                qq
+            };
+
             self.query
                 .with_label_values(&[
-                    row.user.as_str(),
-                    row.database.as_str(),
-                    row.queryid.to_string().as_str(),
-                    row.query.as_str(),
+                    row.user.clone().unwrap().as_str(), // we could do unwrap(), because user field if always not null
+                    row.database.clone().unwrap().as_str(),
+                    row.queryid.unwrap_or_default().to_string().as_str(),
+                    query,
                 ])
                 .set(1);
         }
@@ -390,7 +399,7 @@ impl PG for PGStatementsCollector {
         let query = self.select_query();
 
         let mut pg_statemnts_rows = sqlx::query_as::<_, PGStatementsStat>(&query)
-            .bind(self.dbi.cfg.pg_collect_topidx)
+            .bind(self.dbi.cfg.pg_collect_topq)
             .fetch_all(&self.dbi.db)
             .await?;
 
