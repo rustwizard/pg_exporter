@@ -385,6 +385,7 @@ impl Collector for PGStatementsCollector {
         let data_lock = self.data.read().expect("can't acuire lock");
 
         for row in data_lock.iter() {
+            // TODO: remove all unwraps later
             let q = row.query.as_ref().unwrap();
             let qq = q.as_str();
             let query = if self.dbi.cfg.notrack {
@@ -408,7 +409,7 @@ impl Collector for PGStatementsCollector {
                     row.database.clone().unwrap().as_str(),
                     row.queryid.unwrap_or_default().to_string().as_str(),
                 ])
-                .set(row.calls.unwrap().to_i64().unwrap());
+                .set(row.calls.unwrap_or_default().to_i64().unwrap());
         }
 
         mfs.extend(self.query.collect());
