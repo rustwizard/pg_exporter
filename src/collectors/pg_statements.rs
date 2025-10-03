@@ -3,12 +3,12 @@ use std::sync::{Arc, RwLock};
 use anyhow::bail;
 use async_trait::async_trait;
 
-use prometheus::core::{Collector, Desc, Opts};
-use prometheus::{IntGaugeVec, proto};
-use rust_decimal::Decimal;
-
 use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18};
 use crate::instance;
+use prometheus::core::{Collector, Desc, Opts};
+use prometheus::{IntCounterVec, IntGaugeVec, proto};
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 // defines query for querying statements metrics for PG12 and older.
 macro_rules! statements_query12 {
@@ -264,6 +264,7 @@ pub struct PGStatementsCollector {
     data: Arc<RwLock<Vec<PGStatementsStat>>>,
     descs: Vec<Desc>,
     query: IntGaugeVec,
+    calls: IntGaugeVec,
 }
 
 impl PGStatementsCollector {
@@ -284,11 +285,25 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(query.desc().into_iter().cloned());
 
+        let calls = IntGaugeVec::new(
+            Opts::new(
+                "calls_total",
+                "Total number of times statement has been executed.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid"],
+        )
+        .unwrap();
+        descs.extend(calls.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
             descs,
             query,
+            calls,
         }
     }
 
@@ -386,9 +401,18 @@ impl Collector for PGStatementsCollector {
                     query,
                 ])
                 .set(1);
+
+            self.calls
+                .with_label_values(&[
+                    row.user.clone().unwrap().as_str(),
+                    row.database.clone().unwrap().as_str(),
+                    row.queryid.unwrap_or_default().to_string().as_str(),
+                ])
+                .set(row.calls.unwrap().to_i64().unwrap());
         }
 
         mfs.extend(self.query.collect());
+        mfs.extend(self.calls.collect());
         mfs
     }
 }
