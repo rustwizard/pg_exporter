@@ -268,6 +268,7 @@ pub struct PGStatementsCollector {
     rows: IntGaugeVec,
     times: IntGaugeVec,
     all_times: IntGaugeVec,
+    shared_hit: IntGaugeVec,
 }
 
 impl PGStatementsCollector {
@@ -340,6 +341,19 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(all_times.desc().into_iter().cloned());
 
+        let shared_hit = IntGaugeVec::new(
+            Opts::new(
+                "shared_buffers_hit_total",
+                "Total number of blocks have been found in shared buffers by the statement.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid"],
+        )
+        .unwrap();
+        descs.extend(shared_hit.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
@@ -349,6 +363,7 @@ impl PGStatementsCollector {
             rows,
             times,
             all_times,
+            shared_hit,
         }
     }
 
@@ -537,6 +552,22 @@ impl Collector for PGStatementsCollector {
                         "iowrite",
                     ])
                     .set(blk_write_time);
+            }
+
+            let shared_blks_hit = row
+                .shared_blks_hit
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if shared_blks_hit > 0 {
+                self.shared_hit
+                    .with_label_values(&[
+                        row.user.clone().unwrap().as_str(),
+                        row.database.clone().unwrap().as_str(),
+                        row.queryid.unwrap_or_default().to_string().as_str(),
+                    ])
+                    .set(shared_blks_hit);
             }
         }
 
