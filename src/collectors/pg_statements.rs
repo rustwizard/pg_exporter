@@ -266,6 +266,7 @@ pub struct PGStatementsCollector {
     query: IntGaugeVec,
     calls: IntGaugeVec,
     rows: IntGaugeVec,
+    total_exec_time: IntGaugeVec,
 }
 
 impl PGStatementsCollector {
@@ -312,6 +313,19 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(rows.desc().into_iter().cloned());
 
+        let total_exec_time = IntGaugeVec::new(
+            Opts::new(
+                "total_exec_time",
+                "Time spent by the statement in each mode, in seconds.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid", "mode"],
+        )
+        .unwrap();
+        descs.extend(total_exec_time.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
@@ -319,6 +333,7 @@ impl PGStatementsCollector {
             query,
             calls,
             rows,
+            total_exec_time,
         }
     }
 
@@ -433,11 +448,35 @@ impl Collector for PGStatementsCollector {
                     row.queryid.unwrap_or_default().to_string().as_str(),
                 ])
                 .set(row.rows.unwrap_or_default().to_i64().unwrap_or_default());
+
+            // total = planning + execution; execution already includes io time.
+            let total_plan_time = row
+                .total_plan_time
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            let total_exec_time = row
+                .total_exec_time
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            self.total_exec_time
+                .with_label_values(&[
+                    row.user.clone().unwrap().as_str(),
+                    row.database.clone().unwrap().as_str(),
+                    row.queryid.unwrap_or_default().to_string().as_str(),
+                    "planning",
+                ])
+                .set(total_plan_time + total_exec_time);
         }
 
         mfs.extend(self.query.collect());
         mfs.extend(self.calls.collect());
         mfs.extend(self.rows.collect());
+        mfs.extend(self.total_exec_time.collect());
+
         mfs
     }
 }
