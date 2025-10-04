@@ -265,6 +265,7 @@ pub struct PGStatementsCollector {
     descs: Vec<Desc>,
     query: IntGaugeVec,
     calls: IntGaugeVec,
+    rows: IntGaugeVec,
 }
 
 impl PGStatementsCollector {
@@ -298,12 +299,26 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(calls.desc().into_iter().cloned());
 
+        let rows = IntGaugeVec::new(
+            Opts::new(
+                "rows_total",
+                "Total number of rows retrieved or affected by the statement.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid"],
+        )
+        .unwrap();
+        descs.extend(rows.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
             descs,
             query,
             calls,
+            rows,
         }
     }
 
@@ -409,11 +424,20 @@ impl Collector for PGStatementsCollector {
                     row.database.clone().unwrap().as_str(),
                     row.queryid.unwrap_or_default().to_string().as_str(),
                 ])
-                .set(row.calls.unwrap_or_default().to_i64().unwrap());
+                .set(row.calls.unwrap_or_default().to_i64().unwrap_or_default());
+
+            self.rows
+                .with_label_values(&[
+                    row.user.clone().unwrap().as_str(),
+                    row.database.clone().unwrap().as_str(),
+                    row.queryid.unwrap_or_default().to_string().as_str(),
+                ])
+                .set(row.rows.unwrap_or_default().to_i64().unwrap_or_default());
         }
 
         mfs.extend(self.query.collect());
         mfs.extend(self.calls.collect());
+        mfs.extend(self.rows.collect());
         mfs
     }
 }
