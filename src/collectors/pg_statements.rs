@@ -266,7 +266,8 @@ pub struct PGStatementsCollector {
     query: IntGaugeVec,
     calls: IntGaugeVec,
     rows: IntGaugeVec,
-    total_exec_time: IntGaugeVec,
+    times: IntGaugeVec,
+    all_times: IntGaugeVec,
 }
 
 impl PGStatementsCollector {
@@ -313,9 +314,9 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(rows.desc().into_iter().cloned());
 
-        let total_exec_time = IntGaugeVec::new(
+        let times = IntGaugeVec::new(
             Opts::new(
-                "total_exec_time",
+                "time_seconds_total",
                 "Time spent by the statement in each mode, in seconds.",
             )
             .namespace(super::NAMESPACE)
@@ -324,7 +325,20 @@ impl PGStatementsCollector {
             &["user", "database", "queryid", "mode"],
         )
         .unwrap();
-        descs.extend(total_exec_time.desc().into_iter().cloned());
+        descs.extend(times.desc().into_iter().cloned());
+
+        let all_times = IntGaugeVec::new(
+            Opts::new(
+                "time_seconds_all_total",
+                "Total time spent by the statement, in seconds.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid"],
+        )
+        .unwrap();
+        descs.extend(all_times.desc().into_iter().cloned());
 
         Self {
             dbi,
@@ -333,7 +347,8 @@ impl PGStatementsCollector {
             query,
             calls,
             rows,
-            total_exec_time,
+            times,
+            all_times,
         }
     }
 
@@ -462,25 +477,78 @@ impl Collector for PGStatementsCollector {
                 .to_i64()
                 .unwrap_or_default();
 
-            self.total_exec_time
+            self.all_times
+                .with_label_values(&[
+                    row.user.clone().unwrap().as_str(),
+                    row.database.clone().unwrap().as_str(),
+                    row.queryid.unwrap_or_default().to_string().as_str(),
+                ])
+                .set(total_plan_time + total_exec_time);
+
+            let blk_read_time = row
+                .blk_read_time
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            let blk_write_time = row
+                .blk_write_time
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            self.times
                 .with_label_values(&[
                     row.user.clone().unwrap().as_str(),
                     row.database.clone().unwrap().as_str(),
                     row.queryid.unwrap_or_default().to_string().as_str(),
                     "planning",
                 ])
-                .set(total_plan_time + total_exec_time);
+                .set(total_plan_time);
+
+            // execution time = execution - io times.
+            self.times
+                .with_label_values(&[
+                    row.user.clone().unwrap().as_str(),
+                    row.database.clone().unwrap().as_str(),
+                    row.queryid.unwrap_or_default().to_string().as_str(),
+                    "executing",
+                ])
+                .set(total_exec_time - (blk_read_time + blk_write_time));
+
+            // avoid metrics spamming and send metrics only if they greater than zero.
+            if blk_read_time > 0 {
+                self.times
+                    .with_label_values(&[
+                        row.user.clone().unwrap().as_str(),
+                        row.database.clone().unwrap().as_str(),
+                        row.queryid.unwrap_or_default().to_string().as_str(),
+                        "ioread",
+                    ])
+                    .set(blk_read_time);
+            }
+
+            if blk_write_time > 0 {
+                self.times
+                    .with_label_values(&[
+                        row.user.clone().unwrap().as_str(),
+                        row.database.clone().unwrap().as_str(),
+                        row.queryid.unwrap_or_default().to_string().as_str(),
+                        "iowrite",
+                    ])
+                    .set(blk_write_time);
+            }
         }
 
         mfs.extend(self.query.collect());
         mfs.extend(self.calls.collect());
         mfs.extend(self.rows.collect());
-        mfs.extend(self.total_exec_time.collect());
+        mfs.extend(self.all_times.collect());
+        mfs.extend(self.times.collect());
 
         mfs
     }
 }
-
 #[async_trait]
 impl PG for PGStatementsCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
