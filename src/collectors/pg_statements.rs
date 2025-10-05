@@ -270,6 +270,7 @@ pub struct PGStatementsCollector {
     all_times: IntGaugeVec,
     shared_hit: IntGaugeVec,
     shared_read: IntGaugeVec,
+    shared_dirtied: IntGaugeVec,
 }
 
 impl PGStatementsCollector {
@@ -368,6 +369,19 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(shared_read.desc().into_iter().cloned());
 
+        let shared_dirtied = IntGaugeVec::new(
+            Opts::new(
+                "shared_buffers_dirtied_total",
+                "Total number of blocks have been dirtied in shared buffers by the statement.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid"],
+        )
+        .unwrap();
+        descs.extend(shared_dirtied.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
@@ -379,6 +393,7 @@ impl PGStatementsCollector {
             all_times,
             shared_hit,
             shared_read,
+            shared_dirtied,
         }
     }
 
@@ -599,6 +614,22 @@ impl Collector for PGStatementsCollector {
                         row.queryid.unwrap_or_default().to_string().as_str(),
                     ])
                     .set(shared_blks_read);
+            }
+
+            let shared_blks_dirtied = row
+                .shared_blks_dirtied
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if shared_blks_dirtied > 0 {
+                self.shared_dirtied
+                    .with_label_values(&[
+                        row.user.clone().unwrap().as_str(),
+                        row.database.clone().unwrap().as_str(),
+                        row.queryid.unwrap_or_default().to_string().as_str(),
+                    ])
+                    .set(shared_blks_dirtied);
             }
         }
 
