@@ -669,6 +669,10 @@ impl Collector for PGStatementsCollector {
         mfs.extend(self.rows.collect());
         mfs.extend(self.all_times.collect());
         mfs.extend(self.times.collect());
+        mfs.extend(self.shared_hit.collect());
+        mfs.extend(self.shared_read.collect());
+        mfs.extend(self.shared_dirtied.collect());
+        mfs.extend(self.shared_written.collect());
 
         mfs
     }
