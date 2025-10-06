@@ -915,6 +915,8 @@ impl Collector for PGStatementsCollector {
                         .set(wal_buffers);
                     mfs.extend(self.wal_buffers.collect());
                 }
+
+                mfs.extend(self.wal_records.collect());
             }
         }
 
