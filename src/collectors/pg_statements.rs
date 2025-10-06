@@ -277,6 +277,7 @@ pub struct PGStatementsCollector {
     local_dirtied: IntGaugeVec,
     local_written: IntGaugeVec,
     temp_read: IntGaugeVec,
+    temp_written: IntGaugeVec,
 }
 
 impl PGStatementsCollector {
@@ -466,6 +467,19 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(temp_read.desc().into_iter().cloned());
 
+        let temp_written = IntGaugeVec::new(
+            Opts::new(
+                "temp_written_bytes_total",
+                "Total number of bytes written to temporary files by the statement.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid"],
+        )
+        .unwrap();
+        descs.extend(temp_written.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
@@ -484,6 +498,7 @@ impl PGStatementsCollector {
             local_dirtied,
             local_written,
             temp_read,
+            temp_written,
         }
     }
 
@@ -819,6 +834,22 @@ impl Collector for PGStatementsCollector {
                     ])
                     .set(temp_blks_read * block_size);
             }
+
+            let temp_blks_written = row
+                .temp_blks_written
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if temp_blks_written > 0 {
+                self.temp_written
+                    .with_label_values(&[
+                        row.user.clone().unwrap().as_str(),
+                        row.database.clone().unwrap().as_str(),
+                        row.queryid.unwrap_or_default().to_string().as_str(),
+                    ])
+                    .set(temp_blks_written * block_size);
+            }
         }
 
         mfs.extend(self.query.collect());
@@ -835,6 +866,7 @@ impl Collector for PGStatementsCollector {
         mfs.extend(self.local_dirtied.collect());
         mfs.extend(self.local_written.collect());
         mfs.extend(self.temp_read.collect());
+        mfs.extend(self.temp_written.collect());
 
         mfs
     }
