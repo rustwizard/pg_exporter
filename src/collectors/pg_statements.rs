@@ -272,6 +272,7 @@ pub struct PGStatementsCollector {
     shared_read: IntGaugeVec,
     shared_dirtied: IntGaugeVec,
     shared_written: IntGaugeVec,
+    local_hit: IntGaugeVec,
 }
 
 impl PGStatementsCollector {
@@ -396,6 +397,19 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(shared_written.desc().into_iter().cloned());
 
+        let local_hit = IntGaugeVec::new(
+            Opts::new(
+                "local_buffers_hit_total",
+                "Total number of blocks have been found in local buffers by the statement.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid"],
+        )
+        .unwrap();
+        descs.extend(local_hit.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
@@ -409,6 +423,7 @@ impl PGStatementsCollector {
             shared_read,
             shared_dirtied,
             shared_written,
+            local_hit,
         }
     }
 
@@ -662,6 +677,22 @@ impl Collector for PGStatementsCollector {
                     ])
                     .set(shared_blks_written);
             }
+
+            let local_blks_hit = row
+                .local_blks_hit
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if local_blks_hit > 0 {
+                self.local_hit
+                    .with_label_values(&[
+                        row.user.clone().unwrap().as_str(),
+                        row.database.clone().unwrap().as_str(),
+                        row.queryid.unwrap_or_default().to_string().as_str(),
+                    ])
+                    .set(local_blks_hit);
+            }
         }
 
         mfs.extend(self.query.collect());
@@ -673,6 +704,7 @@ impl Collector for PGStatementsCollector {
         mfs.extend(self.shared_read.collect());
         mfs.extend(self.shared_dirtied.collect());
         mfs.extend(self.shared_written.collect());
+        mfs.extend(self.local_hit.collect());
 
         mfs
     }
