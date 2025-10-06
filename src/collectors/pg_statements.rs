@@ -273,6 +273,7 @@ pub struct PGStatementsCollector {
     shared_dirtied: IntGaugeVec,
     shared_written: IntGaugeVec,
     local_hit: IntGaugeVec,
+    local_read: IntGaugeVec,
 }
 
 impl PGStatementsCollector {
@@ -410,6 +411,19 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(local_hit.desc().into_iter().cloned());
 
+        let local_read = IntGaugeVec::new(
+            Opts::new(
+                "local_buffers_read_bytes_total",
+                "Total number of bytes read from disk or OS page cache by the statement when block not found in local buffers.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid"],
+        )
+        .unwrap();
+        descs.extend(local_read.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
@@ -424,6 +438,7 @@ impl PGStatementsCollector {
             shared_dirtied,
             shared_written,
             local_hit,
+            local_read,
         }
     }
 
@@ -692,6 +707,22 @@ impl Collector for PGStatementsCollector {
                         row.queryid.unwrap_or_default().to_string().as_str(),
                     ])
                     .set(local_blks_hit);
+            }
+
+            let local_blks_read = row
+                .local_blks_read
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if local_blks_read > 0 {
+                self.local_read
+                    .with_label_values(&[
+                        row.user.clone().unwrap().as_str(),
+                        row.database.clone().unwrap().as_str(),
+                        row.queryid.unwrap_or_default().to_string().as_str(),
+                    ])
+                    .set(local_blks_read);
             }
         }
 
