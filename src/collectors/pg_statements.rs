@@ -274,6 +274,7 @@ pub struct PGStatementsCollector {
     shared_written: IntGaugeVec,
     local_hit: IntGaugeVec,
     local_read: IntGaugeVec,
+    local_dirtied: IntGaugeVec,
 }
 
 impl PGStatementsCollector {
@@ -424,6 +425,19 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(local_read.desc().into_iter().cloned());
 
+        let local_dirtied = IntGaugeVec::new(
+            Opts::new(
+                "local_buffers_dirtied_total",
+                "Total number of blocks have been dirtied in local buffers by the statement.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid"],
+        )
+        .unwrap();
+        descs.extend(local_dirtied.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
@@ -439,6 +453,7 @@ impl PGStatementsCollector {
             shared_written,
             local_hit,
             local_read,
+            local_dirtied,
         }
     }
 
@@ -645,6 +660,8 @@ impl Collector for PGStatementsCollector {
                     .set(shared_blks_hit);
             }
 
+            let block_size = self.dbi.cfg.pg_block_size;
+
             let shared_blks_read = row
                 .shared_blks_read
                 .unwrap_or_default()
@@ -658,7 +675,7 @@ impl Collector for PGStatementsCollector {
                         row.database.clone().unwrap().as_str(),
                         row.queryid.unwrap_or_default().to_string().as_str(),
                     ])
-                    .set(shared_blks_read);
+                    .set(shared_blks_read * block_size);
             }
 
             let shared_blks_dirtied = row
@@ -690,7 +707,7 @@ impl Collector for PGStatementsCollector {
                         row.database.clone().unwrap().as_str(),
                         row.queryid.unwrap_or_default().to_string().as_str(),
                     ])
-                    .set(shared_blks_written);
+                    .set(shared_blks_written * block_size);
             }
 
             let local_blks_hit = row
@@ -722,7 +739,23 @@ impl Collector for PGStatementsCollector {
                         row.database.clone().unwrap().as_str(),
                         row.queryid.unwrap_or_default().to_string().as_str(),
                     ])
-                    .set(local_blks_read);
+                    .set(local_blks_read * block_size);
+            }
+
+            let local_blks_dirtied = row
+                .local_blks_dirtied
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if local_blks_dirtied > 0 {
+                self.local_dirtied
+                    .with_label_values(&[
+                        row.user.clone().unwrap().as_str(),
+                        row.database.clone().unwrap().as_str(),
+                        row.queryid.unwrap_or_default().to_string().as_str(),
+                    ])
+                    .set(local_blks_dirtied);
             }
         }
 
@@ -737,6 +770,7 @@ impl Collector for PGStatementsCollector {
         mfs.extend(self.shared_written.collect());
         mfs.extend(self.local_hit.collect());
         mfs.extend(self.local_read.collect());
+        mfs.extend(self.local_dirtied.collect());
 
         mfs
     }
