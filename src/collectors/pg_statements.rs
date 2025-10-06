@@ -275,6 +275,7 @@ pub struct PGStatementsCollector {
     local_hit: IntGaugeVec,
     local_read: IntGaugeVec,
     local_dirtied: IntGaugeVec,
+    local_written: IntGaugeVec,
 }
 
 impl PGStatementsCollector {
@@ -438,6 +439,19 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(local_dirtied.desc().into_iter().cloned());
 
+        let local_written = IntGaugeVec::new(
+            Opts::new(
+                "local_buffers_written_bytes_total",
+                "Total number of bytes written from local buffers to disk by the statement.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid"],
+        )
+        .unwrap();
+        descs.extend(local_written.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
@@ -454,6 +468,7 @@ impl PGStatementsCollector {
             local_hit,
             local_read,
             local_dirtied,
+            local_written,
         }
     }
 
@@ -757,6 +772,22 @@ impl Collector for PGStatementsCollector {
                     ])
                     .set(local_blks_dirtied);
             }
+
+            let local_blks_written = row
+                .local_blks_written
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if local_blks_written > 0 {
+                self.local_written
+                    .with_label_values(&[
+                        row.user.clone().unwrap().as_str(),
+                        row.database.clone().unwrap().as_str(),
+                        row.queryid.unwrap_or_default().to_string().as_str(),
+                    ])
+                    .set(local_blks_written * block_size);
+            }
         }
 
         mfs.extend(self.query.collect());
@@ -771,6 +802,7 @@ impl Collector for PGStatementsCollector {
         mfs.extend(self.local_hit.collect());
         mfs.extend(self.local_read.collect());
         mfs.extend(self.local_dirtied.collect());
+        mfs.extend(self.local_written.collect());
 
         mfs
     }
