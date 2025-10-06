@@ -736,6 +736,7 @@ impl Collector for PGStatementsCollector {
         mfs.extend(self.shared_dirtied.collect());
         mfs.extend(self.shared_written.collect());
         mfs.extend(self.local_hit.collect());
+        mfs.extend(self.local_read.collect());
 
         mfs
     }
