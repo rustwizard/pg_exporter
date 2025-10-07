@@ -56,6 +56,9 @@ async fn main() -> std::io::Result<()> {
             dsn: config.dsn,
             exclude_db_names: config.exclude_db_names.clone(),
             const_labels: config.const_labels.clone(),
+            collect_top_query: config.collect_top_query,
+            collect_top_index: config.collect_top_index,
+            no_track_mode: config.no_track_mode,
         })
         .await
         .expect("postgres instance should be initialized");

@@ -9,6 +9,9 @@ pub struct Config {
     pub dsn: String,
     pub exclude_db_names: Vec<String>,
     pub const_labels: HashMap<String, String>,
+    pub collect_top_query: i64,
+    pub collect_top_index: i64,
+    pub no_track_mode: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -112,10 +115,9 @@ pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
         pg_version,
         pg_block_size,
         pg_wal_segment_size,
-        // TODO: move to config and read from it
-        pg_collect_topidx: 10,
-        pg_collect_topq: 0,
-        notrack: false,
+        pg_collect_topidx: instance_cfg.collect_top_index,
+        pg_collect_topq: instance_cfg.collect_top_query,
+        notrack: instance_cfg.no_track_mode,
         pg_stat_statements: exist,
         pg_stat_statements_schema: scheme,
     };

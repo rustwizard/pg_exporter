@@ -7,6 +7,9 @@ instances:
     const_labels:
       project: "test_project15"
       cluster: "test_cluster15"
+    collect_top_query: 10
+    collect_top_index: 10
+    no_track_mode: true
 
   "pg17:6432":
     dsn: "postgres://postgres_exporter:postgres_exporter@pge17:5432/db17"
@@ -14,3 +17,6 @@ instances:
     const_labels:
       project: "test_project17"
       cluster: "test_cluster17"
+    collect_top_query: 10
+    collect_top_index: 10
+    no_track_mode: true
