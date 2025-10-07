@@ -2,7 +2,6 @@ use std::sync::{Arc, RwLock};
 
 use anyhow::bail;
 use async_trait::async_trait;
-use prometheus::proto::MetricFamily;
 
 use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18};
 use crate::instance;
@@ -15,12 +14,12 @@ use rust_decimal::prelude::ToPrimitive;
 macro_rules! statements_query12 {
 () =>  {
 	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE({}, '') AS query, p.calls, p.rows, p.total_time, p.blk_read_time, p.blk_write_time, 
-		NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
-		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
-		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
-		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
-		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written 
+		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numerics, p.total_time, p.blk_read_time, p.blk_write_time, 
+		NULLIF(p.shared_blks_hit, 0)::numeric AS shared_blks_hit, NULLIF(p.shared_blks_read, 0)::numeric AS shared_blks_read, 
+		NULLIF(p.shared_blks_dirtied, 0)::numeric AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0)::numeric AS shared_blks_written, 
+		NULLIF(p.local_blks_hit, 0)::numeric AS local_blks_hit, NULLIF(p.local_blks_read, 0)::numeric AS local_blks_read, 
+		NULLIF(p.local_blks_dirtied, 0)::numeric AS local_blks_dirtied, NULLIF(p.local_blks_written, 0)::numeric AS local_blks_written, 
+		NULLIF(p.temp_blks_read, 0)::numeric AS temp_blks_read, NULLIF(p.temp_blks_written, 0)::numeric AS temp_blks_written 
 		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid"
 	}
 }
@@ -57,13 +56,13 @@ macro_rules! statements_query12_topk {
 macro_rules! statements_query16 {
 () =>  {
 	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE({}, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.blk_read_time, p.blk_write_time, 
-		NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
-		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
-		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
-		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
-		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written, 
-		NULLIF(p.wal_records, 0) AS wal_records, NULLIF(p.wal_fpi, 0) AS wal_fpi, NULLIF(p.wal_bytes, 0)::FLOAT8 AS wal_bytes 
+		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numeric, p.total_exec_time, p.total_plan_time, p.blk_read_time, p.blk_write_time, 
+		NULLIF(p.shared_blks_hit, 0)::numeric AS shared_blks_hit, NULLIF(p.shared_blks_read, 0)::numeric AS shared_blks_read, 
+		NULLIF(p.shared_blks_dirtied, 0)::numeric AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0)::numeric AS shared_blks_written, 
+		NULLIF(p.local_blks_hit, 0)::numeric AS local_blks_hit, NULLIF(p.local_blks_read, 0)::numeric AS local_blks_read, 
+		NULLIF(p.local_blks_dirtied, 0)::numeric AS local_blks_dirtied, NULLIF(p.local_blks_written, 0)::numeric AS local_blks_written, 
+		NULLIF(p.temp_blks_read, 0)::numeric AS temp_blks_read, NULLIF(p.temp_blks_written, 0)::numeric AS temp_blks_written, 
+		NULLIF(p.wal_records, 0)::numeric AS wal_records, NULLIF(p.wal_fpi, 0)::numeric AS wal_fpi, NULLIF(p.wal_bytes, 0)::numeric AS wal_bytes 
 		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid"
 	}
 }
@@ -104,13 +103,13 @@ macro_rules! statements_query16_topk {
 macro_rules! statements_query17 {
 () =>  {
 	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE({}, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
-		p.shared_blk_write_time AS blk_write_time, NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
-		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
-		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
-		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
-		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written, 
-		NULLIF(p.wal_records, 0) AS wal_records, NULLIF(p.wal_fpi, 0) AS wal_fpi, NULLIF(p.wal_bytes, 0) AS wal_bytes 
+		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numeric, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
+		p.shared_blk_write_time AS blk_write_time, NULLIF(p.shared_blks_hit, 0)::numeric AS shared_blks_hit, NULLIF(p.shared_blks_read, 0)::numeric AS shared_blks_read, 
+		NULLIF(p.shared_blks_dirtied, 0)::numeric AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0)::numeric AS shared_blks_written, 
+		NULLIF(p.local_blks_hit, 0)::numeric AS local_blks_hit, NULLIF(p.local_blks_read, 0)::numeric AS local_blks_read, 
+		NULLIF(p.local_blks_dirtied, 0)::numeric AS local_blks_dirtied, NULLIF(p.local_blks_written, 0)::numeric AS local_blks_written, 
+		NULLIF(p.temp_blks_read, 0)::numeric AS temp_blks_read, NULLIF(p.temp_blks_written, 0)::numeric AS temp_blks_written, 
+		NULLIF(p.wal_records, 0)::numeric AS wal_records, NULLIF(p.wal_fpi, 0)::numeric AS wal_fpi, NULLIF(p.wal_bytes, 0)::numeric AS wal_bytes 
 		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid"
 	}
 }
@@ -151,14 +150,14 @@ macro_rules! statements_query17_topk {
 macro_rules! statements_query_latest {
 () =>  {
 	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE({}, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
-		p.shared_blk_write_time AS blk_write_time, NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
-		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
-		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
-		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
-		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written, 
-		NULLIF(p.wal_records, 0) AS wal_records, NULLIF(p.wal_fpi, 0) AS wal_fpi, NULLIF(p.wal_bytes, 0) AS wal_bytes, 
-		NULLIF(p.wal_buffers_full, 0) AS wal_buffers_full 
+		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numeric, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
+		p.shared_blk_write_time AS blk_write_time, NULLIF(p.shared_blks_hit, 0)::numeric AS shared_blks_hit, NULLIF(p.shared_blks_read, 0)::numeric AS shared_blks_read, 
+		NULLIF(p.shared_blks_dirtied, 0)::numeric AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0)::numeric AS shared_blks_written, 
+		NULLIF(p.local_blks_hit, 0)::numeric AS local_blks_hit, NULLIF(p.local_blks_read, 0)::numeric AS local_blks_read, 
+		NULLIF(p.local_blks_dirtied, 0)::numeric AS local_blks_dirtied, NULLIF(p.local_blks_written, 0)::numeric AS local_blks_written, 
+		NULLIF(p.temp_blks_read, 0)::numeric AS temp_blks_read, NULLIF(p.temp_blks_written, 0)::numeric AS temp_blks_written, 
+		NULLIF(p.wal_records, 0)::numeric AS wal_records, NULLIF(p.wal_fpi, 0)::numeric AS wal_fpi, NULLIF(p.wal_bytes, 0)::numeric AS wal_bytes, 
+		NULLIF(p.wal_buffers_full, 0)::numeric AS wal_buffers_full 
 		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid"
 	}
 }
