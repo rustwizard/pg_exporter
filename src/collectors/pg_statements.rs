@@ -972,6 +972,11 @@ impl Collector for PGStatementsCollector {
 #[async_trait]
 impl PG for PGStatementsCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
+        // nothing to do, pg_stat_statements not found in shared_preload_libraries
+        if !self.dbi.cfg.pg_stat_statements {
+            return Ok(());
+        }
+
         let query = self.select_query();
 
         let mut pg_statemnts_rows = sqlx::query_as::<_, PGStatementsStat>(&query)
