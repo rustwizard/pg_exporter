@@ -34,12 +34,12 @@ pub struct PostgresDB {
     pub cfg: PGConfig,
 }
 
-pub async fn new(
-    dsn: String,
-    excluded_dbnames: Vec<String>,
-    labels: HashMap<String, String>,
-) -> anyhow::Result<PostgresDB> {
-    let pool = match PgPoolOptions::new().max_connections(10).connect(&dsn).await {
+pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
+    let pool = match PgPoolOptions::new()
+        .max_connections(10)
+        .connect(&instance_cfg.dsn)
+        .await
+    {
         Ok(pool) => {
             println!("✅Connection to the database is successful!");
             pool
@@ -120,7 +120,12 @@ pub async fn new(
         pg_stat_statements_schema: scheme,
     };
 
-    Ok(PostgresDB::new(pool, excluded_dbnames, labels, cfg))
+    Ok(PostgresDB::new(
+        pool,
+        instance_cfg.exclude_db_names.clone(),
+        instance_cfg.const_labels.clone(),
+        cfg,
+    ))
 }
 
 impl PostgresDB {
