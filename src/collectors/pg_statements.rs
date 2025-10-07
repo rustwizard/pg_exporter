@@ -2,6 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use anyhow::bail;
 use async_trait::async_trait;
+use prometheus::proto::MetricFamily;
 
 use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18};
 use crate::instance;
@@ -619,6 +620,9 @@ impl Collector for PGStatementsCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
+        if !self.dbi.cfg.pg_stat_statements {
+            return Vec::new();
+        }
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
@@ -972,7 +976,6 @@ impl Collector for PGStatementsCollector {
 #[async_trait]
 impl PG for PGStatementsCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        // nothing to do, pg_stat_statements not found in shared_preload_libraries
         if !self.dbi.cfg.pg_stat_statements {
             return Ok(());
         }

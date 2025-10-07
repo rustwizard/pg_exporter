@@ -86,7 +86,7 @@ pub async fn new(
         pg_wal_segment_size,
         // TODO: move to config and read from it
         pg_collect_topidx: 10,
-        pg_collect_topq: 10,
+        pg_collect_topq: 0,
         notrack: false,
         pg_stat_statements: true,
         pg_stat_statements_schema: String::from("public"),
