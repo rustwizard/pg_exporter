@@ -89,23 +89,24 @@ impl Collector for PGConflictCollector {
         let mut mfs = Vec::with_capacity(1);
 
         let data_lock = self.data.read().unwrap();
+        let database = data_lock.database.as_str();
         self.conflicts_total
-            .with_label_values(&[&data_lock.database, "tablespace"])
+            .with_label_values(&[database, "tablespace"])
             .inc_by(data_lock.tablespace as u64);
         self.conflicts_total
-            .with_label_values(&[&data_lock.database, "lock"])
+            .with_label_values(&[database, "lock"])
             .inc_by(data_lock.lock as u64);
         self.conflicts_total
-            .with_label_values(&[&data_lock.database, "snapshot"])
+            .with_label_values(&[database, "snapshot"])
             .inc_by(data_lock.snapshot as u64);
         self.conflicts_total
-            .with_label_values(&[&data_lock.database, "bufferpin"])
+            .with_label_values(&[database, "bufferpin"])
             .inc_by(data_lock.bufferpin as u64);
         self.conflicts_total
-            .with_label_values(&[&data_lock.database, "deadlock"])
+            .with_label_values(&[database, "deadlock"])
             .inc_by(data_lock.deadlock as u64);
         self.conflicts_total
-            .with_label_values(&[&data_lock.database, "active_logicalslot"])
+            .with_label_values(&[database, "active_logicalslot"])
             .inc_by(data_lock.active_logical_slot as u64);
 
         mfs.extend(self.conflicts_total.collect());
