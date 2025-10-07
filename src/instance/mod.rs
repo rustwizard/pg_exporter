@@ -80,6 +80,12 @@ pub async fn new(
 
     let pg_wal_segment_size = wal_segment_size.parse()?;
 
+    let pg_stat_statements = sqlx::query_scalar::<_, String>(
+        "SELECT setting FROM pg_settings WHERE name = 'shared_preload_libraries';",
+    )
+    .fetch_one(&pool)
+    .await?;
+
     let cfg = PGConfig {
         pg_version,
         pg_block_size,
@@ -88,7 +94,7 @@ pub async fn new(
         pg_collect_topidx: 10,
         pg_collect_topq: 0,
         notrack: false,
-        pg_stat_statements: true,
+        pg_stat_statements: pg_stat_statements.contains("pg_stat_statements"),
         pg_stat_statements_schema: String::from("public"),
     };
 
