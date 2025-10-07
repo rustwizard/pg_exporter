@@ -1,3 +1,4 @@
+use anyhow::bail;
 use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use std::collections::HashMap;
 
@@ -86,6 +87,27 @@ pub async fn new(
     .fetch_one(&pool)
     .await?;
 
+    let exist = pg_stat_statements.contains("pg_stat_statements");
+    let stmnt_scheme: Option<String> = if exist {
+        sqlx::query_scalar::<_, String>(
+            "SELECT extnamespace::regnamespace::text FROM pg_extension WHERE extname = 'pg_stat_statements'",
+        )
+        .fetch_optional(&pool)
+        .await?
+    } else {
+        None
+    };
+
+    let scheme = if let Some(val) = stmnt_scheme {
+        val
+    } else {
+        "".to_string()
+    };
+
+    if exist && scheme.is_empty() {
+        bail!("pg_exporter: init instance: pg_stat_statement exist, but scheme is indefined");
+    }
+
     let cfg = PGConfig {
         pg_version,
         pg_block_size,
@@ -94,8 +116,8 @@ pub async fn new(
         pg_collect_topidx: 10,
         pg_collect_topq: 0,
         notrack: false,
-        pg_stat_statements: pg_stat_statements.contains("pg_stat_statements"),
-        pg_stat_statements_schema: String::from("public"),
+        pg_stat_statements: exist,
+        pg_stat_statements_schema: scheme,
     };
 
     Ok(PostgresDB::new(pool, excluded_dbnames, labels, cfg))
