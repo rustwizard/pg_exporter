@@ -606,7 +606,7 @@ impl PGStatementsCollector {
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
     // Collecting since Postgres 12.
-    if dbi.cfg.pg_version >= POSTGRES_V12 {
+    if dbi.cfg.pg_version >= POSTGRES_V12 && dbi.cfg.pg_stat_statements {
         Some(PGStatementsCollector::new(dbi))
     } else {
         None
