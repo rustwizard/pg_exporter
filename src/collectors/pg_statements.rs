@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18};
 use crate::instance;
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::{IntCounterVec, IntGaugeVec, proto};
+use prometheus::{IntGaugeVec, proto};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 
