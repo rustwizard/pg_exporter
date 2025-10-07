@@ -1,3 +1,4 @@
+use anyhow::bail;
 use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use std::collections::HashMap;
 
@@ -8,6 +9,9 @@ pub struct Config {
     pub dsn: String,
     pub exclude_db_names: Vec<String>,
     pub const_labels: HashMap<String, String>,
+    pub collect_top_query: i64,
+    pub collect_top_index: i64,
+    pub no_track_mode: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -33,12 +37,12 @@ pub struct PostgresDB {
     pub cfg: PGConfig,
 }
 
-pub async fn new(
-    dsn: String,
-    excluded_dbnames: Vec<String>,
-    labels: HashMap<String, String>,
-) -> anyhow::Result<PostgresDB> {
-    let pool = match PgPoolOptions::new().max_connections(10).connect(&dsn).await {
+pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
+    let pool = match PgPoolOptions::new()
+        .max_connections(10)
+        .connect(&instance_cfg.dsn)
+        .await
+    {
         Ok(pool) => {
             println!("✅Connection to the database is successful!");
             pool
@@ -80,19 +84,50 @@ pub async fn new(
 
     let pg_wal_segment_size = wal_segment_size.parse()?;
 
+    let pg_stat_statements = sqlx::query_scalar::<_, String>(
+        "SELECT setting FROM pg_settings WHERE name = 'shared_preload_libraries';",
+    )
+    .fetch_one(&pool)
+    .await?;
+
+    let exist = pg_stat_statements.contains("pg_stat_statements");
+    let stmnt_scheme: Option<String> = if exist {
+        sqlx::query_scalar::<_, String>(
+            "SELECT extnamespace::regnamespace::text FROM pg_extension WHERE extname = 'pg_stat_statements'",
+        )
+        .fetch_optional(&pool)
+        .await?
+    } else {
+        None
+    };
+
+    let scheme = if let Some(val) = stmnt_scheme {
+        val
+    } else {
+        "".to_string()
+    };
+
+    if exist && scheme.is_empty() {
+        bail!("pg_exporter: init instance: pg_stat_statement exist, but scheme is indefined");
+    }
+
     let cfg = PGConfig {
         pg_version,
         pg_block_size,
         pg_wal_segment_size,
-        // TODO: move to config and read from it
-        pg_collect_topidx: 10,
-        pg_collect_topq: 10,
-        notrack: false,
-        pg_stat_statements: true,
-        pg_stat_statements_schema: String::from("public"),
+        pg_collect_topidx: instance_cfg.collect_top_index,
+        pg_collect_topq: instance_cfg.collect_top_query,
+        notrack: instance_cfg.no_track_mode,
+        pg_stat_statements: exist,
+        pg_stat_statements_schema: scheme,
     };
 
-    Ok(PostgresDB::new(pool, excluded_dbnames, labels, cfg))
+    Ok(PostgresDB::new(
+        pool,
+        instance_cfg.exclude_db_names.clone(),
+        instance_cfg.const_labels.clone(),
+        cfg,
+    ))
 }
 
 impl PostgresDB {

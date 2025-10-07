@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18};
 use crate::instance;
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::{IntCounterVec, IntGaugeVec, proto};
+use prometheus::{IntGaugeVec, proto};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 
@@ -14,12 +14,12 @@ use rust_decimal::prelude::ToPrimitive;
 macro_rules! statements_query12 {
 () =>  {
 	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE({}, '') AS query, p.calls, p.rows, p.total_time, p.blk_read_time, p.blk_write_time, 
-		NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
-		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
-		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
-		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
-		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written 
+		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numerics, p.total_time, p.blk_read_time, p.blk_write_time, 
+		NULLIF(p.shared_blks_hit, 0)::numeric AS shared_blks_hit, NULLIF(p.shared_blks_read, 0)::numeric AS shared_blks_read, 
+		NULLIF(p.shared_blks_dirtied, 0)::numeric AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0)::numeric AS shared_blks_written, 
+		NULLIF(p.local_blks_hit, 0)::numeric AS local_blks_hit, NULLIF(p.local_blks_read, 0)::numeric AS local_blks_read, 
+		NULLIF(p.local_blks_dirtied, 0)::numeric AS local_blks_dirtied, NULLIF(p.local_blks_written, 0)::numeric AS local_blks_written, 
+		NULLIF(p.temp_blks_read, 0)::numeric AS temp_blks_read, NULLIF(p.temp_blks_written, 0)::numeric AS temp_blks_written 
 		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid"
 	}
 }
@@ -56,13 +56,13 @@ macro_rules! statements_query12_topk {
 macro_rules! statements_query16 {
 () =>  {
 	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE({}, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.blk_read_time, p.blk_write_time, 
-		NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
-		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
-		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
-		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
-		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written, 
-		NULLIF(p.wal_records, 0) AS wal_records, NULLIF(p.wal_fpi, 0) AS wal_fpi, NULLIF(p.wal_bytes, 0)::FLOAT8 AS wal_bytes 
+		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numeric, p.total_exec_time, p.total_plan_time, p.blk_read_time, p.blk_write_time, 
+		NULLIF(p.shared_blks_hit, 0)::numeric AS shared_blks_hit, NULLIF(p.shared_blks_read, 0)::numeric AS shared_blks_read, 
+		NULLIF(p.shared_blks_dirtied, 0)::numeric AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0)::numeric AS shared_blks_written, 
+		NULLIF(p.local_blks_hit, 0)::numeric AS local_blks_hit, NULLIF(p.local_blks_read, 0)::numeric AS local_blks_read, 
+		NULLIF(p.local_blks_dirtied, 0)::numeric AS local_blks_dirtied, NULLIF(p.local_blks_written, 0)::numeric AS local_blks_written, 
+		NULLIF(p.temp_blks_read, 0)::numeric AS temp_blks_read, NULLIF(p.temp_blks_written, 0)::numeric AS temp_blks_written, 
+		NULLIF(p.wal_records, 0)::numeric AS wal_records, NULLIF(p.wal_fpi, 0)::numeric AS wal_fpi, NULLIF(p.wal_bytes, 0)::numeric AS wal_bytes 
 		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid"
 	}
 }
@@ -103,13 +103,13 @@ macro_rules! statements_query16_topk {
 macro_rules! statements_query17 {
 () =>  {
 	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE({}, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
-		p.shared_blk_write_time AS blk_write_time, NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
-		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
-		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
-		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
-		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written, 
-		NULLIF(p.wal_records, 0) AS wal_records, NULLIF(p.wal_fpi, 0) AS wal_fpi, NULLIF(p.wal_bytes, 0) AS wal_bytes 
+		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numeric, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
+		p.shared_blk_write_time AS blk_write_time, NULLIF(p.shared_blks_hit, 0)::numeric AS shared_blks_hit, NULLIF(p.shared_blks_read, 0)::numeric AS shared_blks_read, 
+		NULLIF(p.shared_blks_dirtied, 0)::numeric AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0)::numeric AS shared_blks_written, 
+		NULLIF(p.local_blks_hit, 0)::numeric AS local_blks_hit, NULLIF(p.local_blks_read, 0)::numeric AS local_blks_read, 
+		NULLIF(p.local_blks_dirtied, 0)::numeric AS local_blks_dirtied, NULLIF(p.local_blks_written, 0)::numeric AS local_blks_written, 
+		NULLIF(p.temp_blks_read, 0)::numeric AS temp_blks_read, NULLIF(p.temp_blks_written, 0)::numeric AS temp_blks_written, 
+		NULLIF(p.wal_records, 0)::numeric AS wal_records, NULLIF(p.wal_fpi, 0)::numeric AS wal_fpi, NULLIF(p.wal_bytes, 0)::numeric AS wal_bytes 
 		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid"
 	}
 }
@@ -150,14 +150,14 @@ macro_rules! statements_query17_topk {
 macro_rules! statements_query_latest {
 () =>  {
 	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE({}, '') AS query, p.calls, p.rows, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
-		p.shared_blk_write_time AS blk_write_time, NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read, 
-		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written, 
-		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read, 
-		NULLIF(p.local_blks_dirtied, 0) AS local_blks_dirtied, NULLIF(p.local_blks_written, 0) AS local_blks_written, 
-		NULLIF(p.temp_blks_read, 0) AS temp_blks_read, NULLIF(p.temp_blks_written, 0) AS temp_blks_written, 
-		NULLIF(p.wal_records, 0) AS wal_records, NULLIF(p.wal_fpi, 0) AS wal_fpi, NULLIF(p.wal_bytes, 0) AS wal_bytes, 
-		NULLIF(p.wal_buffers_full, 0) AS wal_buffers_full 
+		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numeric, p.total_exec_time, p.total_plan_time, p.shared_blk_read_time AS blk_read_time, 
+		p.shared_blk_write_time AS blk_write_time, NULLIF(p.shared_blks_hit, 0)::numeric AS shared_blks_hit, NULLIF(p.shared_blks_read, 0)::numeric AS shared_blks_read, 
+		NULLIF(p.shared_blks_dirtied, 0)::numeric AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0)::numeric AS shared_blks_written, 
+		NULLIF(p.local_blks_hit, 0)::numeric AS local_blks_hit, NULLIF(p.local_blks_read, 0)::numeric AS local_blks_read, 
+		NULLIF(p.local_blks_dirtied, 0)::numeric AS local_blks_dirtied, NULLIF(p.local_blks_written, 0)::numeric AS local_blks_written, 
+		NULLIF(p.temp_blks_read, 0)::numeric AS temp_blks_read, NULLIF(p.temp_blks_written, 0)::numeric AS temp_blks_written, 
+		NULLIF(p.wal_records, 0)::numeric AS wal_records, NULLIF(p.wal_fpi, 0)::numeric AS wal_fpi, NULLIF(p.wal_bytes, 0)::numeric AS wal_bytes, 
+		NULLIF(p.wal_buffers_full, 0)::numeric AS wal_buffers_full 
 		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid=p.dbid"
 	}
 }
@@ -280,6 +280,7 @@ pub struct PGStatementsCollector {
     temp_written: IntGaugeVec,
     wal_records: IntGaugeVec,
     wal_buffers: IntGaugeVec,
+    wal_all_bytes: IntGaugeVec,
 }
 
 impl PGStatementsCollector {
@@ -508,6 +509,19 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(wal_buffers.desc().into_iter().cloned());
 
+        let wal_all_bytes = IntGaugeVec::new(
+            Opts::new(
+                "wal_bytes_all_total",
+                "Total number of WAL generated by the statement, in bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("statements")
+            .const_labels(dbi.labels.clone()),
+            &["user", "database", "queryid"],
+        )
+        .unwrap();
+        descs.extend(wal_all_bytes.desc().into_iter().cloned());
+
         Self {
             dbi,
             data,
@@ -529,6 +543,7 @@ impl PGStatementsCollector {
             temp_written,
             wal_records,
             wal_buffers,
+            wal_all_bytes,
         }
     }
 
@@ -591,7 +606,7 @@ impl PGStatementsCollector {
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
     // Collecting since Postgres 12.
-    if dbi.cfg.pg_version >= POSTGRES_V12 {
+    if dbi.cfg.pg_version >= POSTGRES_V12 && dbi.cfg.pg_stat_statements {
         Some(PGStatementsCollector::new(dbi))
     } else {
         None
@@ -604,6 +619,9 @@ impl Collector for PGStatementsCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
+        if !self.dbi.cfg.pg_stat_statements {
+            return Vec::new();
+        }
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
@@ -897,6 +915,21 @@ impl Collector for PGStatementsCollector {
                     ])
                     .set(wal_records);
                 // WAL total bytes
+                let wal_fpi = row.wal_fpi.unwrap_or_default().to_i64().unwrap_or_default();
+
+                let wal_bytes = row
+                    .wal_bytes
+                    .unwrap_or_default()
+                    .to_i64()
+                    .unwrap_or_default();
+
+                self.wal_all_bytes
+                    .with_label_values(&[
+                        row.user.clone().unwrap().as_str(),
+                        row.database.clone().unwrap().as_str(),
+                        row.queryid.unwrap_or_default().to_string().as_str(),
+                    ])
+                    .set((wal_fpi * block_size) + wal_bytes);
 
                 if self.dbi.cfg.pg_version >= POSTGRES_V18 {
                     // WAL buffers
@@ -942,6 +975,10 @@ impl Collector for PGStatementsCollector {
 #[async_trait]
 impl PG for PGStatementsCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
+        if !self.dbi.cfg.pg_stat_statements {
+            return Ok(());
+        }
+
         let query = self.select_query();
 
         let mut pg_statemnts_rows = sqlx::query_as::<_, PGStatementsStat>(&query)

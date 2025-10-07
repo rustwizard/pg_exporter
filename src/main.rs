@@ -52,11 +52,14 @@ async fn main() -> std::io::Result<()> {
     for (instance, config) in pge_config.instances {
         println!("starting connection for instance: {instance}");
 
-        let pgi = instance::new(
-            config.dsn,
-            config.exclude_db_names.clone(),
-            config.const_labels.clone(),
-        )
+        let pgi = instance::new(&instance::Config {
+            dsn: config.dsn,
+            exclude_db_names: config.exclude_db_names.clone(),
+            const_labels: config.const_labels.clone(),
+            collect_top_query: config.collect_top_query,
+            collect_top_index: config.collect_top_index,
+            no_track_mode: config.no_track_mode,
+        })
         .await
         .expect("postgres instance should be initialized");
 
