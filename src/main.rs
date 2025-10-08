@@ -1,3 +1,4 @@
+#![warn(clippy::unwrap_used)]
 mod collectors;
 mod error;
 mod instance;

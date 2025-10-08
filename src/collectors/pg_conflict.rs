@@ -96,7 +96,7 @@ impl Collector for PGConflictCollector {
         let data_lock = self
             .data
             .read()
-            .expect("pg conflicts collector: can't aquire lock for read");
+            .expect("pg conflicts collector: should aquire lock for read");
         let database = data_lock.database.as_str();
         self.conflicts_total
             .with_label_values(&[database, "tablespace"])
