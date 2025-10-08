@@ -93,7 +93,10 @@ impl Collector for PGConflictCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(1);
 
-        let data_lock = self.data.read().unwrap();
+        let data_lock = self
+            .data
+            .read()
+            .expect("pg conflicts collector: can't aquire lock for read");
         let database = data_lock.database.as_str();
         self.conflicts_total
             .with_label_values(&[database, "tablespace"])
