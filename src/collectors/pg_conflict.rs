@@ -49,12 +49,18 @@ pub struct PGConflictCollector {
     conflicts_total: IntCounterVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> PGConflictCollector {
-    PGConflictCollector::new(dbi)
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGConflictCollector> {
+    match PGConflictCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg conflicts collector: {}", e);
+            None
+        }
+    }
 }
 
 impl PGConflictCollector {
-    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGConflictCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGConflictCollector> {
         let conflicts_total = IntCounterVec::new(
             Opts::new(
                 "conflicts_total",
@@ -64,18 +70,17 @@ impl PGConflictCollector {
             .subsystem("recovery")
             .const_labels(dbi.labels.clone()),
             &["database", "conflict"],
-        )
-        .unwrap();
+        )?;
 
         let mut descs = Vec::new();
         descs.extend(conflicts_total.desc().into_iter().cloned());
 
-        PGConflictCollector {
+        Ok(PGConflictCollector {
             dbi,
             data: Arc::new(RwLock::new(PGConflictStats::new())),
             descs,
             conflicts_total,
-        }
+        })
     }
 }
 
