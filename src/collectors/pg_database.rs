@@ -83,7 +83,7 @@ impl Collector for PGDatabaseCollector {
         let data_lock = self
             .data
             .read()
-            .expect("pg database collector: should acuire lock");
+            .expect("pg database collector: should acquire lock");
         data_lock
             .size_bytes
             .iter()
@@ -116,7 +116,7 @@ impl PG for PGDatabaseCollector {
 
                 let mut data_lock = match self.data.write() {
                     Ok(data_lock) => data_lock,
-                    Err(e) => bail!("pg database collector: can't acuire lock. {}", e),
+                    Err(e) => bail!("pg database collector: can't acquire lock. {}", e),
                 };
                 data_lock.size_bytes.insert(dbname.name, db_size.0);
             }
