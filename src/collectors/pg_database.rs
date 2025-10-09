@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
+use prometheus::IntGaugeVec;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
-use prometheus::IntGaugeVec;
 
 use crate::instance;
 
@@ -40,29 +40,35 @@ pub struct PGDatabaseCollector {
     size_bytes: IntGaugeVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> PGDatabaseCollector {
-    PGDatabaseCollector::new(dbi)
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGDatabaseCollector> {
+    match PGDatabaseCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg database collector: {}", e);
+            None
+        }
+    }
 }
 
 impl PGDatabaseCollector {
-    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGDatabaseCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGDatabaseCollector> {
         let size_bytes = IntGaugeVec::new(
             Opts::new("size_bytes", "Disk space used by the database")
                 .namespace(super::NAMESPACE)
-                .subsystem(DATABASE_SUBSYSTEM).const_labels(dbi.labels.clone()),
+                .subsystem(DATABASE_SUBSYSTEM)
+                .const_labels(dbi.labels.clone()),
             &["datname"],
-        )
-        .unwrap();
+        )?;
 
         let mut descs = Vec::new();
         descs.extend(size_bytes.desc().into_iter().cloned());
 
-        PGDatabaseCollector {
+        Ok(PGDatabaseCollector {
             dbi,
             data: Arc::new(RwLock::new(PGDatabaseStats::new())),
             descs,
             size_bytes,
-        }
+        })
     }
 }
 
@@ -94,10 +100,10 @@ impl PG for PGDatabaseCollector {
             .fetch_all(&self.dbi.db)
             .await?;
 
-        //TODO: amortize this with one query with select  
+        //TODO: amortize this with one query with select
         for dbname in datnames {
             if self.dbi.excluded_db_names.contains(&dbname.name) {
-                continue
+                continue;
             }
 
             if !dbname.name.is_empty() {
@@ -106,10 +112,8 @@ impl PG for PGDatabaseCollector {
                     .fetch_one(&self.dbi.db)
                     .await?;
 
-                    let mut data_lock = self.data.write().unwrap();
-                    data_lock.size_bytes.insert(dbname.name, db_size.0);
-
-                
+                let mut data_lock = self.data.write().unwrap();
+                data_lock.size_bytes.insert(dbname.name, db_size.0);
             }
         }
 
