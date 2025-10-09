@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use anyhow::bail;
 use async_trait::async_trait;
 use prometheus::IntGaugeVec;
 use prometheus::core::{Collector, Desc, Opts};
@@ -81,7 +82,10 @@ impl Collector for PGDatabaseCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(1);
 
-        let data_lock = self.data.read().unwrap();
+        let data_lock = self
+            .data
+            .read()
+            .expect("pg database collector: should acuire lock");
         data_lock
             .size_bytes
             .iter()
@@ -112,7 +116,10 @@ impl PG for PGDatabaseCollector {
                     .fetch_one(&self.dbi.db)
                     .await?;
 
-                let mut data_lock = self.data.write().unwrap();
+                let mut data_lock = match self.data.write() {
+                    Ok(data_lock) => data_lock,
+                    Err(e) => bail!("pg database collector: can't acuire lock. {}", e),
+                };
                 data_lock.size_bytes.insert(dbname.name, db_size.0);
             }
         }

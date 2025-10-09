@@ -255,7 +255,7 @@ impl PG for PGIndexesCollector {
 
         let mut data_lock = match self.data.write() {
             Ok(data_lock) => data_lock,
-            Err(e) => bail!("can't unwrap lock. {}", e),
+            Err(e) => bail!("pg indexes collector: can't acuire lock. {}", e),
         };
 
         data_lock.clear();
