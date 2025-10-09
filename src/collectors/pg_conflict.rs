@@ -96,7 +96,7 @@ impl Collector for PGConflictCollector {
         let data_lock = self
             .data
             .read()
-            .expect("pg conflicts collector: should aquire lock for read");
+            .expect("pg conflicts collector: should acquire lock for read");
         let database = data_lock.database.as_str();
         self.conflicts_total
             .with_label_values(&[database, "tablespace"])
@@ -142,7 +142,10 @@ impl PG for PGConflictCollector {
 
             let mut data_lock = match self.data.write() {
                 Ok(data_lock) => data_lock,
-                Err(e) => bail!("pg conflicts collector: can't get lock for write. {}", e),
+                Err(e) => bail!(
+                    "pg conflicts collector: can't acquire lock for write. {}",
+                    e
+                ),
             };
 
             data_lock.database = conflict_stats.database;
