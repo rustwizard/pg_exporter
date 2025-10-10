@@ -173,12 +173,18 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
         .collectors
         .clone()
         .into_iter()
-        .map(|col| {
+        .map(|mut col| {
             actix_web::rt::spawn(async move {
                 let update_result = col.update().await;
                 match update_result {
                     Ok(update) => update,
-                    Err(err) => println!("Problem running update collector: {err}"),
+                    Err(err) => println!("Problem running collector update: {err}"),
+                };
+
+                let collect_result = col.collect().await;
+                match collect_result {
+                    Ok(collect) => collect,
+                    Err(err) => println!("Problem running collector collect: {err}"),
                 };
             })
         })

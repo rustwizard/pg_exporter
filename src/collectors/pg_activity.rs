@@ -672,6 +672,10 @@ impl PG for PGActivityCollector {
 
         Ok(())
     }
+
+    async fn collect(&mut self) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> PGActivityCollector {

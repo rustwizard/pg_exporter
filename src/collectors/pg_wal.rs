@@ -330,4 +330,8 @@ impl PG for PGWALCollector {
 
         Ok(())
     }
+
+    async fn collect(&mut self) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
 }

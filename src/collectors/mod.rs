@@ -10,6 +10,8 @@ pub mod pg_stat_io;
 pub mod pg_statements;
 pub mod pg_wal;
 
+use std::sync::{Arc, RwLock};
+
 use async_trait::async_trait;
 use dyn_clone::DynClone;
 
@@ -31,6 +33,7 @@ pub const POSTGRES_VMIN_NUM: i64 = POSTGRES_V95;
 #[async_trait]
 pub trait PG: DynClone + Send + Sync {
     async fn update(&self) -> Result<(), anyhow::Error>;
+    async fn collect(&mut self) -> Result<(), anyhow::Error>;
 }
 
 impl Clone for Box<dyn PG> {

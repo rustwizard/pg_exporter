@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 use prometheus::IntGaugeVec;
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::proto;
+use prometheus::proto::{self, MetricFamily};
 
 use crate::instance;
 
@@ -37,6 +37,7 @@ pub struct PGDatabaseCollector {
     data: Arc<RwLock<PGDatabaseStats>>,
     descs: Vec<Desc>,
     size_bytes: IntGaugeVec,
+    mfs: Vec<MetricFamily>,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGDatabaseCollector> {
@@ -67,6 +68,7 @@ impl PGDatabaseCollector {
             data: Arc::new(RwLock::new(PGDatabaseStats::new())),
             descs,
             size_bytes,
+            mfs: Vec::new(),
         })
     }
 }
@@ -77,21 +79,7 @@ impl Collector for PGDatabaseCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        // collect MetricFamilies.
-        let mut mfs = Vec::with_capacity(1);
-
-        let data_lock = self
-            .data
-            .read()
-            .expect("pg database collector: should acquire lock");
-        data_lock
-            .size_bytes
-            .iter()
-            .map(|(dbname, &size)| self.size_bytes.with_label_values(&[&dbname[..]]).set(size))
-            .count();
-
-        mfs.extend(self.size_bytes.collect());
-        mfs
+        self.mfs.clone()
     }
 }
 
@@ -122,6 +110,21 @@ impl PG for PGDatabaseCollector {
             }
         }
 
+        Ok(())
+    }
+
+    async fn collect(&mut self) -> Result<(), anyhow::Error> {
+        let data_lock = self
+            .data
+            .read()
+            .map_err(|e| anyhow!("pg database collect: RwLock poisoned during read: {}", e))?;
+        data_lock
+            .size_bytes
+            .iter()
+            .map(|(dbname, &size)| self.size_bytes.with_label_values(&[&dbname[..]]).set(size))
+            .count();
+
+        self.mfs.extend(self.size_bytes.collect());
         Ok(())
     }
 }
