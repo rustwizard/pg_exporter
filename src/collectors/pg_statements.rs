@@ -997,4 +997,8 @@ impl PG for PGStatementsCollector {
 
         Ok(())
     }
+
+    async fn collect(&mut self) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
 }

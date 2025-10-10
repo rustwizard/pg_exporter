@@ -450,4 +450,8 @@ impl PG for PGStatIOCollector {
 
         Ok(())
     }
+
+    async fn collect(&mut self) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
 }

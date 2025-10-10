@@ -1,7 +1,7 @@
 use async_trait::async_trait;
+use prometheus::IntGauge;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
-use prometheus::IntGauge;
 use std::sync::{Arc, RwLock};
 
 use crate::instance;
@@ -206,14 +206,17 @@ impl Collector for PGLocksCollector {
         let data_lock = self.data.read().unwrap();
 
         self.access_share_lock.set(data_lock.access_share_lock);
-        self.access_exclusive_lock.set(data_lock.access_exclusive_lock);
+        self.access_exclusive_lock
+            .set(data_lock.access_exclusive_lock);
         self.exclusive_lock.set(data_lock.exclusive_lock);
         self.row_exclusive_lock.set(data_lock.row_exclusive_lock);
         self.row_share_lock.set(data_lock.row_share_lock);
         self.not_granted.set(data_lock.not_granted);
         self.share_lock.set(data_lock.share_lock);
-        self.share_row_exclusive_lock.set(data_lock.share_row_exclusive_lock);
-        self.share_update_exclusive_lock.set(data_lock.share_update_exclusive_lock);
+        self.share_row_exclusive_lock
+            .set(data_lock.share_row_exclusive_lock);
+        self.share_update_exclusive_lock
+            .set(data_lock.share_update_exclusive_lock);
         self.total.set(data_lock.total);
 
         mfs.extend(self.access_exclusive_lock.collect());
@@ -252,6 +255,10 @@ impl PG for PGLocksCollector {
             data_lock.total = locks_stats.total;
         }
 
+        Ok(())
+    }
+
+    async fn collect(&mut self) -> Result<(), anyhow::Error> {
         Ok(())
     }
 }

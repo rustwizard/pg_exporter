@@ -167,4 +167,8 @@ impl PG for PGArchiverCollector {
 
         Ok(())
     }
+
+    async fn collect(&mut self) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
 }

@@ -1,10 +1,13 @@
 use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
-use prometheus::{core::{Collector, Desc}, Counter, IntCounter, IntCounterVec, Opts};
 use prometheus::proto;
+use prometheus::{
+    Counter, IntCounter, IntCounterVec, Opts,
+    core::{Collector, Desc},
+};
 
-use crate::{collectors::{POSTGRES_V17}, instance};
+use crate::{collectors::POSTGRES_V17, instance};
 
 use super::PG;
 
@@ -25,7 +28,6 @@ const BGWRITER_QUERY_LATEST: &str = "WITH ckpt AS (
 		stat_io AS ( 
 		SELECT SUM(writes)::FLOAT8 AS buffers_backend, SUM(fsyncs)::FLOAT8 AS buffers_backend_fsync FROM pg_stat_io WHERE backend_type='background writer') 
 		SELECT ckpt.*, bgwr.*, stat_io.* FROM ckpt, bgwr, stat_io";
-
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct PGBGwriterStats {
@@ -70,7 +72,7 @@ impl PGBGwriterStats {
             buffers_backend_fsync: (0.0),
         }
     }
-} 
+}
 
 #[derive(Debug, Clone)]
 pub struct PGBGwriterCollector {
@@ -89,12 +91,11 @@ pub struct PGBGwriterCollector {
     ckpt_stats_age_seconds: IntCounter,
     checkpoint_restartpointstimed: IntCounter,
     checkpoint_restartpointsreq: IntCounter,
-    checkpoint_restartpointsdone: IntCounter
-
+    checkpoint_restartpointsdone: IntCounter,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {        
-     PGBGwriterCollector::new(dbi)
+pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
+    PGBGwriterCollector::new(dbi)
 }
 
 impl PGBGwriterCollector {
@@ -262,7 +263,7 @@ impl PGBGwriterCollector {
         .unwrap();
         descs.extend(restartpoints_done.desc().into_iter().cloned());
 
-        PGBGwriterCollector{
+        PGBGwriterCollector {
             dbi,
             data: Arc::new(RwLock::new(PGBGwriterStats::new())),
             descs,
@@ -285,7 +286,7 @@ impl PGBGwriterCollector {
 
 impl Collector for PGBGwriterCollector {
     fn desc(&self) -> Vec<&Desc> {
-       self.descs.iter().collect()
+        self.descs.iter().collect()
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
@@ -302,30 +303,52 @@ impl Collector for PGBGwriterCollector {
         let data_lock = data_lock_result.unwrap();
 
         self.alloc_bytes.inc_by(data_lock.buffers_alloc as u64);
-        self.bgwr_stats_age_seconds.inc_by(data_lock.bgwr_stats_age_seconds as u64);
-        self.buffers_backend_fsync.inc_by(data_lock.buffers_backend_fsync as u64);
-        self.checkpoint_restartpointsdone.inc_by(data_lock.restartpoints_done as u64);
-        self.checkpoint_restartpointsreq.inc_by(data_lock.restartpoints_req as u64);
-        self.checkpoint_restartpointstimed.inc_by(data_lock.restartpoints_timed as u64);
-        
-        self.checkpoints.with_label_values(&["timed"]).inc_by(data_lock.checkpoints_timed as u64);
-        self.checkpoints.with_label_values(&["req"]).inc_by(data_lock.checkpoints_req as u64);
-        
-        self.checkpoint_time_all.inc_by(data_lock.checkpoint_write_time + data_lock.checkpoint_sync_time);
-        
-        self.checkpoint_time.with_label_values(&["write"]).inc_by(data_lock.checkpoint_write_time as u64);
-        self.checkpoint_time.with_label_values(&["sync"]).inc_by(data_lock.checkpoint_sync_time as u64);
-        
-        self.checkpoints_all.inc_by((data_lock.checkpoints_timed + data_lock.checkpoints_req) as u64);
+        self.bgwr_stats_age_seconds
+            .inc_by(data_lock.bgwr_stats_age_seconds as u64);
+        self.buffers_backend_fsync
+            .inc_by(data_lock.buffers_backend_fsync as u64);
+        self.checkpoint_restartpointsdone
+            .inc_by(data_lock.restartpoints_done as u64);
+        self.checkpoint_restartpointsreq
+            .inc_by(data_lock.restartpoints_req as u64);
+        self.checkpoint_restartpointstimed
+            .inc_by(data_lock.restartpoints_timed as u64);
 
-        self.written_bytes.with_label_values(&["checkpointer"]).inc_by((data_lock.buffers_checkpoint*self.dbi.cfg.pg_block_size) as u64);
-        self.written_bytes.with_label_values(&["bgwriter"]).inc_by((data_lock.buffers_clean*self.dbi.cfg.pg_block_size) as u64);
-        self.written_bytes.with_label_values(&["backend"]).inc_by(data_lock.buffers_backend as u64 * self.dbi.cfg.pg_block_size as u64);
+        self.checkpoints
+            .with_label_values(&["timed"])
+            .inc_by(data_lock.checkpoints_timed as u64);
+        self.checkpoints
+            .with_label_values(&["req"])
+            .inc_by(data_lock.checkpoints_req as u64);
 
-        self.ckpt_stats_age_seconds.inc_by(data_lock.ckpt_stats_age_seconds as u64);
+        self.checkpoint_time_all
+            .inc_by(data_lock.checkpoint_write_time + data_lock.checkpoint_sync_time);
 
-        self.maxwritten_clean.inc_by(data_lock.maxwritten_clean as u64);
-        
+        self.checkpoint_time
+            .with_label_values(&["write"])
+            .inc_by(data_lock.checkpoint_write_time as u64);
+        self.checkpoint_time
+            .with_label_values(&["sync"])
+            .inc_by(data_lock.checkpoint_sync_time as u64);
+
+        self.checkpoints_all
+            .inc_by((data_lock.checkpoints_timed + data_lock.checkpoints_req) as u64);
+
+        self.written_bytes
+            .with_label_values(&["checkpointer"])
+            .inc_by((data_lock.buffers_checkpoint * self.dbi.cfg.pg_block_size) as u64);
+        self.written_bytes
+            .with_label_values(&["bgwriter"])
+            .inc_by((data_lock.buffers_clean * self.dbi.cfg.pg_block_size) as u64);
+        self.written_bytes
+            .with_label_values(&["backend"])
+            .inc_by(data_lock.buffers_backend as u64 * self.dbi.cfg.pg_block_size as u64);
+
+        self.ckpt_stats_age_seconds
+            .inc_by(data_lock.ckpt_stats_age_seconds as u64);
+
+        self.maxwritten_clean
+            .inc_by(data_lock.maxwritten_clean as u64);
 
         mfs.extend(self.alloc_bytes.collect());
         mfs.extend(self.bgwr_stats_age_seconds.collect());
@@ -340,23 +363,22 @@ impl Collector for PGBGwriterCollector {
         mfs.extend(self.ckpt_stats_age_seconds.collect());
         mfs.extend(self.written_bytes.collect());
         mfs.extend(self.maxwritten_clean.collect());
-        
+
         mfs
     }
 }
-
 
 #[async_trait]
 impl PG for PGBGwriterCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
         let maybe_bgwr_stats = if self.dbi.cfg.pg_version < POSTGRES_V17 {
-             sqlx::query_as::<_, PGBGwriterStats>(BGWRITER_QUERY16)
-            .fetch_optional(&self.dbi.db)
-            .await?
+            sqlx::query_as::<_, PGBGwriterStats>(BGWRITER_QUERY16)
+                .fetch_optional(&self.dbi.db)
+                .await?
         } else {
             sqlx::query_as::<_, PGBGwriterStats>(BGWRITER_QUERY_LATEST)
-            .fetch_optional(&self.dbi.db)
-            .await?
+                .fetch_optional(&self.dbi.db)
+                .await?
         };
 
         if let Some(bgwr_stats) = maybe_bgwr_stats {
@@ -378,7 +400,10 @@ impl PG for PGBGwriterCollector {
             data_lock.restartpoints_timed = bgwr_stats.restartpoints_timed;
         }
 
+        Ok(())
+    }
 
+    async fn collect(&mut self) -> Result<(), anyhow::Error> {
         Ok(())
     }
 }

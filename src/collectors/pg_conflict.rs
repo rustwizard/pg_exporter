@@ -1,11 +1,11 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 
 use prometheus::IntCounterVec;
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::proto;
+use prometheus::proto::{self, MetricFamily};
 
 use crate::collectors::{PG, POSTGRES_V16};
 use crate::instance;
@@ -47,6 +47,7 @@ pub struct PGConflictCollector {
     data: Arc<RwLock<PGConflictStats>>,
     descs: Vec<Desc>,
     conflicts_total: IntCounterVec,
+    mfs: Vec<MetricFamily>,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGConflictCollector> {
@@ -80,6 +81,7 @@ impl PGConflictCollector {
             data: Arc::new(RwLock::new(PGConflictStats::new())),
             descs,
             conflicts_total,
+            mfs: Vec::new(),
         })
     }
 }
@@ -90,35 +92,7 @@ impl Collector for PGConflictCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        // collect MetricFamilies.
-        let mut mfs = Vec::with_capacity(1);
-
-        let data_lock = self
-            .data
-            .read()
-            .expect("pg conflicts collector: should acquire lock for read");
-        let database = data_lock.database.as_str();
-        self.conflicts_total
-            .with_label_values(&[database, "tablespace"])
-            .inc_by(data_lock.tablespace as u64);
-        self.conflicts_total
-            .with_label_values(&[database, "lock"])
-            .inc_by(data_lock.lock as u64);
-        self.conflicts_total
-            .with_label_values(&[database, "snapshot"])
-            .inc_by(data_lock.snapshot as u64);
-        self.conflicts_total
-            .with_label_values(&[database, "bufferpin"])
-            .inc_by(data_lock.bufferpin as u64);
-        self.conflicts_total
-            .with_label_values(&[database, "deadlock"])
-            .inc_by(data_lock.deadlock as u64);
-        self.conflicts_total
-            .with_label_values(&[database, "active_logicalslot"])
-            .inc_by(data_lock.active_logical_slot as u64);
-
-        mfs.extend(self.conflicts_total.collect());
-        mfs
+        self.mfs.clone()
     }
 }
 
@@ -156,6 +130,38 @@ impl PG for PGConflictCollector {
             data_lock.tablespace = conflict_stats.tablespace;
             data_lock.lock = conflict_stats.lock;
         }
+
+        Ok(())
+    }
+
+    async fn collect(&mut self) -> Result<(), anyhow::Error> {
+        let data_lock = self
+            .data
+            .read()
+            .map_err(|e| anyhow!("pg conflicts collect: RwLock poisoned during read: {}", e))?;
+
+        //.expect("pg conflicts collector: should acquire lock for read");
+        let database = data_lock.database.as_str();
+        self.conflicts_total
+            .with_label_values(&[database, "tablespace"])
+            .inc_by(data_lock.tablespace as u64);
+        self.conflicts_total
+            .with_label_values(&[database, "lock"])
+            .inc_by(data_lock.lock as u64);
+        self.conflicts_total
+            .with_label_values(&[database, "snapshot"])
+            .inc_by(data_lock.snapshot as u64);
+        self.conflicts_total
+            .with_label_values(&[database, "bufferpin"])
+            .inc_by(data_lock.bufferpin as u64);
+        self.conflicts_total
+            .with_label_values(&[database, "deadlock"])
+            .inc_by(data_lock.deadlock as u64);
+        self.conflicts_total
+            .with_label_values(&[database, "active_logicalslot"])
+            .inc_by(data_lock.active_logical_slot as u64);
+
+        self.mfs.extend(self.conflicts_total.collect());
 
         Ok(())
     }
