@@ -139,7 +139,6 @@ async fn main() -> std::io::Result<()> {
         }
 
         app.collectors.push(Box::new(pc));
-        app.collectors.push(Box::new(pc_pstm));
         app.collectors.push(Box::new(pca));
         app.collectors.push(Box::new(pbgwr));
         app.collectors.push(Box::new(pgwalc));
