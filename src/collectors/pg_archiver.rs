@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
@@ -45,6 +45,7 @@ pub struct PGArchiverCollector {
     failed_total: IntCounter,
     since_last_archive_seconds: Gauge,
     lag_bytes: IntGauge,
+    mfs: Vec<MetricFamily>,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGArchiverCollector> {
@@ -75,8 +76,7 @@ impl PGArchiverCollector {
             .namespace(super::NAMESPACE)
             .subsystem("archiver")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(archived_total.desc().into_iter().cloned());
 
         let failed_total = IntCounter::with_opts(
@@ -87,8 +87,7 @@ impl PGArchiverCollector {
             .namespace(super::NAMESPACE)
             .subsystem("archiver")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(failed_total.desc().into_iter().cloned());
 
         let since_last_archive_seconds = Gauge::with_opts(
@@ -99,8 +98,7 @@ impl PGArchiverCollector {
             .namespace(super::NAMESPACE)
             .subsystem("archiver")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(since_last_archive_seconds.desc().into_iter().cloned());
 
         let lag_bytes = IntGauge::with_opts(
@@ -111,8 +109,7 @@ impl PGArchiverCollector {
             .namespace(super::NAMESPACE)
             .subsystem("archiver")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(lag_bytes.desc().into_iter().cloned());
 
         Ok(Self {
@@ -123,6 +120,7 @@ impl PGArchiverCollector {
             failed_total,
             since_last_archive_seconds,
             lag_bytes,
+            mfs: Vec::new(),
         })
     }
 }
@@ -132,25 +130,7 @@ impl Collector for PGArchiverCollector {
         self.descs.iter().collect()
     }
     fn collect(&self) -> std::vec::Vec<MetricFamily> {
-        // collect MetricFamilies.
-        let mut mfs = Vec::with_capacity(4);
-
-        let data_lock = self.data.read().expect("can't acuire lock");
-        for row in data_lock.iter() {
-            self.archived_total.inc_by(row.archived as u64);
-            self.failed_total.inc_by(row.failed as u64);
-            self.since_last_archive_seconds
-                .set(row.since_archived_seconds);
-            self.lag_bytes
-                .set(row.lag_files * self.dbi.cfg.pg_wal_segment_size);
-        }
-
-        mfs.extend(self.archived_total.collect());
-        mfs.extend(self.failed_total.collect());
-        mfs.extend(self.since_last_archive_seconds.collect());
-        mfs.extend(self.lag_bytes.collect());
-
-        mfs
+        self.mfs.clone()
     }
 }
 
@@ -164,7 +144,7 @@ impl PG for PGArchiverCollector {
 
         let mut data_lock = match self.data.write() {
             Ok(data_lock) => data_lock,
-            Err(e) => bail!("can't unwrap lock. {}", e),
+            Err(e) => bail!("pg archiver: RwLock poisoned during write. {}", e),
         };
 
         data_lock.clear();
@@ -175,6 +155,24 @@ impl PG for PGArchiverCollector {
     }
 
     async fn collect(&mut self) -> Result<(), anyhow::Error> {
+        let data_lock = self
+            .data
+            .read()
+            .map_err(|e| anyhow!("pg archiver collector: RwLock poisoned during read: {}", e))?;
+
+        for row in data_lock.iter() {
+            self.archived_total.inc_by(row.archived as u64);
+            self.failed_total.inc_by(row.failed as u64);
+            self.since_last_archive_seconds
+                .set(row.since_archived_seconds);
+            self.lag_bytes
+                .set(row.lag_files * self.dbi.cfg.pg_wal_segment_size);
+        }
+
+        self.mfs.extend(self.archived_total.collect());
+        self.mfs.extend(self.failed_total.collect());
+        self.mfs.extend(self.since_last_archive_seconds.collect());
+        self.mfs.extend(self.lag_bytes.collect());
         Ok(())
     }
 }
