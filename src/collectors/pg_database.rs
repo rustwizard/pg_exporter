@@ -118,6 +118,7 @@ impl PG for PGDatabaseCollector {
             .data
             .read()
             .map_err(|e| anyhow!("pg database collect: RwLock poisoned during read: {}", e))?;
+
         data_lock
             .size_bytes
             .iter()
