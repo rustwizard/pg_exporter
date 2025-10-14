@@ -33,29 +33,34 @@ pub struct PGPostmasterCollector {
     start_time_seconds: Gauge,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> PGPostmasterCollector {
-    PGPostmasterCollector::new(dbi)
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGPostmasterCollector> {
+    match PGPostmasterCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg postmaster collector: {}", e);
+            None
+        }
+    }
 }
 
 impl PGPostmasterCollector {
-    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGPostmasterCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGPostmasterCollector> {
         let start_time_seconds = Gauge::with_opts(
             Opts::new("start_time_seconds", "Time at which postmaster started")
                 .namespace(super::NAMESPACE)
                 .subsystem(POSTMASTER_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
 
         let mut descs = Vec::new();
         descs.extend(start_time_seconds.desc().into_iter().cloned());
 
-        PGPostmasterCollector {
+        Ok(PGPostmasterCollector {
             dbi,
             data: Arc::new(RwLock::new(PGPostmasterStats::new())),
             descs,
             start_time_seconds,
-        }
+        })
     }
 }
 
