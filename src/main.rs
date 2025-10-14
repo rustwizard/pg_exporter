@@ -100,14 +100,11 @@ async fn main() -> std::io::Result<()> {
             .register(Box::new(pgwalc.clone()))
             .expect("pg wal collector should be initialized");
 
-        let pg_statio_c = collectors::pg_stat_io::new(Arc::clone(&arc_pgi));
-        // TODO:  change to if let Some(pg_statio_c) = pg_statio_c
-        if pg_statio_c.is_some() {
-            let c = pg_statio_c.expect("pg statio collector should be initialized");
+        if let Some(pg_statio_c) = collectors::pg_stat_io::new(Arc::clone(&arc_pgi)) {
             app.registry
-                .register(Box::new(c.clone()))
+                .register(Box::new(pg_statio_c.clone()))
                 .expect("pg locks collector should be registered");
-            app.collectors.push(Box::new(c.clone()));
+            app.collectors.push(Box::new(pg_statio_c.clone()));
         }
 
         if let Some(pgarch_c) = collectors::pg_archiver::new(Arc::clone(&arc_pgi)) {

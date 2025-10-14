@@ -50,14 +50,20 @@ pub struct PGArchiverCollector {
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGArchiverCollector> {
     // some system functions are not available, required Postgres 12 or newer
     if dbi.cfg.pg_version > POSTGRES_V12 {
-        Some(PGArchiverCollector::new(dbi))
+        match PGArchiverCollector::new(dbi) {
+            Ok(result) => Some(result),
+            Err(e) => {
+                eprintln!("error when create pg archiver collector: {}", e);
+                None
+            }
+        }
     } else {
         None
     }
 }
 
 impl PGArchiverCollector {
-    fn new(dbi: Arc<instance::PostgresDB>) -> Self {
+    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGArchiverStats::new()]));
 
@@ -109,7 +115,7 @@ impl PGArchiverCollector {
         .unwrap();
         descs.extend(lag_bytes.desc().into_iter().cloned());
 
-        Self {
+        Ok(Self {
             dbi,
             data,
             descs,
@@ -117,7 +123,7 @@ impl PGArchiverCollector {
             failed_total,
             since_last_archive_seconds,
             lag_bytes,
-        }
+        })
     }
 }
 
