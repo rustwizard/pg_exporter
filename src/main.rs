@@ -78,6 +78,13 @@ async fn main() -> std::io::Result<()> {
             app.collectors.push(Box::new(pc_pstm));
         }
 
+        if let Some(pc_bgwr) = collectors::pg_bgwirter::new(Arc::clone(&arc_pgi)) {
+            app.registry
+                .register(Box::new(pc_bgwr.clone()))
+                .expect("pg bgwriter collector should be initialized");
+            app.collectors.push(Box::new(pc_bgwr));
+        }
+
         if let Some(pcdb) = collectors::pg_database::new(Arc::clone(&arc_pgi)) {
             app.registry
                 .register(Box::new(pcdb.clone()))
@@ -90,13 +97,6 @@ async fn main() -> std::io::Result<()> {
             .register(Box::new(pca.clone()))
             .expect("pg activity collector should be initialized");
 
-        if let Some(pbgwr) = collectors::pg_stat_io::new(Arc::clone(&arc_pgi)) {
-            app.registry
-                .register(Box::new(pbgwr.clone()))
-                .expect("pg bgwriter collector should be registered");
-            app.collectors.push(Box::new(pbgwr.clone()));
-        }
-
         let pgwalc = collectors::pg_wal::new(Arc::clone(&arc_pgi));
         app.registry
             .register(Box::new(pgwalc.clone()))
@@ -105,7 +105,7 @@ async fn main() -> std::io::Result<()> {
         if let Some(pg_statio_c) = collectors::pg_stat_io::new(Arc::clone(&arc_pgi)) {
             app.registry
                 .register(Box::new(pg_statio_c.clone()))
-                .expect("pg locks collector should be registered");
+                .expect("pg statio collector should be registered");
             app.collectors.push(Box::new(pg_statio_c.clone()));
         }
 

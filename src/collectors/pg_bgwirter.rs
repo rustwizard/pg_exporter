@@ -297,7 +297,7 @@ impl Collector for PGBGwriterCollector {
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
         // collect MetricFamilies.
-        let mut mfs = Vec::with_capacity(13);
+        let mut mfs: Vec<proto::MetricFamily> = Vec::with_capacity(13);
 
         let data_lock_result = self.data.read();
 
