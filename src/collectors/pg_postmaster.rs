@@ -1,9 +1,10 @@
 use std::sync::{Arc, RwLock};
 
+use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 use prometheus::Gauge;
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::proto;
+use prometheus::proto::{self, MetricFamily};
 
 use crate::instance;
 
@@ -31,6 +32,7 @@ pub struct PGPostmasterCollector {
     data: Arc<RwLock<PGPostmasterStats>>,
     descs: Vec<Desc>,
     start_time_seconds: Gauge,
+    mfs: Vec<MetricFamily>,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGPostmasterCollector> {
@@ -60,6 +62,7 @@ impl PGPostmasterCollector {
             data: Arc::new(RwLock::new(PGPostmasterStats::new())),
             descs,
             start_time_seconds,
+            mfs: Vec::new(),
         })
     }
 }
@@ -70,14 +73,7 @@ impl Collector for PGPostmasterCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        // collect MetricFamilies.
-        let mut mfs = Vec::with_capacity(1);
-
-        let data_lock = self.data.read().unwrap();
-        self.start_time_seconds.set(data_lock.start_time_seconds);
-
-        mfs.extend(self.start_time_seconds.collect());
-        mfs
+        self.mfs.clone()
     }
 }
 
@@ -89,7 +85,13 @@ impl PG for PGPostmasterCollector {
             .await?;
 
         if let Some(stats) = maybe_stats {
-            let mut data_lock = self.data.write().unwrap();
+            let mut data_lock = match self.data.write() {
+                Ok(data_lock) => data_lock,
+                Err(e) => bail!(
+                    "pg postmaster collector: can't acquire lock for write. {}",
+                    e
+                ),
+            };
             data_lock.start_time_seconds = stats.start_time_seconds;
         }
 
@@ -97,6 +99,14 @@ impl PG for PGPostmasterCollector {
     }
 
     async fn collect(&mut self) -> Result<(), anyhow::Error> {
+        let data_lock = self
+            .data
+            .read()
+            .map_err(|e| anyhow!("pg postmaster collect: RwLock poisoned during read: {}", e))?;
+
+        self.start_time_seconds.set(data_lock.start_time_seconds);
+
+        self.mfs.extend(self.start_time_seconds.collect());
         Ok(())
     }
 }
