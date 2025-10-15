@@ -133,7 +133,7 @@ async fn main() -> std::io::Result<()> {
         if let Some(pgstmt_c) = collectors::pg_statements::new(Arc::clone(&arc_pgi)) {
             app.registry
                 .register(Box::new(pgstmt_c.clone()))
-                .expect("pg indexes collector should be initialized");
+                .expect("pg statements collector should be initialized");
             app.collectors.push(Box::new(pgstmt_c));
         }
 
