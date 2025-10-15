@@ -50,14 +50,20 @@ pub struct PGArchiverCollector {
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGArchiverCollector> {
     // some system functions are not available, required Postgres 12 or newer
     if dbi.cfg.pg_version > POSTGRES_V12 {
-        Some(PGArchiverCollector::new(dbi))
+        match PGArchiverCollector::new(dbi) {
+            Ok(result) => Some(result),
+            Err(e) => {
+                eprintln!("error when create pg conflicts collector: {}", e);
+                None
+            }
+        }
     } else {
         None
     }
 }
 
 impl PGArchiverCollector {
-    fn new(dbi: Arc<instance::PostgresDB>) -> Self {
+    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGArchiverStats::new()]));
 
@@ -69,8 +75,7 @@ impl PGArchiverCollector {
             .namespace(super::NAMESPACE)
             .subsystem("archiver")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(archived_total.desc().into_iter().cloned());
 
         let failed_total = IntCounter::with_opts(
@@ -81,8 +86,7 @@ impl PGArchiverCollector {
             .namespace(super::NAMESPACE)
             .subsystem("archiver")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(failed_total.desc().into_iter().cloned());
 
         let since_last_archive_seconds = Gauge::with_opts(
@@ -93,8 +97,7 @@ impl PGArchiverCollector {
             .namespace(super::NAMESPACE)
             .subsystem("archiver")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(since_last_archive_seconds.desc().into_iter().cloned());
 
         let lag_bytes = IntGauge::with_opts(
@@ -105,11 +108,10 @@ impl PGArchiverCollector {
             .namespace(super::NAMESPACE)
             .subsystem("archiver")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(lag_bytes.desc().into_iter().cloned());
 
-        Self {
+        Ok(Self {
             dbi,
             data,
             descs,
@@ -117,7 +119,7 @@ impl PGArchiverCollector {
             failed_total,
             since_last_archive_seconds,
             lag_bytes,
-        }
+        })
     }
 }
 
@@ -129,7 +131,10 @@ impl Collector for PGArchiverCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
-        let data_lock = self.data.read().expect("can't acuire lock");
+        let data_lock = self
+            .data
+            .read()
+            .expect("pg archiver: should acuire read lock");
         for row in data_lock.iter() {
             self.archived_total.inc_by(row.archived as u64);
             self.failed_total.inc_by(row.failed as u64);
@@ -158,7 +163,7 @@ impl PG for PGArchiverCollector {
 
         let mut data_lock = match self.data.write() {
             Ok(data_lock) => data_lock,
-            Err(e) => bail!("can't unwrap lock. {}", e),
+            Err(e) => bail!("pg archiver: can't acuire write lock. {}", e),
         };
 
         data_lock.clear();
