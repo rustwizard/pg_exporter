@@ -131,10 +131,15 @@ impl Collector for PGArchiverCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
-        let data_lock = self
-            .data
-            .read()
-            .expect("pg archiver: should acuire read lock");
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg archiver collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
+
         for row in data_lock.iter() {
             self.archived_total.inc_by(row.archived as u64);
             self.failed_total.inc_by(row.failed as u64);
@@ -163,7 +168,7 @@ impl PG for PGArchiverCollector {
 
         let mut data_lock = match self.data.write() {
             Ok(data_lock) => data_lock,
-            Err(e) => bail!("pg archiver: can't acuire write lock. {}", e),
+            Err(e) => bail!("pg archiver: can't acquire write lock. {}", e),
         };
 
         data_lock.clear();
