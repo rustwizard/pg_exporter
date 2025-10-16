@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
+use prometheus::IntGaugeVec;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
-use prometheus::IntGaugeVec;
 
 use crate::instance;
 
@@ -49,7 +49,8 @@ impl PGDatabaseCollector {
         let size_bytes = IntGaugeVec::new(
             Opts::new("size_bytes", "Disk space used by the database")
                 .namespace(super::NAMESPACE)
-                .subsystem(DATABASE_SUBSYSTEM).const_labels(dbi.labels.clone()),
+                .subsystem(DATABASE_SUBSYSTEM)
+                .const_labels(dbi.labels.clone()),
             &["datname"],
         )
         .unwrap();
@@ -94,10 +95,10 @@ impl PG for PGDatabaseCollector {
             .fetch_all(&self.dbi.db)
             .await?;
 
-        //TODO: amortize this with one query with select  
+        //TODO: amortize this with one query with select
         for dbname in datnames {
             if self.dbi.excluded_db_names.contains(&dbname.name) {
-                continue
+                continue;
             }
 
             if !dbname.name.is_empty() {
@@ -106,10 +107,8 @@ impl PG for PGDatabaseCollector {
                     .fetch_one(&self.dbi.db)
                     .await?;
 
-                    let mut data_lock = self.data.write().unwrap();
-                    data_lock.size_bytes.insert(dbname.name, db_size.0);
-
-                
+                let mut data_lock = self.data.write().unwrap();
+                data_lock.size_bytes.insert(dbname.name, db_size.0);
             }
         }
 
