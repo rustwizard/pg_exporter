@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use anyhow::bail;
 use async_trait::async_trait;
 use prometheus::IntGaugeVec;
 use prometheus::core::{Collector, Desc, Opts};
@@ -84,7 +85,7 @@ impl Collector for PGDatabaseCollector {
         let data_lock = match self.data.read() {
             Ok(lock) => lock,
             Err(e) => {
-                eprintln!("pg database collect: can't acuire read lock: {}", e);
+                eprintln!("pg database collect: can't acquire read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }
@@ -120,7 +121,11 @@ impl PG for PGDatabaseCollector {
                     .fetch_one(&self.dbi.db)
                     .await?;
 
-                let mut data_lock = self.data.write().unwrap();
+                let mut data_lock = match self.data.write() {
+                    Ok(data_lock) => data_lock,
+                    Err(e) => bail!("pg database collector: can't acquire write lock. {}", e),
+                };
+
                 data_lock.size_bytes.insert(dbname.name, db_size.0);
             }
         }
