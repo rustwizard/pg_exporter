@@ -40,30 +40,35 @@ pub struct PGDatabaseCollector {
     size_bytes: IntGaugeVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> PGDatabaseCollector {
-    PGDatabaseCollector::new(dbi)
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGDatabaseCollector> {
+    match PGDatabaseCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg conflicts collector: {}", e);
+            None
+        }
+    }
 }
 
 impl PGDatabaseCollector {
-    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGDatabaseCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGDatabaseCollector> {
         let size_bytes = IntGaugeVec::new(
             Opts::new("size_bytes", "Disk space used by the database")
                 .namespace(super::NAMESPACE)
                 .subsystem(DATABASE_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
             &["datname"],
-        )
-        .unwrap();
+        )?;
 
         let mut descs = Vec::new();
         descs.extend(size_bytes.desc().into_iter().cloned());
 
-        PGDatabaseCollector {
+        Ok(PGDatabaseCollector {
             dbi,
             data: Arc::new(RwLock::new(PGDatabaseStats::new())),
             descs,
             size_bytes,
-        }
+        })
     }
 }
 

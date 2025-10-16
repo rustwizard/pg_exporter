@@ -76,10 +76,12 @@ async fn main() -> std::io::Result<()> {
             .register(Box::new(pc_pstm.clone()))
             .expect("pg postmaster collector should be initialized");
 
-        let pcdb = collectors::pg_database::new(Arc::clone(&arc_pgi));
-        app.registry
-            .register(Box::new(pcdb.clone()))
-            .expect("pg database collector should be initialized");
+        if let Some(pcdb) = collectors::pg_database::new(Arc::clone(&arc_pgi)) {
+            app.registry
+                .register(Box::new(pcdb.clone()))
+                .expect("pg conflict collector should be initialized");
+            app.collectors.push(Box::new(pcdb));
+        }
 
         let pca = collectors::pg_activity::new(Arc::clone(&arc_pgi));
         app.registry
@@ -136,7 +138,6 @@ async fn main() -> std::io::Result<()> {
 
         app.collectors.push(Box::new(pc));
         app.collectors.push(Box::new(pc_pstm));
-        app.collectors.push(Box::new(pcdb));
         app.collectors.push(Box::new(pca));
         app.collectors.push(Box::new(pbgwr));
         app.collectors.push(Box::new(pgwalc));
