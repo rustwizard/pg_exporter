@@ -81,7 +81,15 @@ impl Collector for PGDatabaseCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(1);
 
-        let data_lock = self.data.read().unwrap();
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg database collect: can't acuire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
+
         data_lock
             .size_bytes
             .iter()
