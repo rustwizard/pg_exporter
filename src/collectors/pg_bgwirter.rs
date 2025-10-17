@@ -287,14 +287,14 @@ impl Collector for PGBGwriterCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(13);
 
-        let data_lock_result = self.data.read();
-
-        if data_lock_result.is_err() {
-            println!("collect error: {:?}", data_lock_result.unwrap_err());
-            return mfs;
-        }
-
-        let data_lock = data_lock_result.unwrap();
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg bgwriter collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
 
         self.alloc_bytes.inc_by(data_lock.buffers_alloc as u64);
         self.bgwr_stats_age_seconds
