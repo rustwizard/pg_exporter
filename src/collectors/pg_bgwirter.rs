@@ -95,8 +95,8 @@ pub struct PGBGwriterCollector {
     checkpoint_restartpointsdone: IntCounter,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
-    PGBGwriterCollector::new(dbi)
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGBGwriterCollector> {
+    Some(PGBGwriterCollector::new(dbi))
 }
 
 impl PGBGwriterCollector {
