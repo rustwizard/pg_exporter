@@ -385,7 +385,7 @@ impl PG for PGBGwriterCollector {
         if let Some(bgwr_stats) = maybe_bgwr_stats {
             let mut data_lock = match self.data.write() {
                 Ok(data_lock) => data_lock,
-                Err(e) => bail!("can't unwrap lock. {}", e),
+                Err(e) => bail!("pg bgwriter: can't acquire write lock. {}", e),
             };
 
             data_lock.bgwr_stats_age_seconds = bgwr_stats.bgwr_stats_age_seconds;

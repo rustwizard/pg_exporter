@@ -142,7 +142,7 @@ impl PG for PGConflictCollector {
 
             let mut data_lock = match self.data.write() {
                 Ok(data_lock) => data_lock,
-                Err(e) => bail!("can't unwrap lock. {}", e),
+                Err(e) => bail!("pg conflict: can't acquire write lock. {}", e),
             };
 
             data_lock.database = conflict_stats.database;
