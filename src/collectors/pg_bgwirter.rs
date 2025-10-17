@@ -96,11 +96,17 @@ pub struct PGBGwriterCollector {
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGBGwriterCollector> {
-    Some(PGBGwriterCollector::new(dbi))
+    match PGBGwriterCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg bgwriter collector: {}", e);
+            None
+        }
+    }
 }
 
 impl PGBGwriterCollector {
-    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGBGwriterCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGBGwriterCollector> {
         let mut descs = Vec::new();
 
         let checkpoints_total = IntCounterVec::new(
@@ -264,7 +270,7 @@ impl PGBGwriterCollector {
         .unwrap();
         descs.extend(restartpoints_done.desc().into_iter().cloned());
 
-        PGBGwriterCollector {
+        Ok(PGBGwriterCollector {
             dbi,
             data: Arc::new(RwLock::new(PGBGwriterStats::new())),
             descs,
@@ -281,7 +287,7 @@ impl PGBGwriterCollector {
             checkpoint_restartpointstimed: restartpoints_timed,
             checkpoint_restartpointsreq: restartpoints_req,
             checkpoint_restartpointsdone: restartpoints_done,
-        }
+        })
     }
 }
 

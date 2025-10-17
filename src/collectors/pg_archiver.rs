@@ -53,7 +53,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGArchiverCollector> {
         match PGArchiverCollector::new(dbi) {
             Ok(result) => Some(result),
             Err(e) => {
-                eprintln!("error when create pg conflicts collector: {}", e);
+                eprintln!("error when create pg archiver collector: {}", e);
                 None
             }
         }
