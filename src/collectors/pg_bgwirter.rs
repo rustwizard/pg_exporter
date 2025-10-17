@@ -118,8 +118,7 @@ impl PGBGwriterCollector {
             .subsystem("checkpoints")
             .const_labels(dbi.labels.clone()),
             &["checkpoint"],
-        )
-        .unwrap();
+        )?;
 
         descs.extend(checkpoints_total.desc().into_iter().cloned());
 
@@ -131,8 +130,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("checkpoints")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
 
         descs.extend(all_total.desc().into_iter().cloned());
 
@@ -145,8 +143,7 @@ impl PGBGwriterCollector {
             .subsystem("checkpoints")
             .const_labels(dbi.labels.clone()),
             &["stage"],
-        )
-        .unwrap();
+        )?;
         descs.extend(seconds_total.desc().into_iter().cloned());
 
         let seconds_all_total = Counter::with_opts(
@@ -157,8 +154,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("checkpoints")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(seconds_all_total.desc().into_iter().cloned());
 
         let bytes_total = IntCounterVec::new(
@@ -170,8 +166,7 @@ impl PGBGwriterCollector {
             .subsystem("written")
             .const_labels(dbi.labels.clone()),
             &["process"],
-        )
-        .unwrap();
+        )?;
         descs.extend(bytes_total.desc().into_iter().cloned());
 
         let maxwritten_clean_total = IntCounter::with_opts(
@@ -182,8 +177,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("bgwriter")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(maxwritten_clean_total.desc().into_iter().cloned());
 
         let fsync_total = IntCounter::with_opts(
@@ -194,8 +188,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("backends")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(fsync_total.desc().into_iter().cloned());
 
         let allocated_bytes_total = IntCounter::with_opts(
@@ -206,8 +199,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("backends")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(allocated_bytes_total.desc().into_iter().cloned());
 
         let bgwr_stats_age_seconds = IntCounter::with_opts(
@@ -218,8 +210,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("bgwriter")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(bgwr_stats_age_seconds.desc().into_iter().cloned());
 
         let ckpt_stats_age_seconds = IntCounter::with_opts(
@@ -230,8 +221,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("checkpoints")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(ckpt_stats_age_seconds.desc().into_iter().cloned());
 
         let restartpoints_timed = IntCounter::with_opts(
@@ -242,8 +232,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("checkpoints")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(restartpoints_timed.desc().into_iter().cloned());
 
         let restartpoints_req = IntCounter::with_opts(
@@ -254,8 +243,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("checkpoints")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(restartpoints_req.desc().into_iter().cloned());
 
         let restartpoints_done = IntCounter::with_opts(
@@ -266,8 +254,7 @@ impl PGBGwriterCollector {
             .namespace(super::NAMESPACE)
             .subsystem("checkpoints")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(restartpoints_done.desc().into_iter().cloned());
 
         Ok(PGBGwriterCollector {
