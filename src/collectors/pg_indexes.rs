@@ -107,8 +107,7 @@ impl PGIndexesCollector {
                 .subsystem("index")
                 .const_labels(dbi.labels.clone()),
             &["database", "schema", "table", "index", "key", "isvalid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(indexes.desc().into_iter().cloned());
 
         let tuples = IntGaugeVec::new(
@@ -120,8 +119,7 @@ impl PGIndexesCollector {
             .subsystem("index")
             .const_labels(dbi.labels.clone()),
             &["database", "schema", "table", "index", "tuples"],
-        )
-        .unwrap();
+        )?;
         descs.extend(tuples.desc().into_iter().cloned());
 
         let io = IntCounterVec::new(
@@ -130,8 +128,7 @@ impl PGIndexesCollector {
                 .subsystem("index_io")
                 .const_labels(dbi.labels.clone()),
             &["database", "schema", "table", "index", "access"],
-        )
-        .unwrap();
+        )?;
         descs.extend(io.desc().into_iter().cloned());
 
         let sizes = GaugeVec::new(
@@ -140,8 +137,7 @@ impl PGIndexesCollector {
                 .subsystem("index")
                 .const_labels(dbi.labels.clone()),
             &["database", "schema", "table", "index"],
-        )
-        .unwrap();
+        )?;
         descs.extend(sizes.desc().into_iter().cloned());
 
         Ok(Self {
