@@ -87,11 +87,17 @@ pub struct PGIndexesCollector {
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGIndexesCollector> {
-    Some(PGIndexesCollector::new(dbi))
+    match PGIndexesCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg indexes collector: {}", e);
+            None
+        }
+    }
 }
 
 impl PGIndexesCollector {
-    fn new(dbi: Arc<instance::PostgresDB>) -> PGIndexesCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGIndexesCollector> {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGIndexesStats::new()]));
 
@@ -138,7 +144,7 @@ impl PGIndexesCollector {
         .unwrap();
         descs.extend(sizes.desc().into_iter().cloned());
 
-        Self {
+        Ok(Self {
             dbi,
             data,
             descs,
@@ -146,7 +152,7 @@ impl PGIndexesCollector {
             tuples,
             io,
             sizes,
-        }
+        })
     }
 }
 
