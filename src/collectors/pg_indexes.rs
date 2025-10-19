@@ -161,7 +161,14 @@ impl Collector for PGIndexesCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
-        let data_lock = self.data.read().expect("can't acuire lock");
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg indexes collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
 
         for row in data_lock.iter() {
             // always send idx scan metrics and indexes size
@@ -257,7 +264,7 @@ impl PG for PGIndexesCollector {
 
         let mut data_lock = match self.data.write() {
             Ok(data_lock) => data_lock,
-            Err(e) => bail!("can't unwrap lock. {}", e),
+            Err(e) => bail!("pg indexes collector: can't acquire write lock. {}", e),
         };
 
         data_lock.clear();
