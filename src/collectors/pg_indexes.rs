@@ -87,11 +87,17 @@ pub struct PGIndexesCollector {
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGIndexesCollector> {
-    Some(PGIndexesCollector::new(dbi))
+    match PGIndexesCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg indexes collector: {}", e);
+            None
+        }
+    }
 }
 
 impl PGIndexesCollector {
-    fn new(dbi: Arc<instance::PostgresDB>) -> PGIndexesCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGIndexesCollector> {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGIndexesStats::new()]));
 
@@ -101,8 +107,7 @@ impl PGIndexesCollector {
                 .subsystem("index")
                 .const_labels(dbi.labels.clone()),
             &["database", "schema", "table", "index", "key", "isvalid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(indexes.desc().into_iter().cloned());
 
         let tuples = IntGaugeVec::new(
@@ -114,8 +119,7 @@ impl PGIndexesCollector {
             .subsystem("index")
             .const_labels(dbi.labels.clone()),
             &["database", "schema", "table", "index", "tuples"],
-        )
-        .unwrap();
+        )?;
         descs.extend(tuples.desc().into_iter().cloned());
 
         let io = IntCounterVec::new(
@@ -124,8 +128,7 @@ impl PGIndexesCollector {
                 .subsystem("index_io")
                 .const_labels(dbi.labels.clone()),
             &["database", "schema", "table", "index", "access"],
-        )
-        .unwrap();
+        )?;
         descs.extend(io.desc().into_iter().cloned());
 
         let sizes = GaugeVec::new(
@@ -134,11 +137,10 @@ impl PGIndexesCollector {
                 .subsystem("index")
                 .const_labels(dbi.labels.clone()),
             &["database", "schema", "table", "index"],
-        )
-        .unwrap();
+        )?;
         descs.extend(sizes.desc().into_iter().cloned());
 
-        Self {
+        Ok(Self {
             dbi,
             data,
             descs,
@@ -146,7 +148,7 @@ impl PGIndexesCollector {
             tuples,
             io,
             sizes,
-        }
+        })
     }
 }
 
@@ -159,7 +161,14 @@ impl Collector for PGIndexesCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
-        let data_lock = self.data.read().expect("can't acuire lock");
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg indexes collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
 
         for row in data_lock.iter() {
             // always send idx scan metrics and indexes size
@@ -255,7 +264,7 @@ impl PG for PGIndexesCollector {
 
         let mut data_lock = match self.data.write() {
             Ok(data_lock) => data_lock,
-            Err(e) => bail!("can't unwrap lock. {}", e),
+            Err(e) => bail!("pg indexes collector: can't acquire write lock. {}", e),
         };
 
         data_lock.clear();
