@@ -92,8 +92,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(access_share_lock.desc().into_iter().cloned());
 
         let row_share_lock = IntGauge::with_opts(
@@ -101,8 +100,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(row_share_lock.desc().into_iter().cloned());
 
         let row_exclusive_lock = IntGauge::with_opts(
@@ -110,8 +108,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(row_exclusive_lock.desc().into_iter().cloned());
 
         let share_update_exclusive_lock = IntGauge::with_opts(
@@ -122,8 +119,7 @@ impl PGLocksCollector {
             .namespace(super::NAMESPACE)
             .subsystem(PGLOCKS_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(share_update_exclusive_lock.desc().into_iter().cloned());
 
         let share_lock = IntGauge::with_opts(
@@ -131,8 +127,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(share_lock.desc().into_iter().cloned());
 
         let share_row_exclusive_lock = IntGauge::with_opts(
@@ -140,8 +135,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(share_row_exclusive_lock.desc().into_iter().cloned());
 
         let exclusive_lock = IntGauge::with_opts(
@@ -149,8 +143,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(exclusive_lock.desc().into_iter().cloned());
 
         let access_exclusive_lock = IntGauge::with_opts(
@@ -158,8 +151,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(access_exclusive_lock.desc().into_iter().cloned());
 
         let not_granted = IntGauge::with_opts(
@@ -167,8 +159,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(not_granted.desc().into_iter().cloned());
 
         let total = IntGauge::with_opts(
@@ -176,13 +167,12 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(total.desc().into_iter().cloned());
 
         let data = Arc::new(RwLock::new(LocksStat::new()));
 
-        PGLocksCollector {
+        Ok(PGLocksCollector {
             dbi,
             data,
             descs,
@@ -196,7 +186,7 @@ impl PGLocksCollector {
             access_exclusive_lock,
             not_granted,
             total,
-        }
+        })
     }
 }
 
