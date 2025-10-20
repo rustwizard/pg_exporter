@@ -1,3 +1,4 @@
+use anyhow::bail;
 use async_trait::async_trait;
 use prometheus::IntGauge;
 use prometheus::core::{Collector, Desc, Opts};
@@ -245,7 +246,11 @@ impl PG for PGLocksCollector {
             .await?;
 
         if let Some(locks_stats) = maybe_locks_stats {
-            let mut data_lock = self.data.write().unwrap();
+            let mut data_lock = match self.data.write() {
+                Ok(data_lock) => data_lock,
+                Err(e) => bail!("pg indexes collector: can't acquire write lock. {}", e),
+            };
+
             data_lock.access_exclusive_lock = locks_stats.access_exclusive_lock;
             data_lock.access_share_lock = locks_stats.access_share_lock;
             data_lock.exclusive_lock = locks_stats.exclusive_lock;
