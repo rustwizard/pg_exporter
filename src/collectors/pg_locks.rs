@@ -74,11 +74,17 @@ impl LocksStat {
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGLocksCollector> {
-    Some(PGLocksCollector::new(dbi))
+    match PGLocksCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg locks collector: {}", e);
+            None
+        }
+    }
 }
 
 impl PGLocksCollector {
-    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGLocksCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGLocksCollector> {
         let mut descs = Vec::new();
 
         let access_share_lock = IntGauge::with_opts(
