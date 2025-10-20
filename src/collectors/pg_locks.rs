@@ -1,7 +1,8 @@
+use anyhow::bail;
 use async_trait::async_trait;
+use prometheus::IntGauge;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
-use prometheus::IntGauge;
 use std::sync::{Arc, RwLock};
 
 use crate::instance;
@@ -73,12 +74,18 @@ impl LocksStat {
     }
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> PGLocksCollector {
-    PGLocksCollector::new(dbi)
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGLocksCollector> {
+    match PGLocksCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg locks collector: {}", e);
+            None
+        }
+    }
 }
 
 impl PGLocksCollector {
-    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGLocksCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGLocksCollector> {
         let mut descs = Vec::new();
 
         let access_share_lock = IntGauge::with_opts(
@@ -86,8 +93,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(access_share_lock.desc().into_iter().cloned());
 
         let row_share_lock = IntGauge::with_opts(
@@ -95,8 +101,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(row_share_lock.desc().into_iter().cloned());
 
         let row_exclusive_lock = IntGauge::with_opts(
@@ -104,8 +109,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(row_exclusive_lock.desc().into_iter().cloned());
 
         let share_update_exclusive_lock = IntGauge::with_opts(
@@ -116,8 +120,7 @@ impl PGLocksCollector {
             .namespace(super::NAMESPACE)
             .subsystem(PGLOCKS_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(share_update_exclusive_lock.desc().into_iter().cloned());
 
         let share_lock = IntGauge::with_opts(
@@ -125,8 +128,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(share_lock.desc().into_iter().cloned());
 
         let share_row_exclusive_lock = IntGauge::with_opts(
@@ -134,8 +136,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(share_row_exclusive_lock.desc().into_iter().cloned());
 
         let exclusive_lock = IntGauge::with_opts(
@@ -143,8 +144,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(exclusive_lock.desc().into_iter().cloned());
 
         let access_exclusive_lock = IntGauge::with_opts(
@@ -152,8 +152,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(access_exclusive_lock.desc().into_iter().cloned());
 
         let not_granted = IntGauge::with_opts(
@@ -161,8 +160,7 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(not_granted.desc().into_iter().cloned());
 
         let total = IntGauge::with_opts(
@@ -170,13 +168,12 @@ impl PGLocksCollector {
                 .namespace(super::NAMESPACE)
                 .subsystem(PGLOCKS_SUBSYSTEM)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(total.desc().into_iter().cloned());
 
         let data = Arc::new(RwLock::new(LocksStat::new()));
 
-        PGLocksCollector {
+        Ok(PGLocksCollector {
             dbi,
             data,
             descs,
@@ -190,7 +187,7 @@ impl PGLocksCollector {
             access_exclusive_lock,
             not_granted,
             total,
-        }
+        })
     }
 }
 
@@ -203,17 +200,27 @@ impl Collector for PGLocksCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(LOCKS_METRICS_NUMBER);
 
-        let data_lock = self.data.read().unwrap();
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg locks collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
 
         self.access_share_lock.set(data_lock.access_share_lock);
-        self.access_exclusive_lock.set(data_lock.access_exclusive_lock);
+        self.access_exclusive_lock
+            .set(data_lock.access_exclusive_lock);
         self.exclusive_lock.set(data_lock.exclusive_lock);
         self.row_exclusive_lock.set(data_lock.row_exclusive_lock);
         self.row_share_lock.set(data_lock.row_share_lock);
         self.not_granted.set(data_lock.not_granted);
         self.share_lock.set(data_lock.share_lock);
-        self.share_row_exclusive_lock.set(data_lock.share_row_exclusive_lock);
-        self.share_update_exclusive_lock.set(data_lock.share_update_exclusive_lock);
+        self.share_row_exclusive_lock
+            .set(data_lock.share_row_exclusive_lock);
+        self.share_update_exclusive_lock
+            .set(data_lock.share_update_exclusive_lock);
         self.total.set(data_lock.total);
 
         mfs.extend(self.access_exclusive_lock.collect());
@@ -239,7 +246,11 @@ impl PG for PGLocksCollector {
             .await?;
 
         if let Some(locks_stats) = maybe_locks_stats {
-            let mut data_lock = self.data.write().unwrap();
+            let mut data_lock = match self.data.write() {
+                Ok(data_lock) => data_lock,
+                Err(e) => bail!("pg indexes collector: can't acquire write lock. {}", e),
+            };
+
             data_lock.access_exclusive_lock = locks_stats.access_exclusive_lock;
             data_lock.access_share_lock = locks_stats.access_share_lock;
             data_lock.exclusive_lock = locks_stats.exclusive_lock;
