@@ -199,7 +199,14 @@ impl Collector for PGLocksCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(LOCKS_METRICS_NUMBER);
 
-        let data_lock = self.data.read().unwrap();
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg locks collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
 
         self.access_share_lock.set(data_lock.access_share_lock);
         self.access_exclusive_lock
