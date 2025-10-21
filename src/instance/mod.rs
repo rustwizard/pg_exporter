@@ -92,8 +92,12 @@ pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
 
     let exist = pg_stat_statements.contains("pg_stat_statements");
 
-    let stmnt_scheme  = sqlx::query_scalar::<_, String>(
-            "SELECT extnamespace::regnamespace::text FROM pg_extension WHERE extname = 'pg_stat_statements'").fetch_optional(&pool).await?;
+    let stmnt_scheme = if exist {
+        sqlx::query_scalar::<_, String>(
+            "SELECT extnamespace::regnamespace::text FROM pg_extension WHERE extname = 'pg_stat_statements'").fetch_optional(&pool).await?
+    } else {
+        None
+    };
 
     let scheme = if let Some(val) = stmnt_scheme {
         val
