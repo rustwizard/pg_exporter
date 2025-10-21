@@ -85,21 +85,15 @@ pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
     let pg_wal_segment_size = wal_segment_size.parse()?;
 
     let pg_stat_statements = sqlx::query_scalar::<_, String>(
-        "SELECT setting FROM pg_settings WHERE name = 'shared_preload_libraries';",
+        "SELECT setting FROM pg_settings WHERE name = 'shared_preload_libraries'",
     )
     .fetch_one(&pool)
     .await?;
 
     let exist = pg_stat_statements.contains("pg_stat_statements");
-    let stmnt_scheme: Option<String> = if exist {
-        sqlx::query_scalar::<_, String>(
-            "SELECT extnamespace::regnamespace::text FROM pg_extension WHERE extname = 'pg_stat_statements'",
-        )
-        .fetch_optional(&pool)
-        .await?
-    } else {
-        None
-    };
+
+    let stmnt_scheme  = sqlx::query_scalar::<_, String>(
+            "SELECT extnamespace::regnamespace::text FROM pg_extension WHERE extname = 'pg_stat_statements'").fetch_optional(&pool).await?;
 
     let scheme = if let Some(val) = stmnt_scheme {
         val
