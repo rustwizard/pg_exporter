@@ -19,14 +19,16 @@ impl From<anyhow::Error> for MetricsError {
 
 impl From<JoinError> for MetricsError {
     fn from(err: JoinError) -> MetricsError {
-        MetricsError { err: anyhow!("internal error: {:?}", err) }
+        MetricsError {
+            err: anyhow!("internal error: {:?}", err),
+        }
     }
 }
 
 impl From<prometheus::Error> for MetricsError {
     fn from(err: prometheus::Error) -> MetricsError {
-        MetricsError { err: anyhow!("internal error: {:?}", err) }
+        MetricsError {
+            err: anyhow!("internal error: {:?}", err),
+        }
     }
 }
-
-
