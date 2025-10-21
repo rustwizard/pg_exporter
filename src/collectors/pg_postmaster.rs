@@ -1,5 +1,6 @@
 use std::sync::{Arc, RwLock};
 
+use anyhow::bail;
 use async_trait::async_trait;
 use prometheus::Gauge;
 use prometheus::core::{Collector, Desc, Opts};
@@ -97,7 +98,11 @@ impl PG for PGPostmasterCollector {
             .await?;
 
         if let Some(stats) = maybe_stats {
-            let mut data_lock = self.data.write().unwrap();
+            let mut data_lock = match self.data.write() {
+                Ok(data_lock) => data_lock,
+                Err(e) => bail!("pg postmaster collector: can't acquire write lock. {}", e),
+            };
+
             data_lock.start_time_seconds = stats.start_time_seconds;
         }
 
