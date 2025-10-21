@@ -73,7 +73,15 @@ impl Collector for PGPostmasterCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(1);
 
-        let data_lock = self.data.read().unwrap();
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg postmaster collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
+
         self.start_time_seconds.set(data_lock.start_time_seconds);
 
         mfs.extend(self.start_time_seconds.collect());
