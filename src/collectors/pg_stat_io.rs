@@ -340,7 +340,14 @@ impl Collector for PGStatIOCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(16);
 
-        let data_lock = self.data.read().expect("can't acuire lock");
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg statio collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
 
         for row in data_lock.iter() {
             let vals = vec![
