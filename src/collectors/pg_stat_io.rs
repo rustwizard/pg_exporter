@@ -106,14 +106,20 @@ pub struct PGStatIOCollector {
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
     // Collecting pg_stat_io since Postgres 16.
     if dbi.cfg.pg_version >= POSTGRES_V16 {
-        Some(PGStatIOCollector::new(dbi))
+        match PGStatIOCollector::new(dbi) {
+            Ok(result) => Some(result),
+            Err(e) => {
+                eprintln!("error when create pg statio collector: {}", e);
+                None
+            }
+        }
     } else {
         None
     }
 }
 
 impl PGStatIOCollector {
-    fn new(dbi: Arc<instance::PostgresDB>) -> PGStatIOCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGStatIOCollector> {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGStatIOStats::new()]));
 
@@ -318,7 +324,7 @@ impl PGStatIOCollector {
         .unwrap();
         descs.extend(extend_bytes.desc().into_iter().cloned());
 
-        PGStatIOCollector {
+        Ok(PGStatIOCollector {
             dbi,
             data,
             descs,
@@ -338,7 +344,7 @@ impl PGStatIOCollector {
             read_bytes,
             write_bytes,
             extend_bytes,
-        }
+        })
     }
 }
 
