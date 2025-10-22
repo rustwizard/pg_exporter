@@ -106,14 +106,20 @@ pub struct PGStatIOCollector {
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
     // Collecting pg_stat_io since Postgres 16.
     if dbi.cfg.pg_version >= POSTGRES_V16 {
-        Some(PGStatIOCollector::new(dbi))
+        match PGStatIOCollector::new(dbi) {
+            Ok(result) => Some(result),
+            Err(e) => {
+                eprintln!("error when create pg statio collector: {}", e);
+                None
+            }
+        }
     } else {
         None
     }
 }
 
 impl PGStatIOCollector {
-    fn new(dbi: Arc<instance::PostgresDB>) -> PGStatIOCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGStatIOCollector> {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGStatIOStats::new()]));
 
@@ -128,8 +134,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(reads.desc().into_iter().cloned());
 
         let read_time = GaugeVec::new(
@@ -141,8 +146,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(read_time.desc().into_iter().cloned());
 
         let writes = IntGaugeVec::new(
@@ -154,8 +158,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(writes.desc().into_iter().cloned());
 
         let write_time = GaugeVec::new(
@@ -167,8 +170,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(write_time.desc().into_iter().cloned());
 
         let write_backs = IntGaugeVec::new(
@@ -180,8 +182,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(write_backs.desc().into_iter().cloned());
 
         let writeback_time = GaugeVec::new(
@@ -193,8 +194,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(writeback_time.desc().into_iter().cloned());
 
         let extends = IntGaugeVec::new(
@@ -206,8 +206,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(extends.desc().into_iter().cloned());
 
         let extend_time = GaugeVec::new(
@@ -219,8 +218,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(extend_time.desc().into_iter().cloned());
 
         let hits = IntGaugeVec::new(
@@ -232,8 +230,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(hits.desc().into_iter().cloned());
 
         let evictions = IntGaugeVec::new(
@@ -245,8 +242,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(evictions.desc().into_iter().cloned());
 
         let reuses = IntGaugeVec::new(
@@ -258,8 +254,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(reuses.desc().into_iter().cloned());
 
         let fsyncs = IntGaugeVec::new(
@@ -271,8 +266,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(fsyncs.desc().into_iter().cloned());
 
         let fsync_time = GaugeVec::new(
@@ -284,8 +278,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(fsync_time.desc().into_iter().cloned());
 
         let read_bytes = IntGaugeVec::new(
@@ -294,8 +287,7 @@ impl PGStatIOCollector {
                 .subsystem("stat_io")
                 .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(read_bytes.desc().into_iter().cloned());
 
         let write_bytes = IntGaugeVec::new(
@@ -304,8 +296,7 @@ impl PGStatIOCollector {
                 .subsystem("stat_io")
                 .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(write_bytes.desc().into_iter().cloned());
 
         let extend_bytes = IntGaugeVec::new(
@@ -314,11 +305,10 @@ impl PGStatIOCollector {
                 .subsystem("stat_io")
                 .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(extend_bytes.desc().into_iter().cloned());
 
-        PGStatIOCollector {
+        Ok(PGStatIOCollector {
             dbi,
             data,
             descs,
@@ -338,7 +328,7 @@ impl PGStatIOCollector {
             read_bytes,
             write_bytes,
             extend_bytes,
-        }
+        })
     }
 }
 
@@ -350,7 +340,14 @@ impl Collector for PGStatIOCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(16);
 
-        let data_lock = self.data.read().expect("can't acuire lock");
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg statio collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
 
         for row in data_lock.iter() {
             let vals = vec![
@@ -441,7 +438,7 @@ impl PG for PGStatIOCollector {
 
         let mut data_lock = match self.data.write() {
             Ok(data_lock) => data_lock,
-            Err(e) => bail!("can't unwrap lock. {}", e),
+            Err(e) => bail!("pg statio collector: can't acquire write lock. {}", e),
         };
 
         data_lock.clear();
