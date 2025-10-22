@@ -134,8 +134,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(reads.desc().into_iter().cloned());
 
         let read_time = GaugeVec::new(
@@ -147,8 +146,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(read_time.desc().into_iter().cloned());
 
         let writes = IntGaugeVec::new(
@@ -160,8 +158,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(writes.desc().into_iter().cloned());
 
         let write_time = GaugeVec::new(
@@ -173,8 +170,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(write_time.desc().into_iter().cloned());
 
         let write_backs = IntGaugeVec::new(
@@ -186,8 +182,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(write_backs.desc().into_iter().cloned());
 
         let writeback_time = GaugeVec::new(
@@ -199,8 +194,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(writeback_time.desc().into_iter().cloned());
 
         let extends = IntGaugeVec::new(
@@ -212,8 +206,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(extends.desc().into_iter().cloned());
 
         let extend_time = GaugeVec::new(
@@ -225,8 +218,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(extend_time.desc().into_iter().cloned());
 
         let hits = IntGaugeVec::new(
@@ -238,8 +230,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(hits.desc().into_iter().cloned());
 
         let evictions = IntGaugeVec::new(
@@ -251,8 +242,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(evictions.desc().into_iter().cloned());
 
         let reuses = IntGaugeVec::new(
@@ -264,8 +254,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(reuses.desc().into_iter().cloned());
 
         let fsyncs = IntGaugeVec::new(
@@ -277,8 +266,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(fsyncs.desc().into_iter().cloned());
 
         let fsync_time = GaugeVec::new(
@@ -290,8 +278,7 @@ impl PGStatIOCollector {
             .subsystem("stat_io")
             .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(fsync_time.desc().into_iter().cloned());
 
         let read_bytes = IntGaugeVec::new(
@@ -300,8 +287,7 @@ impl PGStatIOCollector {
                 .subsystem("stat_io")
                 .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(read_bytes.desc().into_iter().cloned());
 
         let write_bytes = IntGaugeVec::new(
@@ -310,8 +296,7 @@ impl PGStatIOCollector {
                 .subsystem("stat_io")
                 .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(write_bytes.desc().into_iter().cloned());
 
         let extend_bytes = IntGaugeVec::new(
@@ -320,8 +305,7 @@ impl PGStatIOCollector {
                 .subsystem("stat_io")
                 .const_labels(dbi.labels.clone()),
             &var_labels,
-        )
-        .unwrap();
+        )?;
         descs.extend(extend_bytes.desc().into_iter().cloned());
 
         Ok(PGStatIOCollector {
