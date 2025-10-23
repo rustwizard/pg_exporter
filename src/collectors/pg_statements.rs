@@ -634,13 +634,13 @@ impl Collector for PGStatementsCollector {
                     // return empty mfs
                     return mfs;
                 }
-            };
+            }
+            .as_str();
 
-            let qq = q.as_str();
             let query = if self.dbi.cfg.notrack {
                 "/* query text hidden, no-track mode enabled */"
             } else {
-                qq
+                q
             };
 
             self.query
