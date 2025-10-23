@@ -284,7 +284,7 @@ pub struct PGStatementsCollector {
 }
 
 impl PGStatementsCollector {
-    fn new(dbi: Arc<instance::PostgresDB>) -> Self {
+    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGStatementsStat::new()]));
 
@@ -522,7 +522,7 @@ impl PGStatementsCollector {
         .unwrap();
         descs.extend(wal_all_bytes.desc().into_iter().cloned());
 
-        Self {
+        Ok(Self {
             dbi,
             data,
             descs,
@@ -544,7 +544,7 @@ impl PGStatementsCollector {
             wal_records,
             wal_buffers,
             wal_all_bytes,
-        }
+        })
     }
 
     fn select_query(&self) -> String {
@@ -607,7 +607,13 @@ impl PGStatementsCollector {
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
     // Collecting since Postgres 12.
     if dbi.cfg.pg_version >= POSTGRES_V12 && dbi.cfg.pg_stat_statements {
-        Some(PGStatementsCollector::new(dbi))
+        match PGStatementsCollector::new(dbi) {
+            Ok(result) => Some(result),
+            Err(e) => {
+                eprintln!("error when create pg statements collector: {}", e);
+                None
+            }
+        }
     } else {
         None
     }
