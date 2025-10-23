@@ -297,8 +297,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid", "query"],
-        )
-        .unwrap();
+        )?;
         descs.extend(query.desc().into_iter().cloned());
 
         let calls = IntGaugeVec::new(
@@ -310,8 +309,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(calls.desc().into_iter().cloned());
 
         let rows = IntGaugeVec::new(
@@ -323,8 +321,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(rows.desc().into_iter().cloned());
 
         let times = IntGaugeVec::new(
@@ -336,8 +333,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid", "mode"],
-        )
-        .unwrap();
+        )?;
         descs.extend(times.desc().into_iter().cloned());
 
         let all_times = IntGaugeVec::new(
@@ -349,8 +345,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(all_times.desc().into_iter().cloned());
 
         let shared_hit = IntGaugeVec::new(
@@ -362,8 +357,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(shared_hit.desc().into_iter().cloned());
 
         let shared_read = IntGaugeVec::new(
@@ -375,8 +369,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(shared_read.desc().into_iter().cloned());
 
         let shared_dirtied = IntGaugeVec::new(
@@ -388,8 +381,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(shared_dirtied.desc().into_iter().cloned());
 
         let shared_written = IntGaugeVec::new(
@@ -401,8 +393,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(shared_written.desc().into_iter().cloned());
 
         let local_hit = IntGaugeVec::new(
@@ -414,8 +405,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(local_hit.desc().into_iter().cloned());
 
         let local_read = IntGaugeVec::new(
@@ -427,8 +417,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(local_read.desc().into_iter().cloned());
 
         let local_dirtied = IntGaugeVec::new(
@@ -440,8 +429,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(local_dirtied.desc().into_iter().cloned());
 
         let local_written = IntGaugeVec::new(
@@ -453,8 +441,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(local_written.desc().into_iter().cloned());
 
         let temp_read = IntGaugeVec::new(
@@ -466,8 +453,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(temp_read.desc().into_iter().cloned());
 
         let temp_written = IntGaugeVec::new(
@@ -479,8 +465,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(temp_written.desc().into_iter().cloned());
 
         let wal_records = IntGaugeVec::new(
@@ -492,8 +477,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(wal_records.desc().into_iter().cloned());
 
         let wal_buffers = IntGaugeVec::new(
@@ -505,8 +489,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(wal_buffers.desc().into_iter().cloned());
 
         let wal_all_bytes = IntGaugeVec::new(
@@ -518,8 +501,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(wal_all_bytes.desc().into_iter().cloned());
 
         Ok(Self {
