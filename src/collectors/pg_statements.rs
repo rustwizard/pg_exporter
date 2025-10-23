@@ -976,7 +976,7 @@ impl PG for PGStatementsCollector {
 
         let mut data_lock = match self.data.write() {
             Ok(data_lock) => data_lock,
-            Err(e) => bail!("can't unwrap lock. {}", e),
+            Err(e) => bail!("pg statements collector: can't acquire write lock. {}", e),
         };
 
         data_lock.clear();
