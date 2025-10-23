@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 
 use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18};
@@ -613,11 +613,29 @@ impl Collector for PGStatementsCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
-        let data_lock = self.data.read().expect("can't acuire lock");
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg statements collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
 
         for row in data_lock.iter() {
             // TODO: remove all unwraps later
-            let q = row.query.as_ref().unwrap();
+            let q = match row.query.as_ref() {
+                Some(q) => q,
+                None => {
+                    eprintln!(
+                        "pg statements collect: get query: {:?}",
+                        anyhow!("query is empty")
+                    );
+                    // return empty mfs
+                    return mfs;
+                }
+            };
+
             let qq = q.as_str();
             let query = if self.dbi.cfg.notrack {
                 "/* query text hidden, no-track mode enabled */"
