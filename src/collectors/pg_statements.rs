@@ -656,7 +656,7 @@ impl Collector for PGStatementsCollector {
             .as_str();
 
             let database = match row.user.as_ref() {
-                Some(q) => q,
+                Some(d) => d,
                 None => {
                     eprintln!(
                         "pg statements collect: get database: {:?}",
@@ -668,13 +668,21 @@ impl Collector for PGStatementsCollector {
             }
             .as_str();
 
+            let query_id = match row.queryid.as_ref() {
+                Some(qid) => qid,
+                None => {
+                    eprintln!(
+                        "pg statements collect: get database: {:?}",
+                        anyhow!("database is empty")
+                    );
+                    // return empty mfs
+                    return mfs;
+                }
+            }
+            .to_string();
+
             self.query
-                .with_label_values(&[
-                    user,
-                    database,
-                    row.queryid.unwrap_or_default().to_string().as_str(),
-                    query,
-                ])
+                .with_label_values(&[user, database, query_id.as_str(), query])
                 .set(1);
 
             self.calls
