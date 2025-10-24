@@ -623,7 +623,6 @@ impl Collector for PGStatementsCollector {
         };
 
         for row in data_lock.iter() {
-            // TODO: remove all unwraps later
             let q = match row.query.as_ref() {
                 Some(q) => q,
                 None => {
@@ -643,10 +642,36 @@ impl Collector for PGStatementsCollector {
                 q
             };
 
+            let user = match row.user.as_ref() {
+                Some(q) => q,
+                None => {
+                    eprintln!(
+                        "pg statements collect: get user: {:?}",
+                        anyhow!("user is empty")
+                    );
+                    // return empty mfs
+                    return mfs;
+                }
+            }
+            .as_str();
+
+            let database = match row.user.as_ref() {
+                Some(q) => q,
+                None => {
+                    eprintln!(
+                        "pg statements collect: get database: {:?}",
+                        anyhow!("database is empty")
+                    );
+                    // return empty mfs
+                    return mfs;
+                }
+            }
+            .as_str();
+
             self.query
                 .with_label_values(&[
-                    row.user.clone().unwrap().as_str(), // we could do unwrap(), because user field if always not null
-                    row.database.clone().unwrap().as_str(),
+                    user,
+                    database,
                     row.queryid.unwrap_or_default().to_string().as_str(),
                     query,
                 ])
