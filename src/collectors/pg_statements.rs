@@ -14,7 +14,7 @@ use rust_decimal::prelude::ToPrimitive;
 macro_rules! statements_query12 {
 () =>  {
 	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numerics, p.total_time, p.blk_read_time, p.blk_write_time, 
+		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numeric, p.total_time, p.blk_read_time, p.blk_write_time, 
 		NULLIF(p.shared_blks_hit, 0)::numeric AS shared_blks_hit, NULLIF(p.shared_blks_read, 0)::numeric AS shared_blks_read, 
 		NULLIF(p.shared_blks_dirtied, 0)::numeric AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0)::numeric AS shared_blks_written, 
 		NULLIF(p.local_blks_hit, 0)::numeric AS local_blks_hit, NULLIF(p.local_blks_read, 0)::numeric AS local_blks_read, 
@@ -648,6 +648,7 @@ impl Collector for PGStatementsCollector {
                     eprintln!(
                         "pg statements collect: get user: {:?}",
                         anyhow!("user is empty")
+                            .context(format!("pg_ver: {}", self.dbi.cfg.pg_version))
                     );
                     // return empty mfs
                     return mfs;
@@ -655,12 +656,13 @@ impl Collector for PGStatementsCollector {
             }
             .as_str();
 
-            let database = match row.user.as_ref() {
+            let database = match row.database.as_ref() {
                 Some(d) => d,
                 None => {
                     eprintln!(
                         "pg statements collect: get database: {:?}",
                         anyhow!("database is empty")
+                            .context(format!("pg_ver: {}", self.dbi.cfg.pg_version))
                     );
                     // return empty mfs
                     return mfs;
@@ -668,37 +670,18 @@ impl Collector for PGStatementsCollector {
             }
             .as_str();
 
-            let query_id = match row.queryid.as_ref() {
-                Some(qid) => qid,
-                None => {
-                    eprintln!(
-                        "pg statements collect: get database: {:?}",
-                        anyhow!("database is empty")
-                    );
-                    // return empty mfs
-                    return mfs;
-                }
-            }
-            .to_string();
+            let query_id = row.queryid.unwrap_or_default().to_string();
 
             self.query
                 .with_label_values(&[user, database, query_id.as_str(), query])
                 .set(1);
 
             self.calls
-                .with_label_values(&[
-                    row.user.clone().unwrap().as_str(),
-                    row.database.clone().unwrap().as_str(),
-                    row.queryid.unwrap_or_default().to_string().as_str(),
-                ])
+                .with_label_values(&[user, database, query_id.as_str()])
                 .set(row.calls.unwrap_or_default().to_i64().unwrap_or_default());
 
             self.rows
-                .with_label_values(&[
-                    row.user.clone().unwrap().as_str(),
-                    row.database.clone().unwrap().as_str(),
-                    row.queryid.unwrap_or_default().to_string().as_str(),
-                ])
+                .with_label_values(&[user, database, query_id.as_str()])
                 .set(row.rows.unwrap_or_default().to_i64().unwrap_or_default());
 
             // total = planning + execution; execution already includes io time.
@@ -715,11 +698,7 @@ impl Collector for PGStatementsCollector {
                 .unwrap_or_default();
 
             self.all_times
-                .with_label_values(&[
-                    row.user.clone().unwrap().as_str(),
-                    row.database.clone().unwrap().as_str(),
-                    row.queryid.unwrap_or_default().to_string().as_str(),
-                ])
+                .with_label_values(&[user, database, query_id.as_str()])
                 .set(total_plan_time + total_exec_time);
 
             let blk_read_time = row
@@ -735,44 +714,24 @@ impl Collector for PGStatementsCollector {
                 .unwrap_or_default();
 
             self.times
-                .with_label_values(&[
-                    row.user.clone().unwrap().as_str(),
-                    row.database.clone().unwrap().as_str(),
-                    row.queryid.unwrap_or_default().to_string().as_str(),
-                    "planning",
-                ])
+                .with_label_values(&[user, database, query_id.as_str(), "planning"])
                 .set(total_plan_time);
 
             // execution time = execution - io times.
             self.times
-                .with_label_values(&[
-                    row.user.clone().unwrap().as_str(),
-                    row.database.clone().unwrap().as_str(),
-                    row.queryid.unwrap_or_default().to_string().as_str(),
-                    "executing",
-                ])
+                .with_label_values(&[user, database, query_id.as_str(), "executing"])
                 .set(total_exec_time - (blk_read_time + blk_write_time));
 
             // avoid metrics spamming and send metrics only if they greater than zero.
             if blk_read_time > 0 {
                 self.times
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                        "ioread",
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str(), "ioread"])
                     .set(blk_read_time);
             }
 
             if blk_write_time > 0 {
                 self.times
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                        "iowrite",
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str(), "iowrite"])
                     .set(blk_write_time);
             }
 
@@ -784,11 +743,7 @@ impl Collector for PGStatementsCollector {
 
             if shared_blks_hit > 0 {
                 self.shared_hit
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(shared_blks_hit);
             }
 
@@ -802,11 +757,7 @@ impl Collector for PGStatementsCollector {
 
             if shared_blks_read > 0 {
                 self.shared_read
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(shared_blks_read * block_size);
             }
 
@@ -818,11 +769,7 @@ impl Collector for PGStatementsCollector {
 
             if shared_blks_dirtied > 0 {
                 self.shared_dirtied
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(shared_blks_dirtied);
             }
 
@@ -834,11 +781,7 @@ impl Collector for PGStatementsCollector {
 
             if shared_blks_written > 0 {
                 self.shared_written
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(shared_blks_written * block_size);
             }
 
@@ -850,11 +793,7 @@ impl Collector for PGStatementsCollector {
 
             if local_blks_hit > 0 {
                 self.local_hit
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(local_blks_hit);
             }
 
@@ -866,11 +805,7 @@ impl Collector for PGStatementsCollector {
 
             if local_blks_read > 0 {
                 self.local_read
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(local_blks_read * block_size);
             }
 
@@ -882,11 +817,7 @@ impl Collector for PGStatementsCollector {
 
             if local_blks_dirtied > 0 {
                 self.local_dirtied
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(local_blks_dirtied);
             }
 
@@ -898,11 +829,7 @@ impl Collector for PGStatementsCollector {
 
             if local_blks_written > 0 {
                 self.local_written
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(local_blks_written * block_size);
             }
 
@@ -914,11 +841,7 @@ impl Collector for PGStatementsCollector {
 
             if temp_blks_read > 0 {
                 self.temp_read
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(temp_blks_read * block_size);
             }
 
@@ -930,11 +853,7 @@ impl Collector for PGStatementsCollector {
 
             if temp_blks_written > 0 {
                 self.temp_written
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(temp_blks_written * block_size);
             }
 
@@ -947,11 +866,7 @@ impl Collector for PGStatementsCollector {
             if wal_records > 0 {
                 // WAL records
                 self.wal_records
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(wal_records);
                 // WAL total bytes
                 let wal_fpi = row.wal_fpi.unwrap_or_default().to_i64().unwrap_or_default();
@@ -963,11 +878,7 @@ impl Collector for PGStatementsCollector {
                     .unwrap_or_default();
 
                 self.wal_all_bytes
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set((wal_fpi * block_size) + wal_bytes);
 
                 if self.dbi.cfg.pg_version >= POSTGRES_V18 {
@@ -979,11 +890,7 @@ impl Collector for PGStatementsCollector {
                         .unwrap_or_default();
 
                     self.wal_buffers
-                        .with_label_values(&[
-                            row.user.clone().unwrap().as_str(),
-                            row.database.clone().unwrap().as_str(),
-                            row.queryid.unwrap_or_default().to_string().as_str(),
-                        ])
+                        .with_label_values(&[user, database, query_id.as_str()])
                         .set(wal_buffers);
                     mfs.extend(self.wal_buffers.collect());
                 }
