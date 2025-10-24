@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 
 use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18};
@@ -14,7 +14,7 @@ use rust_decimal::prelude::ToPrimitive;
 macro_rules! statements_query12 {
 () =>  {
 	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid, 
-		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numerics, p.total_time, p.blk_read_time, p.blk_write_time, 
+		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numeric, p.total_time, p.blk_read_time, p.blk_write_time, 
 		NULLIF(p.shared_blks_hit, 0)::numeric AS shared_blks_hit, NULLIF(p.shared_blks_read, 0)::numeric AS shared_blks_read, 
 		NULLIF(p.shared_blks_dirtied, 0)::numeric AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0)::numeric AS shared_blks_written, 
 		NULLIF(p.local_blks_hit, 0)::numeric AS local_blks_hit, NULLIF(p.local_blks_read, 0)::numeric AS local_blks_read, 
@@ -284,7 +284,7 @@ pub struct PGStatementsCollector {
 }
 
 impl PGStatementsCollector {
-    fn new(dbi: Arc<instance::PostgresDB>) -> Self {
+    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGStatementsStat::new()]));
 
@@ -297,8 +297,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid", "query"],
-        )
-        .unwrap();
+        )?;
         descs.extend(query.desc().into_iter().cloned());
 
         let calls = IntGaugeVec::new(
@@ -310,8 +309,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(calls.desc().into_iter().cloned());
 
         let rows = IntGaugeVec::new(
@@ -323,8 +321,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(rows.desc().into_iter().cloned());
 
         let times = IntGaugeVec::new(
@@ -336,8 +333,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid", "mode"],
-        )
-        .unwrap();
+        )?;
         descs.extend(times.desc().into_iter().cloned());
 
         let all_times = IntGaugeVec::new(
@@ -349,8 +345,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(all_times.desc().into_iter().cloned());
 
         let shared_hit = IntGaugeVec::new(
@@ -362,8 +357,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(shared_hit.desc().into_iter().cloned());
 
         let shared_read = IntGaugeVec::new(
@@ -375,8 +369,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(shared_read.desc().into_iter().cloned());
 
         let shared_dirtied = IntGaugeVec::new(
@@ -388,8 +381,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(shared_dirtied.desc().into_iter().cloned());
 
         let shared_written = IntGaugeVec::new(
@@ -401,8 +393,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(shared_written.desc().into_iter().cloned());
 
         let local_hit = IntGaugeVec::new(
@@ -414,8 +405,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(local_hit.desc().into_iter().cloned());
 
         let local_read = IntGaugeVec::new(
@@ -427,8 +417,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(local_read.desc().into_iter().cloned());
 
         let local_dirtied = IntGaugeVec::new(
@@ -440,8 +429,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(local_dirtied.desc().into_iter().cloned());
 
         let local_written = IntGaugeVec::new(
@@ -453,8 +441,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(local_written.desc().into_iter().cloned());
 
         let temp_read = IntGaugeVec::new(
@@ -466,8 +453,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(temp_read.desc().into_iter().cloned());
 
         let temp_written = IntGaugeVec::new(
@@ -479,8 +465,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(temp_written.desc().into_iter().cloned());
 
         let wal_records = IntGaugeVec::new(
@@ -492,8 +477,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(wal_records.desc().into_iter().cloned());
 
         let wal_buffers = IntGaugeVec::new(
@@ -505,8 +489,7 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(wal_buffers.desc().into_iter().cloned());
 
         let wal_all_bytes = IntGaugeVec::new(
@@ -518,11 +501,10 @@ impl PGStatementsCollector {
             .subsystem("statements")
             .const_labels(dbi.labels.clone()),
             &["user", "database", "queryid"],
-        )
-        .unwrap();
+        )?;
         descs.extend(wal_all_bytes.desc().into_iter().cloned());
 
-        Self {
+        Ok(Self {
             dbi,
             data,
             descs,
@@ -544,7 +526,7 @@ impl PGStatementsCollector {
             wal_records,
             wal_buffers,
             wal_all_bytes,
-        }
+        })
     }
 
     fn select_query(&self) -> String {
@@ -607,7 +589,13 @@ impl PGStatementsCollector {
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
     // Collecting since Postgres 12.
     if dbi.cfg.pg_version >= POSTGRES_V12 && dbi.cfg.pg_stat_statements {
-        Some(PGStatementsCollector::new(dbi))
+        match PGStatementsCollector::new(dbi) {
+            Ok(result) => Some(result),
+            Err(e) => {
+                eprintln!("error when create pg statements collector: {}", e);
+                None
+            }
+        }
     } else {
         None
     }
@@ -625,41 +613,75 @@ impl Collector for PGStatementsCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
-        let data_lock = self.data.read().expect("can't acuire lock");
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg statements collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
 
         for row in data_lock.iter() {
-            // TODO: remove all unwraps later
-            let q = row.query.as_ref().unwrap();
-            let qq = q.as_str();
+            let q = match row.query.as_ref() {
+                Some(q) => q,
+                None => {
+                    eprintln!(
+                        "pg statements collect: get query: {:?}",
+                        anyhow!("query is empty")
+                    );
+                    // return empty mfs
+                    return mfs;
+                }
+            }
+            .as_str();
+
             let query = if self.dbi.cfg.notrack {
                 "/* query text hidden, no-track mode enabled */"
             } else {
-                qq
+                q
             };
 
+            let user = match row.user.as_ref() {
+                Some(q) => q,
+                None => {
+                    eprintln!(
+                        "pg statements collect: get user: {:?}",
+                        anyhow!("user is empty")
+                            .context(format!("pg_ver: {}", self.dbi.cfg.pg_version))
+                    );
+                    // return empty mfs
+                    return mfs;
+                }
+            }
+            .as_str();
+
+            let database = match row.database.as_ref() {
+                Some(d) => d,
+                None => {
+                    eprintln!(
+                        "pg statements collect: get database: {:?}",
+                        anyhow!("database is empty")
+                            .context(format!("pg_ver: {}", self.dbi.cfg.pg_version))
+                    );
+                    // return empty mfs
+                    return mfs;
+                }
+            }
+            .as_str();
+
+            let query_id = row.queryid.unwrap_or_default().to_string();
+
             self.query
-                .with_label_values(&[
-                    row.user.clone().unwrap().as_str(), // we could do unwrap(), because user field if always not null
-                    row.database.clone().unwrap().as_str(),
-                    row.queryid.unwrap_or_default().to_string().as_str(),
-                    query,
-                ])
+                .with_label_values(&[user, database, query_id.as_str(), query])
                 .set(1);
 
             self.calls
-                .with_label_values(&[
-                    row.user.clone().unwrap().as_str(),
-                    row.database.clone().unwrap().as_str(),
-                    row.queryid.unwrap_or_default().to_string().as_str(),
-                ])
+                .with_label_values(&[user, database, query_id.as_str()])
                 .set(row.calls.unwrap_or_default().to_i64().unwrap_or_default());
 
             self.rows
-                .with_label_values(&[
-                    row.user.clone().unwrap().as_str(),
-                    row.database.clone().unwrap().as_str(),
-                    row.queryid.unwrap_or_default().to_string().as_str(),
-                ])
+                .with_label_values(&[user, database, query_id.as_str()])
                 .set(row.rows.unwrap_or_default().to_i64().unwrap_or_default());
 
             // total = planning + execution; execution already includes io time.
@@ -676,11 +698,7 @@ impl Collector for PGStatementsCollector {
                 .unwrap_or_default();
 
             self.all_times
-                .with_label_values(&[
-                    row.user.clone().unwrap().as_str(),
-                    row.database.clone().unwrap().as_str(),
-                    row.queryid.unwrap_or_default().to_string().as_str(),
-                ])
+                .with_label_values(&[user, database, query_id.as_str()])
                 .set(total_plan_time + total_exec_time);
 
             let blk_read_time = row
@@ -696,44 +714,24 @@ impl Collector for PGStatementsCollector {
                 .unwrap_or_default();
 
             self.times
-                .with_label_values(&[
-                    row.user.clone().unwrap().as_str(),
-                    row.database.clone().unwrap().as_str(),
-                    row.queryid.unwrap_or_default().to_string().as_str(),
-                    "planning",
-                ])
+                .with_label_values(&[user, database, query_id.as_str(), "planning"])
                 .set(total_plan_time);
 
             // execution time = execution - io times.
             self.times
-                .with_label_values(&[
-                    row.user.clone().unwrap().as_str(),
-                    row.database.clone().unwrap().as_str(),
-                    row.queryid.unwrap_or_default().to_string().as_str(),
-                    "executing",
-                ])
+                .with_label_values(&[user, database, query_id.as_str(), "executing"])
                 .set(total_exec_time - (blk_read_time + blk_write_time));
 
             // avoid metrics spamming and send metrics only if they greater than zero.
             if blk_read_time > 0 {
                 self.times
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                        "ioread",
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str(), "ioread"])
                     .set(blk_read_time);
             }
 
             if blk_write_time > 0 {
                 self.times
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                        "iowrite",
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str(), "iowrite"])
                     .set(blk_write_time);
             }
 
@@ -745,11 +743,7 @@ impl Collector for PGStatementsCollector {
 
             if shared_blks_hit > 0 {
                 self.shared_hit
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(shared_blks_hit);
             }
 
@@ -763,11 +757,7 @@ impl Collector for PGStatementsCollector {
 
             if shared_blks_read > 0 {
                 self.shared_read
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(shared_blks_read * block_size);
             }
 
@@ -779,11 +769,7 @@ impl Collector for PGStatementsCollector {
 
             if shared_blks_dirtied > 0 {
                 self.shared_dirtied
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(shared_blks_dirtied);
             }
 
@@ -795,11 +781,7 @@ impl Collector for PGStatementsCollector {
 
             if shared_blks_written > 0 {
                 self.shared_written
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(shared_blks_written * block_size);
             }
 
@@ -811,11 +793,7 @@ impl Collector for PGStatementsCollector {
 
             if local_blks_hit > 0 {
                 self.local_hit
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(local_blks_hit);
             }
 
@@ -827,11 +805,7 @@ impl Collector for PGStatementsCollector {
 
             if local_blks_read > 0 {
                 self.local_read
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(local_blks_read * block_size);
             }
 
@@ -843,11 +817,7 @@ impl Collector for PGStatementsCollector {
 
             if local_blks_dirtied > 0 {
                 self.local_dirtied
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(local_blks_dirtied);
             }
 
@@ -859,11 +829,7 @@ impl Collector for PGStatementsCollector {
 
             if local_blks_written > 0 {
                 self.local_written
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(local_blks_written * block_size);
             }
 
@@ -875,11 +841,7 @@ impl Collector for PGStatementsCollector {
 
             if temp_blks_read > 0 {
                 self.temp_read
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(temp_blks_read * block_size);
             }
 
@@ -891,11 +853,7 @@ impl Collector for PGStatementsCollector {
 
             if temp_blks_written > 0 {
                 self.temp_written
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(temp_blks_written * block_size);
             }
 
@@ -908,11 +866,7 @@ impl Collector for PGStatementsCollector {
             if wal_records > 0 {
                 // WAL records
                 self.wal_records
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set(wal_records);
                 // WAL total bytes
                 let wal_fpi = row.wal_fpi.unwrap_or_default().to_i64().unwrap_or_default();
@@ -924,11 +878,7 @@ impl Collector for PGStatementsCollector {
                     .unwrap_or_default();
 
                 self.wal_all_bytes
-                    .with_label_values(&[
-                        row.user.clone().unwrap().as_str(),
-                        row.database.clone().unwrap().as_str(),
-                        row.queryid.unwrap_or_default().to_string().as_str(),
-                    ])
+                    .with_label_values(&[user, database, query_id.as_str()])
                     .set((wal_fpi * block_size) + wal_bytes);
 
                 if self.dbi.cfg.pg_version >= POSTGRES_V18 {
@@ -940,11 +890,7 @@ impl Collector for PGStatementsCollector {
                         .unwrap_or_default();
 
                     self.wal_buffers
-                        .with_label_values(&[
-                            row.user.clone().unwrap().as_str(),
-                            row.database.clone().unwrap().as_str(),
-                            row.queryid.unwrap_or_default().to_string().as_str(),
-                        ])
+                        .with_label_values(&[user, database, query_id.as_str()])
                         .set(wal_buffers);
                     mfs.extend(self.wal_buffers.collect());
                 }
@@ -988,7 +934,7 @@ impl PG for PGStatementsCollector {
 
         let mut data_lock = match self.data.write() {
             Ok(data_lock) => data_lock,
-            Err(e) => bail!("can't unwrap lock. {}", e),
+            Err(e) => bail!("pg statements collector: can't acquire write lock. {}", e),
         };
 
         data_lock.clear();
