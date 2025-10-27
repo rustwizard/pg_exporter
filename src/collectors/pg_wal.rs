@@ -82,8 +82,8 @@ pub struct PGWALCollector {
     stats_reset_time: IntGauge,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> PGWALCollector {
-    PGWALCollector::new(dbi)
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGWALCollector> {
+    Some(PGWALCollector::new(dbi))
 }
 
 impl PGWALCollector {
