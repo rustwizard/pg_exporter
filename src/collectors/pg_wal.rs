@@ -82,12 +82,18 @@ pub struct PGWALCollector {
     stats_reset_time: IntGauge,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> PGWALCollector {
-    PGWALCollector::new(dbi)
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGWALCollector> {
+    match PGWALCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg wal collector: {}", e);
+            None
+        }
+    }
 }
 
 impl PGWALCollector {
-    fn new(dbi: Arc<instance::PostgresDB>) -> PGWALCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGWALCollector> {
         let mut descs = Vec::new();
 
         let data = Arc::new(RwLock::new(PGWALStats::new()));
@@ -100,8 +106,7 @@ impl PGWALCollector {
             .namespace(super::NAMESPACE)
             .subsystem("recovery")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(recovery_info.desc().into_iter().cloned());
 
         let records_total = IntCounter::with_opts(
@@ -112,8 +117,7 @@ impl PGWALCollector {
             .namespace(super::NAMESPACE)
             .subsystem("wal")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(records_total.desc().into_iter().cloned());
 
         let fpi_total = IntCounter::with_opts(
@@ -124,8 +128,7 @@ impl PGWALCollector {
             .namespace(super::NAMESPACE)
             .subsystem("wal")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(fpi_total.desc().into_iter().cloned());
 
         let bytes_total = Counter::with_opts(
@@ -136,8 +139,7 @@ impl PGWALCollector {
             .namespace(super::NAMESPACE)
             .subsystem("wal")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(bytes_total.desc().into_iter().cloned());
 
         let written_bytes_total = Counter::with_opts(
@@ -148,8 +150,7 @@ impl PGWALCollector {
             .namespace(super::NAMESPACE)
             .subsystem("wal")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(written_bytes_total.desc().into_iter().cloned());
 
         let buffers_full_total = IntCounter::with_opts(
@@ -160,8 +161,7 @@ impl PGWALCollector {
             .namespace(super::NAMESPACE)
             .subsystem("wal")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(buffers_full_total.desc().into_iter().cloned());
 
         let write_total = IntCounter::with_opts(
@@ -172,8 +172,7 @@ impl PGWALCollector {
             .namespace(super::NAMESPACE)
             .subsystem("wal")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(write_total.desc().into_iter().cloned());
 
         let sync_total = IntCounter::with_opts(
@@ -184,8 +183,7 @@ impl PGWALCollector {
             .namespace(super::NAMESPACE)
             .subsystem("wal")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(sync_total.desc().into_iter().cloned());
 
         let seconds_all_total = Counter::with_opts(
@@ -196,8 +194,7 @@ impl PGWALCollector {
             .namespace(super::NAMESPACE)
             .subsystem("wal")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(seconds_all_total.desc().into_iter().cloned());
 
         let seconds_total = CounterVec::new(
@@ -209,8 +206,7 @@ impl PGWALCollector {
             .subsystem("wal")
             .const_labels(dbi.labels.clone()),
             &["op"],
-        )
-        .unwrap();
+        )?;
         descs.extend(seconds_total.desc().into_iter().cloned());
 
         let stats_reset_time = IntGauge::with_opts(
@@ -221,11 +217,10 @@ impl PGWALCollector {
             .namespace(super::NAMESPACE)
             .subsystem("wal")
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(stats_reset_time.desc().into_iter().cloned());
 
-        PGWALCollector {
+        Ok(PGWALCollector {
             dbi,
             data,
             descs,
@@ -240,7 +235,7 @@ impl PGWALCollector {
             seconds_all_total,
             seconds_total,
             stats_reset_time,
-        }
+        })
     }
 }
 
