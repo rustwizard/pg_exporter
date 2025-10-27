@@ -83,11 +83,17 @@ pub struct PGWALCollector {
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGWALCollector> {
-    Some(PGWALCollector::new(dbi))
+    match PGWALCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg wal collector: {}", e);
+            None
+        }
+    }
 }
 
 impl PGWALCollector {
-    fn new(dbi: Arc<instance::PostgresDB>) -> PGWALCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGWALCollector> {
         let mut descs = Vec::new();
 
         let data = Arc::new(RwLock::new(PGWALStats::new()));
@@ -225,7 +231,7 @@ impl PGWALCollector {
         .unwrap();
         descs.extend(stats_reset_time.desc().into_iter().cloned());
 
-        PGWALCollector {
+        Ok(PGWALCollector {
             dbi,
             data,
             descs,
@@ -240,7 +246,7 @@ impl PGWALCollector {
             seconds_all_total,
             seconds_total,
             stats_reset_time,
-        }
+        })
     }
 }
 
