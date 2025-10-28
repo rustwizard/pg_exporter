@@ -158,14 +158,17 @@ impl PGActivityStats {
         query: &Option<String>,
     ) {
         // necessary values should not be empty (except wait_event_type)
-        if state.is_none() || query.is_none() {
-            return;
-        }
+        let state = match state {
+            Some(s) => s.to_string(),
+            None => return,
+        };
 
-        if let Some(state) = state
-            && state != ST_IDLE_XACT
-            && state != ST_IDLE_XACT_ABORTED
-        {
+        let query = match query {
+            Some(q) => q.to_string(),
+            None => return,
+        };
+
+        if state != ST_IDLE_XACT && state != ST_IDLE_XACT_ABORTED {
             return;
         }
 
@@ -174,12 +177,12 @@ impl PGActivityStats {
         // inspect query - is ia a user activity like queries, or maintenance tasks like automatic or regular vacuum/analyze.
         let key = format!(
             "{}{}{}",
-            usename.clone().unwrap(),
+            usename.clone().unwrap_or_default(),
             "/",
-            datname.clone().unwrap()
+            datname.clone().unwrap_or_default()
         );
 
-        if self.re.vacanl.is_match(&query.clone().unwrap()) {
+        if self.re.vacanl.is_match(&query) {
             let v = self.max_idle_maint.get(&key);
             if let Some(v) = v
                 && value > *v
