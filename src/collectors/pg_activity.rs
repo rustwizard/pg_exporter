@@ -383,14 +383,22 @@ struct QueryRegexp {
 impl QueryRegexp {
     fn new() -> QueryRegexp {
         QueryRegexp {
-            selects: Regex::new("^(?i)(SELECT|TABLE)").unwrap(),
-            modify: Regex::new("^(?i)(INSERT|UPDATE|DELETE|TRUNCATE)").unwrap(),
-            ddl: Regex::new("^(?i)(CREATE|ALTER|DROP)").unwrap(),
-            maint: Regex::new("^(?i)(ANALYZE|CLUSTER|REINDEX|REFRESH|CHECKPOINT)").unwrap(),
-            vacuum: Regex::new("^(?i)(VACUUM|autovacuum: .+)").unwrap(),
-            vacanl: Regex::new("^(?i)(VACUUM|ANALYZE|autovacuum:)").unwrap(),
-            with: Regex::new("^(?i)WITH").unwrap(),
-            copy: Regex::new("^(?i)COPY").unwrap(),
+            selects: Regex::new("^(?i)(SELECT|TABLE)")
+                .expect("pg activity collector: selects regexp should be valid"),
+            modify: Regex::new("^(?i)(INSERT|UPDATE|DELETE|TRUNCATE)")
+                .expect("pg activity collector: modify regexp should be valid"),
+            ddl: Regex::new("^(?i)(CREATE|ALTER|DROP)")
+                .expect("pg activity collector: ddl regexp should be valid"),
+            maint: Regex::new("^(?i)(ANALYZE|CLUSTER|REINDEX|REFRESH|CHECKPOINT)")
+                .expect("pg activity collector: maint regexp should be valid"),
+            vacuum: Regex::new("^(?i)(VACUUM|autovacuum: .+)")
+                .expect("pg activity collector: vacuum regexp should be valid"),
+            vacanl: Regex::new("^(?i)(VACUUM|ANALYZE|autovacuum:)")
+                .expect("pg activity collector: vacanl regexp should be valid"),
+            with: Regex::new("^(?i)WITH")
+                .expect("pg activity collector: with regexp should be valid"),
+            copy: Regex::new("^(?i)COPY")
+                .expect("pg activity collector: copy regexp should be valid"),
         }
     }
 }
