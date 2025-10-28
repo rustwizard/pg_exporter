@@ -417,8 +417,7 @@ impl PGActivityCollector {
             Opts::new("up", "State of PostgreSQL service: 0 is down, 1 is up.")
                 .namespace(super::NAMESPACE)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
 
         let mut descs = Vec::new();
         descs.extend(up.desc().into_iter().cloned());
@@ -427,8 +426,7 @@ impl PGActivityCollector {
             Opts::new("start_time_seconds", "Postgres start time, in unixtime.")
                 .namespace(super::NAMESPACE)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(start_time.desc().into_iter().cloned());
 
         let wait_events = IntGaugeVec::new(
@@ -440,8 +438,7 @@ impl PGActivityCollector {
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
             &["type", "event"],
-        )
-        .unwrap();
+        )?;
         descs.extend(wait_events.desc().into_iter().cloned());
 
         let states = IntGaugeVec::new(
@@ -453,8 +450,7 @@ impl PGActivityCollector {
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
             &["user", "database", "state"],
-        )
-        .unwrap();
+        )?;
         descs.extend(states.desc().into_iter().cloned());
 
         let states_all = IntGauge::with_opts(
@@ -465,8 +461,7 @@ impl PGActivityCollector {
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(states_all.desc().into_iter().cloned());
 
         let activity = GaugeVec::new(
@@ -478,8 +473,7 @@ impl PGActivityCollector {
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
             &["user", "database", "state", "type"],
-        )
-        .unwrap();
+        )?;
         descs.extend(activity.desc().into_iter().cloned());
 
         let prepared = IntGauge::with_opts(
@@ -490,8 +484,7 @@ impl PGActivityCollector {
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(prepared.desc().into_iter().cloned());
 
         let inflight = IntGaugeVec::new(
@@ -503,8 +496,7 @@ impl PGActivityCollector {
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
             &["type"],
-        )
-        .unwrap();
+        )?;
         descs.extend(inflight.desc().into_iter().cloned());
 
         let vacuums = IntGaugeVec::new(
@@ -516,8 +508,7 @@ impl PGActivityCollector {
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
             &["type"],
-        )
-        .unwrap();
+        )?;
         descs.extend(vacuums.desc().into_iter().cloned());
 
         Ok(PGActivityCollector {
