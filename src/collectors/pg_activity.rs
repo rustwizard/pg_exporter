@@ -412,7 +412,7 @@ pub struct PGActivityCollector {
 }
 
 impl PGActivityCollector {
-    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGActivityCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGActivityCollector> {
         let up = Gauge::with_opts(
             Opts::new("up", "State of PostgreSQL service: 0 is down, 1 is up.")
                 .namespace(super::NAMESPACE)
@@ -520,7 +520,7 @@ impl PGActivityCollector {
         .unwrap();
         descs.extend(vacuums.desc().into_iter().cloned());
 
-        PGActivityCollector {
+        Ok(PGActivityCollector {
             dbi,
             data: Arc::new(RwLock::new(PGActivityStats::new())),
             descs,
@@ -533,7 +533,7 @@ impl PGActivityCollector {
             prepared,
             inflight,
             vacuums,
-        }
+        })
     }
 }
 
@@ -671,7 +671,13 @@ impl PG for PGActivityCollector {
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGActivityCollector> {
-    Some(PGActivityCollector::new(dbi))
+    match PGActivityCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg activity collector: {}", e);
+            None
+        }
+    }
 }
 
 impl Collector for PGActivityCollector {
