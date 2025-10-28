@@ -210,26 +210,34 @@ impl PGActivityStats {
         query: &Option<String>,
     ) {
         // necessary values should not be empty (except wait_event_type)
-        if state.is_none() || query.is_none() {
-            return;
-        }
+        let state = match state {
+            Some(s) => s.to_string(),
+            None => return,
+        };
 
-        if let Some(state) = state {
-            let ev_type = etype.clone().or(Some("".to_string()));
-            if state != ST_ACTIVE || ev_type.unwrap() == WE_LOCK {
-                return;
-            }
+        let query = match query {
+            Some(q) => q.to_string(),
+            None => return,
+        };
+
+        let ev_type = match etype {
+            Some(q) => q.to_string(),
+            None => "".to_string(),
+        };
+
+        if state != ST_ACTIVE || ev_type == WE_LOCK {
+            return;
         }
 
         // inspect query - is ia a user activity like queries, or maintenance tasks like automatic or regular vacuum/analyze.
         let key = format!(
             "{}{}{}",
-            usename.clone().unwrap(),
+            usename.clone().unwrap_or_default(),
             "/",
-            datname.clone().unwrap_or("".to_string())
+            datname.clone().unwrap_or_default()
         );
 
-        if self.re.vacanl.is_match(&query.clone().unwrap()) {
+        if self.re.vacanl.is_match(&query) {
             self.max_active_maint
                 .entry(key)
                 .and_modify(|val| {
