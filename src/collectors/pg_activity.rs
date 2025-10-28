@@ -137,7 +137,7 @@ impl PGActivityStats {
                     .or_insert(1);
             }
 
-            _ => println!("pg activity stats: unknown state"),
+            _ => eprintln!("pg activity stats collector: unknown state: {}", state),
         }
     }
 
