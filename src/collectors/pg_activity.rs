@@ -687,14 +687,14 @@ impl Collector for PGActivityCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(9);
 
-        let data_lock_result = self.data.read();
-
-        if data_lock_result.is_err() {
-            println!("collect error: {:?}", data_lock_result.unwrap_err());
-            return mfs;
-        }
-
-        let data_lock = data_lock_result.unwrap();
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg activity collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
 
         let states: HashMap<&str, &HashMap<String, i64>> = HashMap::from([
             ("active", &data_lock.active),
