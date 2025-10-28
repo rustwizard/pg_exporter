@@ -674,8 +674,8 @@ impl PG for PGActivityCollector {
     }
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> PGActivityCollector {
-    PGActivityCollector::new(dbi)
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGActivityCollector> {
+    Some(PGActivityCollector::new(dbi))
 }
 
 impl Collector for PGActivityCollector {

@@ -87,10 +87,12 @@ async fn main() -> std::io::Result<()> {
             app.collectors.push(Box::new(pcdb));
         }
 
-        let pca = collectors::pg_activity::new(Arc::clone(&arc_pgi));
-        app.registry
-            .register(Box::new(pca.clone()))
-            .expect("pg activity collector should be initialized");
+        if let Some(pac) = collectors::pg_activity::new(Arc::clone(&arc_pgi)) {
+            app.registry
+                .register(Box::new(pac.clone()))
+                .expect("pg activity collector should be initialized");
+            app.collectors.push(Box::new(pac));
+        }
 
         if let Some(pbgwr) = collectors::pg_bgwirter::new(Arc::clone(&arc_pgi)) {
             app.registry
@@ -140,8 +142,6 @@ async fn main() -> std::io::Result<()> {
                 .expect("pg indexes collector should be initialized");
             app.collectors.push(Box::new(pgstmt_c));
         }
-
-        app.collectors.push(Box::new(pca));
 
         app.instances.push(arc_pgi);
     }
