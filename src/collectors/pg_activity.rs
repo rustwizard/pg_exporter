@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::bail;
 use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{Gauge, IntGauge};
@@ -137,7 +137,7 @@ impl PGActivityStats {
                     .or_insert(1);
             }
 
-            _ => println!("pg activity stats: unknown state"),
+            _ => eprintln!("pg activity stats collector: unknown state: {}", state),
         }
     }
 
@@ -158,14 +158,17 @@ impl PGActivityStats {
         query: &Option<String>,
     ) {
         // necessary values should not be empty (except wait_event_type)
-        if state.is_none() || query.is_none() {
-            return;
-        }
+        let state = match state {
+            Some(s) => s.to_string(),
+            None => return,
+        };
 
-        if let Some(state) = state
-            && state != ST_IDLE_XACT
-            && state != ST_IDLE_XACT_ABORTED
-        {
+        let query = match query {
+            Some(q) => q.to_string(),
+            None => return,
+        };
+
+        if state != ST_IDLE_XACT && state != ST_IDLE_XACT_ABORTED {
             return;
         }
 
@@ -174,12 +177,12 @@ impl PGActivityStats {
         // inspect query - is ia a user activity like queries, or maintenance tasks like automatic or regular vacuum/analyze.
         let key = format!(
             "{}{}{}",
-            usename.clone().unwrap(),
+            usename.clone().unwrap_or_default(),
             "/",
-            datname.clone().unwrap()
+            datname.clone().unwrap_or_default()
         );
 
-        if self.re.vacanl.is_match(&query.clone().unwrap()) {
+        if self.re.vacanl.is_match(&query) {
             let v = self.max_idle_maint.get(&key);
             if let Some(v) = v
                 && value > *v
@@ -210,26 +213,34 @@ impl PGActivityStats {
         query: &Option<String>,
     ) {
         // necessary values should not be empty (except wait_event_type)
-        if state.is_none() || query.is_none() {
-            return;
-        }
+        let state = match state {
+            Some(s) => s.to_string(),
+            None => return,
+        };
 
-        if let Some(state) = state {
-            let ev_type = etype.clone().or(Some("".to_string()));
-            if state != ST_ACTIVE || ev_type.unwrap() == WE_LOCK {
-                return;
-            }
+        let query = match query {
+            Some(q) => q.to_string(),
+            None => return,
+        };
+
+        let ev_type = match etype {
+            Some(q) => q.to_string(),
+            None => "".to_string(),
+        };
+
+        if state != ST_ACTIVE || ev_type == WE_LOCK {
+            return;
         }
 
         // inspect query - is ia a user activity like queries, or maintenance tasks like automatic or regular vacuum/analyze.
         let key = format!(
             "{}{}{}",
-            usename.clone().unwrap(),
+            usename.clone().unwrap_or_default(),
             "/",
-            datname.clone().unwrap_or("".to_string())
+            datname.clone().unwrap_or_default()
         );
 
-        if self.re.vacanl.is_match(&query.clone().unwrap()) {
+        if self.re.vacanl.is_match(&query) {
             self.max_active_maint
                 .entry(key)
                 .and_modify(|val| {
@@ -258,25 +269,33 @@ impl PGActivityStats {
         waiting: &Option<String>,
         query: &Option<String>,
     ) {
-        if waiting.is_none() || query.is_none() {
-            return;
-        }
+        let query = match query {
+            Some(q) => q.to_string(),
+            None => return,
+        };
 
-        if let Some(wait) = waiting {
-            // waiting activity is considered only with wait_event_type = 'Lock' (or waiting = 't')
-            if *wait != WE_LOCK && *wait != "t" {
-                return;
-            }
+        let waiting = match waiting {
+            Some(q) => q.to_string(),
+            None => return,
+        };
+
+        // waiting activity is considered only with wait_event_type = 'Lock' (or waiting = 't')
+        if waiting != WE_LOCK && waiting != "t" {
+            return;
         }
 
         let key = format!(
             "{}{}{}",
-            usename.clone().unwrap(),
+            usename
+                .clone()
+                .expect("pg activity collector: usename shouldn't be empty"),
             "/",
-            datname.clone().unwrap()
+            datname
+                .clone()
+                .expect("pg activity collector: datname shouldn't be empty")
         );
 
-        if self.re.vacanl.is_match(&query.clone().unwrap()) {
+        if self.re.vacanl.is_match(&query) {
             self.max_wait_maint
                 .entry(key)
                 .and_modify(|val| {
@@ -298,35 +317,41 @@ impl PGActivityStats {
     }
 
     fn update_query_stat(&mut self, query: &Option<String>, state: &Option<String>) {
-        if query.is_none() || state.is_none() {
+        let query = match &query {
+            Some(q) => q,
+            None => return,
+        };
+
+        let state = match &state {
+            Some(s) => s.to_string(),
+            None => return,
+        };
+
+        if state != ST_ACTIVE {
             return;
         }
 
-        if state.clone().unwrap() != ST_ACTIVE {
-            return;
-        }
-
-        if self.re.selects.is_match(&query.clone().unwrap()) {
+        if self.re.selects.is_match(query) {
             self.query_select += 1;
             return;
         }
 
-        if self.re.modify.is_match(&query.clone().unwrap()) {
+        if self.re.modify.is_match(query) {
             self.query_mod += 1;
             return;
         }
 
-        if self.re.ddl.is_match(&query.clone().unwrap()) {
+        if self.re.ddl.is_match(query) {
             self.query_ddl += 1;
             return;
         }
 
-        if self.re.maint.is_match(&query.clone().unwrap()) {
+        if self.re.maint.is_match(query) {
             self.query_maint += 1;
             return;
         }
 
-        let binding = query.clone().unwrap();
+        let binding = query.clone();
         let maybe_str = self.re.vacuum.find(&binding);
 
         let mut str: &str = "";
@@ -352,12 +377,12 @@ impl PGActivityStats {
             return;
         }
 
-        if self.re.with.is_match(&query.clone().unwrap()) {
+        if self.re.with.is_match(query) {
             self.query_with += 1;
             return;
         }
 
-        if self.re.copy.is_match(&query.clone().unwrap()) {
+        if self.re.copy.is_match(query) {
             self.query_copy += 1;
             return;
         }
@@ -383,14 +408,22 @@ struct QueryRegexp {
 impl QueryRegexp {
     fn new() -> QueryRegexp {
         QueryRegexp {
-            selects: Regex::new("^(?i)(SELECT|TABLE)").unwrap(),
-            modify: Regex::new("^(?i)(INSERT|UPDATE|DELETE|TRUNCATE)").unwrap(),
-            ddl: Regex::new("^(?i)(CREATE|ALTER|DROP)").unwrap(),
-            maint: Regex::new("^(?i)(ANALYZE|CLUSTER|REINDEX|REFRESH|CHECKPOINT)").unwrap(),
-            vacuum: Regex::new("^(?i)(VACUUM|autovacuum: .+)").unwrap(),
-            vacanl: Regex::new("^(?i)(VACUUM|ANALYZE|autovacuum:)").unwrap(),
-            with: Regex::new("^(?i)WITH").unwrap(),
-            copy: Regex::new("^(?i)COPY").unwrap(),
+            selects: Regex::new("^(?i)(SELECT|TABLE)")
+                .expect("pg activity collector: selects regexp should be valid"),
+            modify: Regex::new("^(?i)(INSERT|UPDATE|DELETE|TRUNCATE)")
+                .expect("pg activity collector: modify regexp should be valid"),
+            ddl: Regex::new("^(?i)(CREATE|ALTER|DROP)")
+                .expect("pg activity collector: ddl regexp should be valid"),
+            maint: Regex::new("^(?i)(ANALYZE|CLUSTER|REINDEX|REFRESH|CHECKPOINT)")
+                .expect("pg activity collector: maint regexp should be valid"),
+            vacuum: Regex::new("^(?i)(VACUUM|autovacuum: .+)")
+                .expect("pg activity collector: vacuum regexp should be valid"),
+            vacanl: Regex::new("^(?i)(VACUUM|ANALYZE|autovacuum:)")
+                .expect("pg activity collector: vacanl regexp should be valid"),
+            with: Regex::new("^(?i)WITH")
+                .expect("pg activity collector: with regexp should be valid"),
+            copy: Regex::new("^(?i)COPY")
+                .expect("pg activity collector: copy regexp should be valid"),
         }
     }
 }
@@ -412,13 +445,12 @@ pub struct PGActivityCollector {
 }
 
 impl PGActivityCollector {
-    pub fn new(dbi: Arc<instance::PostgresDB>) -> PGActivityCollector {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGActivityCollector> {
         let up = Gauge::with_opts(
             Opts::new("up", "State of PostgreSQL service: 0 is down, 1 is up.")
                 .namespace(super::NAMESPACE)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
 
         let mut descs = Vec::new();
         descs.extend(up.desc().into_iter().cloned());
@@ -427,8 +459,7 @@ impl PGActivityCollector {
             Opts::new("start_time_seconds", "Postgres start time, in unixtime.")
                 .namespace(super::NAMESPACE)
                 .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(start_time.desc().into_iter().cloned());
 
         let wait_events = IntGaugeVec::new(
@@ -440,8 +471,7 @@ impl PGActivityCollector {
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
             &["type", "event"],
-        )
-        .unwrap();
+        )?;
         descs.extend(wait_events.desc().into_iter().cloned());
 
         let states = IntGaugeVec::new(
@@ -453,8 +483,7 @@ impl PGActivityCollector {
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
             &["user", "database", "state"],
-        )
-        .unwrap();
+        )?;
         descs.extend(states.desc().into_iter().cloned());
 
         let states_all = IntGauge::with_opts(
@@ -465,8 +494,7 @@ impl PGActivityCollector {
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(states_all.desc().into_iter().cloned());
 
         let activity = GaugeVec::new(
@@ -478,8 +506,7 @@ impl PGActivityCollector {
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
             &["user", "database", "state", "type"],
-        )
-        .unwrap();
+        )?;
         descs.extend(activity.desc().into_iter().cloned());
 
         let prepared = IntGauge::with_opts(
@@ -490,8 +517,7 @@ impl PGActivityCollector {
             .namespace(super::NAMESPACE)
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
-        )
-        .unwrap();
+        )?;
         descs.extend(prepared.desc().into_iter().cloned());
 
         let inflight = IntGaugeVec::new(
@@ -503,8 +529,7 @@ impl PGActivityCollector {
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
             &["type"],
-        )
-        .unwrap();
+        )?;
         descs.extend(inflight.desc().into_iter().cloned());
 
         let vacuums = IntGaugeVec::new(
@@ -516,11 +541,10 @@ impl PGActivityCollector {
             .subsystem(ACTIVITY_SUBSYSTEM)
             .const_labels(dbi.labels.clone()),
             &["type"],
-        )
-        .unwrap();
+        )?;
         descs.extend(vacuums.desc().into_iter().cloned());
 
-        PGActivityCollector {
+        Ok(PGActivityCollector {
             dbi,
             data: Arc::new(RwLock::new(PGActivityStats::new())),
             descs,
@@ -533,7 +557,7 @@ impl PGActivityCollector {
             prepared,
             inflight,
             vacuums,
-        }
+        })
     }
 }
 
@@ -565,14 +589,10 @@ impl PG for PGActivityCollector {
             .fetch_all(&self.dbi.db)
             .await?;
 
-        let data_lock_result = self.data.write();
-
-        if data_lock_result.is_err() {
-            println!("error: {:?}", data_lock_result.unwrap_err());
-            return Err(anyhow!("can't acuire data lock"));
-        }
-
-        let mut data_lock = data_lock_result.unwrap();
+        let mut data_lock = match self.data.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!("pg activity collector: can't acquire write lock. {}", e),
+        };
 
         // clear all previous states
         data_lock.active.clear();
@@ -629,13 +649,25 @@ impl PG for PGActivityCollector {
                 // Count waiting activity only if waiting = 't' or wait_event_type = 'Lock'.
                 if we == WE_LOCK || we == "t" {
                     data_lock.update_state(
-                        &activity.user.clone().unwrap(),
-                        &activity.database.clone().unwrap(),
+                        &activity
+                            .user
+                            .clone()
+                            .expect("pg activity collector: user shouldn't be null"),
+                        &activity
+                            .database
+                            .clone()
+                            .expect("pg activity collector: database shouldn't be null"),
                         "waiting",
                     );
                 }
 
-                data_lock.update_wait_events(we, &activity.wait_event.clone().unwrap());
+                data_lock.update_wait_events(
+                    we,
+                    &activity
+                        .wait_event
+                        .clone()
+                        .expect("pg activity collector: wait_event shouldn't be null"),
+                );
             }
 
             data_lock.update_query_stat(&activity.query, &activity.state);
@@ -674,8 +706,14 @@ impl PG for PGActivityCollector {
     }
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> PGActivityCollector {
-    PGActivityCollector::new(dbi)
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGActivityCollector> {
+    match PGActivityCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            eprintln!("error when create pg activity collector: {}", e);
+            None
+        }
+    }
 }
 
 impl Collector for PGActivityCollector {
@@ -687,14 +725,14 @@ impl Collector for PGActivityCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(9);
 
-        let data_lock_result = self.data.read();
-
-        if data_lock_result.is_err() {
-            println!("collect error: {:?}", data_lock_result.unwrap_err());
-            return mfs;
-        }
-
-        let data_lock = data_lock_result.unwrap();
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg activity collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
 
         let states: HashMap<&str, &HashMap<String, i64>> = HashMap::from([
             ("active", &data_lock.active),
