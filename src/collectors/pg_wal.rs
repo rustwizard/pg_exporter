@@ -247,7 +247,14 @@ impl Collector for PGWALCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(11);
 
-        let data_lock = self.data.read().expect("can't acuire lock");
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                eprintln!("pg wal collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
 
         self.recovery_info.set(data_lock.recovery as i64);
         self.records_total.inc_by(data_lock.wal_records as u64);
