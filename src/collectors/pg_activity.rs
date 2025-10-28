@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{Gauge, IntGauge};
@@ -565,14 +565,10 @@ impl PG for PGActivityCollector {
             .fetch_all(&self.dbi.db)
             .await?;
 
-        let data_lock_result = self.data.write();
-
-        if data_lock_result.is_err() {
-            println!("error: {:?}", data_lock_result.unwrap_err());
-            return Err(anyhow!("can't acuire data lock"));
-        }
-
-        let mut data_lock = data_lock_result.unwrap();
+        let mut data_lock = match self.data.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!("pg activity collector: can't acquire write lock. {}", e),
+        };
 
         // clear all previous states
         data_lock.active.clear();

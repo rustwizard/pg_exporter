@@ -315,7 +315,7 @@ impl PG for PGWALCollector {
         if let Some(pg_wal_stats) = maybe_pg_wal_stats {
             let mut data_lock = match self.data.write() {
                 Ok(data_lock) => data_lock,
-                Err(e) => bail!("can't unwrap lock. {}", e),
+                Err(e) => bail!("pg wal collector: can't acquire write lock. {}", e),
             };
 
             data_lock.recovery = pg_wal_stats.recovery;
