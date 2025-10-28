@@ -258,25 +258,33 @@ impl PGActivityStats {
         waiting: &Option<String>,
         query: &Option<String>,
     ) {
-        if waiting.is_none() || query.is_none() {
-            return;
-        }
+        let query = match query {
+            Some(q) => q.to_string(),
+            None => return,
+        };
 
-        if let Some(wait) = waiting {
-            // waiting activity is considered only with wait_event_type = 'Lock' (or waiting = 't')
-            if *wait != WE_LOCK && *wait != "t" {
-                return;
-            }
+        let waiting = match waiting {
+            Some(q) => q.to_string(),
+            None => return,
+        };
+
+        // waiting activity is considered only with wait_event_type = 'Lock' (or waiting = 't')
+        if waiting != WE_LOCK && waiting != "t" {
+            return;
         }
 
         let key = format!(
             "{}{}{}",
-            usename.clone().unwrap(),
+            usename
+                .clone()
+                .expect("pg activity collector: usename shouldn't be empty"),
             "/",
-            datname.clone().unwrap()
+            datname
+                .clone()
+                .expect("pg activity collector: datname shouldn't be empty")
         );
 
-        if self.re.vacanl.is_match(&query.clone().unwrap()) {
+        if self.re.vacanl.is_match(&query) {
             self.max_wait_maint
                 .entry(key)
                 .and_modify(|val| {
