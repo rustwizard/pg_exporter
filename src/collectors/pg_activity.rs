@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail};
+use anyhow::bail;
 use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{Gauge, IntGauge};
@@ -298,35 +298,41 @@ impl PGActivityStats {
     }
 
     fn update_query_stat(&mut self, query: &Option<String>, state: &Option<String>) {
-        if query.is_none() || state.is_none() {
+        let query = match &query {
+            Some(q) => q,
+            None => return,
+        };
+
+        let state = match &state {
+            Some(s) => s.to_string(),
+            None => return,
+        };
+
+        if state != ST_ACTIVE {
             return;
         }
 
-        if state.clone().unwrap() != ST_ACTIVE {
-            return;
-        }
-
-        if self.re.selects.is_match(&query.clone().unwrap()) {
+        if self.re.selects.is_match(query) {
             self.query_select += 1;
             return;
         }
 
-        if self.re.modify.is_match(&query.clone().unwrap()) {
+        if self.re.modify.is_match(query) {
             self.query_mod += 1;
             return;
         }
 
-        if self.re.ddl.is_match(&query.clone().unwrap()) {
+        if self.re.ddl.is_match(query) {
             self.query_ddl += 1;
             return;
         }
 
-        if self.re.maint.is_match(&query.clone().unwrap()) {
+        if self.re.maint.is_match(query) {
             self.query_maint += 1;
             return;
         }
 
-        let binding = query.clone().unwrap();
+        let binding = query.clone();
         let maybe_str = self.re.vacuum.find(&binding);
 
         let mut str: &str = "";
@@ -352,12 +358,12 @@ impl PGActivityStats {
             return;
         }
 
-        if self.re.with.is_match(&query.clone().unwrap()) {
+        if self.re.with.is_match(query) {
             self.query_with += 1;
             return;
         }
 
-        if self.re.copy.is_match(&query.clone().unwrap()) {
+        if self.re.copy.is_match(query) {
             self.query_copy += 1;
             return;
         }
@@ -627,11 +633,11 @@ impl PG for PGActivityCollector {
                         &activity
                             .user
                             .clone()
-                            .expect("pg activity collector: user shoudn't be null"),
+                            .expect("pg activity collector: user shouldn't be null"),
                         &activity
                             .database
                             .clone()
-                            .expect("pg activity collector: database shoudn't be null"),
+                            .expect("pg activity collector: database shouldn't be null"),
                         "waiting",
                     );
                 }
@@ -641,7 +647,7 @@ impl PG for PGActivityCollector {
                     &activity
                         .wait_event
                         .clone()
-                        .expect("pg activity collector: wait_event shoudn't be null"),
+                        .expect("pg activity collector: wait_event shouldn't be null"),
                 );
             }
 
