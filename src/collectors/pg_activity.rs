@@ -616,13 +616,25 @@ impl PG for PGActivityCollector {
                 // Count waiting activity only if waiting = 't' or wait_event_type = 'Lock'.
                 if we == WE_LOCK || we == "t" {
                     data_lock.update_state(
-                        &activity.user.clone().unwrap(),
-                        &activity.database.clone().unwrap(),
+                        &activity
+                            .user
+                            .clone()
+                            .expect("pg activity collector: user shoudn't be null"),
+                        &activity
+                            .database
+                            .clone()
+                            .expect("pg activity collector: database shoudn't be null"),
                         "waiting",
                     );
                 }
 
-                data_lock.update_wait_events(we, &activity.wait_event.clone().unwrap());
+                data_lock.update_wait_events(
+                    we,
+                    &activity
+                        .wait_event
+                        .clone()
+                        .expect("pg activity collector: wait_event shoudn't be null"),
+                );
             }
 
             data_lock.update_query_stat(&activity.query, &activity.state);
