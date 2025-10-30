@@ -44,6 +44,8 @@ async fn main() -> std::io::Result<()> {
         .try_deserialize()
         .expect("config should be initialized");
 
+    // TODO: get debug flag from config or env and set log level.
+
     // a builder for `FmtSubscriber`.
     let subscriber = FmtSubscriber::builder()
         // all spans/events with a level higher than INFO (e.g, info, error, etc.)
