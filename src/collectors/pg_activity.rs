@@ -6,6 +6,7 @@ use prometheus::{GaugeVec, IntGaugeVec, proto};
 use regex::Regex;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use tracing::error;
 
 use crate::instance;
 
@@ -137,7 +138,7 @@ impl PGActivityStats {
                     .or_insert(1);
             }
 
-            _ => eprintln!("pg activity stats collector: unknown state: {}", state),
+            _ => error!("pg activity stats collector: unknown state: {}", state),
         }
     }
 
@@ -692,7 +693,7 @@ impl PG for PGActivityCollector {
                         total += v
                     }
                 } else {
-                    println!(
+                    error!(
                         "create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip"
                     );
                 }
@@ -710,7 +711,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGActivityCollector> {
     match PGActivityCollector::new(dbi) {
         Ok(result) => Some(result),
         Err(e) => {
-            eprintln!("error when create pg activity collector: {}", e);
+            error!("error when create pg activity collector: {}", e);
             None
         }
     }
@@ -728,7 +729,7 @@ impl Collector for PGActivityCollector {
         let data_lock = match self.data.read() {
             Ok(lock) => lock,
             Err(e) => {
-                eprintln!("pg activity collect: can't acquire read lock: {}", e);
+                error!("pg activity collect: can't acquire read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }
@@ -757,7 +758,7 @@ impl Collector for PGActivityCollector {
                         total += v
                     }
                 } else {
-                    println!(
+                    error!(
                         "create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip"
                     );
                 }
@@ -782,7 +783,7 @@ impl Collector for PGActivityCollector {
                         .with_label_values(&[names[0], names[1], ff[0], ff[1]])
                         .set(*v);
                 } else {
-                    println!(
+                    error!(
                         "create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip"
                     );
                 }
@@ -797,7 +798,7 @@ impl Collector for PGActivityCollector {
                     .with_label_values(&[labels[0], labels[1]])
                     .set(*v)
             } else {
-                println!("create wait_event activity failed: invalid input '{k}'; skip");
+                error!("create wait_event activity failed: invalid input '{k}'; skip");
             }
         }
 
