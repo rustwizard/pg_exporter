@@ -46,7 +46,7 @@ async fn main() -> std::io::Result<()> {
 
     // a builder for `FmtSubscriber`.
     let subscriber = FmtSubscriber::builder()
-        // all spans/events with a level higher than DEBUG (e.g, info, warn, etc.)
+        // all spans/events with a level higher than INFO (e.g, info, error, etc.)
         // will be written to stdout.
         .with_max_level(Level::INFO)
         // completes the builder.
