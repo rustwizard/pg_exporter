@@ -63,7 +63,7 @@ pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
     let pg_version = version.parse()?;
 
     if pg_version < collectors::POSTGRES_VMIN_NUM {
-        println!(
+        info!(
             "Postgres version is too old, some collectors functions won't work. Minimal required version is {:?}",
             collectors::POSTGRES_VMIN_NUM
         );
