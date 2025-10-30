@@ -11,7 +11,8 @@ use actix_web::{
 
 use config::Config;
 use prometheus::{Encoder, Registry};
-use tracing::info;
+use tracing::{Level, info};
+use tracing_subscriber::FmtSubscriber;
 
 use crate::error::MetricsError;
 
@@ -43,9 +44,15 @@ async fn main() -> std::io::Result<()> {
         .try_deserialize()
         .expect("config should be initialized");
 
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stdout) // Explicitly set stdout as the writer
-        .init();
+    // a builder for `FmtSubscriber`.
+    let subscriber = FmtSubscriber::builder()
+        // all spans/events with a level higher than DEBUG (e.g, info, warn, etc.)
+        // will be written to stdout.
+        .with_max_level(Level::INFO)
+        // completes the builder.
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     info!("starting pg_exporter at {:?}", pge_config.listen_addr);
 
