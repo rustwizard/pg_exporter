@@ -11,6 +11,7 @@ use actix_web::{
 
 use config::Config;
 use prometheus::{Encoder, Registry};
+use tracing::info;
 
 use crate::error::MetricsError;
 
@@ -42,7 +43,11 @@ async fn main() -> std::io::Result<()> {
         .try_deserialize()
         .expect("config should be initialized");
 
-    println!("starting pg_exporter at {:?}", pge_config.listen_addr);
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stdout) // Explicitly set stdout as the writer
+        .init();
+
+    info!("starting pg_exporter at {:?}", pge_config.listen_addr);
 
     let mut app = PGEApp {
         instances: Vec::<Arc<instance::PostgresDB>>::new(),
@@ -51,7 +56,7 @@ async fn main() -> std::io::Result<()> {
     };
 
     for (instance, config) in pge_config.instances {
-        println!("starting connection for instance: {instance}");
+        info!("starting connection for instance: {instance}");
 
         let pgi = instance::new(&instance::Config {
             dsn: config.dsn,
