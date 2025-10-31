@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use prometheus::IntCounterVec;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
+use tracing::error;
 
 use crate::collectors::{PG, POSTGRES_V16};
 use crate::instance;
@@ -53,7 +54,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGConflictCollector> {
     match PGConflictCollector::new(dbi) {
         Ok(result) => Some(result),
         Err(e) => {
-            eprintln!("error when create pg conflicts collector: {}", e);
+            error!("error when create pg conflicts collector: {}", e);
             None
         }
     }

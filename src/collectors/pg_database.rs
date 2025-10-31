@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use prometheus::IntGaugeVec;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
+use tracing::error;
 
 use crate::instance;
 
@@ -45,7 +46,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGDatabaseCollector> {
     match PGDatabaseCollector::new(dbi) {
         Ok(result) => Some(result),
         Err(e) => {
-            eprintln!("error when create pg conflicts collector: {}", e);
+            error!("error when create pg conflicts collector: {}", e);
             None
         }
     }
@@ -85,7 +86,7 @@ impl Collector for PGDatabaseCollector {
         let data_lock = match self.data.read() {
             Ok(lock) => lock,
             Err(e) => {
-                eprintln!("pg database collect: can't acquire read lock: {}", e);
+                error!("pg database collect: can't acquire read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }

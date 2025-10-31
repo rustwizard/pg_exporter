@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use prometheus::Gauge;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
+use tracing::error;
 
 use crate::instance;
 
@@ -38,7 +39,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGPostmasterCollector> {
     match PGPostmasterCollector::new(dbi) {
         Ok(result) => Some(result),
         Err(e) => {
-            eprintln!("error when create pg postmaster collector: {}", e);
+            error!("error when create pg postmaster collector: {}", e);
             None
         }
     }
@@ -77,7 +78,7 @@ impl Collector for PGPostmasterCollector {
         let data_lock = match self.data.read() {
             Ok(lock) => lock,
             Err(e) => {
-                eprintln!("pg postmaster collect: can't acquire read lock: {}", e);
+                error!("pg postmaster collect: can't acquire read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }

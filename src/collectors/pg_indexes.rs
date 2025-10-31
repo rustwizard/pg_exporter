@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{GaugeVec, IntCounterVec};
 use prometheus::{IntGaugeVec, proto};
+use tracing::error;
 
 use crate::collectors::PG;
 use crate::instance;
@@ -90,7 +91,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGIndexesCollector> {
     match PGIndexesCollector::new(dbi) {
         Ok(result) => Some(result),
         Err(e) => {
-            eprintln!("error when create pg indexes collector: {}", e);
+            error!("error when create pg indexes collector: {}", e);
             None
         }
     }
@@ -164,7 +165,7 @@ impl Collector for PGIndexesCollector {
         let data_lock = match self.data.read() {
             Ok(lock) => lock,
             Err(e) => {
-                eprintln!("pg indexes collect: can't acquire read lock: {}", e);
+                error!("pg indexes collect: can't acquire read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }

@@ -1,6 +1,7 @@
 use anyhow::bail;
 use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use std::collections::HashMap;
+use tracing::info;
 
 use crate::collectors;
 
@@ -44,11 +45,11 @@ pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
         .await
     {
         Ok(pool) => {
-            println!("✅Connection to the database is successful!");
+            info!("✅Connection to the database is successful!");
             pool
         }
         Err(err) => {
-            println!("🔥 Failed to connect to the database: {err:?}");
+            info!("🔥 Failed to connect to the database: {err:?}");
             std::process::exit(1);
         }
     };
@@ -62,7 +63,7 @@ pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
     let pg_version = version.parse()?;
 
     if pg_version < collectors::POSTGRES_VMIN_NUM {
-        println!(
+        info!(
             "Postgres version is too old, some collectors functions won't work. Minimal required version is {:?}",
             collectors::POSTGRES_VMIN_NUM
         );

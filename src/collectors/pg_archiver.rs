@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
 use prometheus::{Gauge, IntCounter, IntGauge};
+use tracing::error;
 
 use crate::collectors::{PG, POSTGRES_V12};
 use crate::instance;
@@ -53,7 +54,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGArchiverCollector> {
         match PGArchiverCollector::new(dbi) {
             Ok(result) => Some(result),
             Err(e) => {
-                eprintln!("error when create pg archiver collector: {}", e);
+                error!("error when create pg archiver collector: {}", e);
                 None
             }
         }
@@ -134,7 +135,7 @@ impl Collector for PGArchiverCollector {
         let data_lock = match self.data.read() {
             Ok(lock) => lock,
             Err(e) => {
-                eprintln!("pg archiver collect: can't acquire read lock: {}", e);
+                error!("pg archiver collect: can't acquire read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }

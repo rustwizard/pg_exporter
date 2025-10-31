@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
 use prometheus::{GaugeVec, IntGaugeVec};
+use tracing::error;
 
 use crate::collectors::{PG, POSTGRES_V16, POSTGRES_V18};
 use crate::instance;
@@ -109,7 +110,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
         match PGStatIOCollector::new(dbi) {
             Ok(result) => Some(result),
             Err(e) => {
-                eprintln!("error when create pg statio collector: {}", e);
+                error!("error when create pg statio collector: {}", e);
                 None
             }
         }
@@ -343,7 +344,7 @@ impl Collector for PGStatIOCollector {
         let data_lock = match self.data.read() {
             Ok(lock) => lock,
             Err(e) => {
-                eprintln!("pg statio collect: can't acquire read lock: {}", e);
+                error!("pg statio collect: can't acquire read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }

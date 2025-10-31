@@ -11,6 +11,8 @@ use actix_web::{
 
 use config::Config;
 use prometheus::{Encoder, Registry};
+use tracing::{Level, error, info};
+use tracing_subscriber::FmtSubscriber;
 
 use crate::error::MetricsError;
 
@@ -42,7 +44,19 @@ async fn main() -> std::io::Result<()> {
         .try_deserialize()
         .expect("config should be initialized");
 
-    println!("starting pg_exporter at {:?}", pge_config.listen_addr);
+    // TODO: get debug flag from config or env and set log level.
+
+    // a builder for `FmtSubscriber`.
+    let subscriber = FmtSubscriber::builder()
+        // all spans/events with a level higher than INFO (e.g, info, error, etc.)
+        // will be written to stdout.
+        .with_max_level(Level::INFO)
+        // completes the builder.
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+
+    info!("starting pg_exporter at {:?}", pge_config.listen_addr);
 
     let mut app = PGEApp {
         instances: Vec::<Arc<instance::PostgresDB>>::new(),
@@ -51,7 +65,7 @@ async fn main() -> std::io::Result<()> {
     };
 
     for (instance, config) in pge_config.instances {
-        println!("starting connection for instance: {instance}");
+        info!("starting connection for instance: {instance}");
 
         let pgi = instance::new(&instance::Config {
             dsn: config.dsn,
@@ -163,7 +177,7 @@ async fn hello() -> impl Responder {
 }
 
 async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpResponse, MetricsError> {
-    println!(
+    info!(
         "processing the request from {:?}",
         req.headers()
             .get("user-agent")
@@ -179,7 +193,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
                 let update_result = col.update().await;
                 match update_result {
                     Ok(update) => update,
-                    Err(err) => println!("Problem running update collector: {err}"),
+                    Err(err) => error!("Problem running update collector: {err}"),
                 };
             })
         })

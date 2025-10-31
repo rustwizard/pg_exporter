@@ -2,6 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
+use tracing::error;
 
 use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18};
 use crate::instance;
@@ -592,7 +593,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
         match PGStatementsCollector::new(dbi) {
             Ok(result) => Some(result),
             Err(e) => {
-                eprintln!("error when create pg statements collector: {}", e);
+                error!("error when create pg statements collector: {}", e);
                 None
             }
         }
@@ -616,7 +617,7 @@ impl Collector for PGStatementsCollector {
         let data_lock = match self.data.read() {
             Ok(lock) => lock,
             Err(e) => {
-                eprintln!("pg statements collect: can't acquire read lock: {}", e);
+                error!("pg statements collect: can't acquire read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }
@@ -626,7 +627,7 @@ impl Collector for PGStatementsCollector {
             let q = match row.query.as_ref() {
                 Some(q) => q,
                 None => {
-                    eprintln!(
+                    error!(
                         "pg statements collect: get query: {:?}",
                         anyhow!("query is empty")
                     );
@@ -645,7 +646,7 @@ impl Collector for PGStatementsCollector {
             let user = match row.user.as_ref() {
                 Some(q) => q,
                 None => {
-                    eprintln!(
+                    error!(
                         "pg statements collect: get user: {:?}",
                         anyhow!("user is empty")
                             .context(format!("pg_ver: {}", self.dbi.cfg.pg_version))
@@ -659,7 +660,7 @@ impl Collector for PGStatementsCollector {
             let database = match row.database.as_ref() {
                 Some(d) => d,
                 None => {
-                    eprintln!(
+                    error!(
                         "pg statements collect: get database: {:?}",
                         anyhow!("database is empty")
                             .context(format!("pg_ver: {}", self.dbi.cfg.pg_version))
