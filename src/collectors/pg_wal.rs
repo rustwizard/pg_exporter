@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
 use prometheus::{Counter, CounterVec, IntCounter, IntGauge};
+use tracing::error;
 
 use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V14, POSTGRES_V18};
 use crate::instance;
@@ -86,7 +87,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGWALCollector> {
     match PGWALCollector::new(dbi) {
         Ok(result) => Some(result),
         Err(e) => {
-            eprintln!("error when create pg wal collector: {}", e);
+            error!("error when create pg wal collector: {}", e);
             None
         }
     }
@@ -250,7 +251,7 @@ impl Collector for PGWALCollector {
         let data_lock = match self.data.read() {
             Ok(lock) => lock,
             Err(e) => {
-                eprintln!("pg wal collect: can't acquire read lock: {}", e);
+                error!("pg wal collect: can't acquire read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }

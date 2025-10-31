@@ -4,6 +4,7 @@ use prometheus::IntGauge;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
 use std::sync::{Arc, RwLock};
+use tracing::error;
 
 use crate::instance;
 
@@ -78,7 +79,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGLocksCollector> {
     match PGLocksCollector::new(dbi) {
         Ok(result) => Some(result),
         Err(e) => {
-            eprintln!("error when create pg locks collector: {}", e);
+            error!("error when create pg locks collector: {}", e);
             None
         }
     }
@@ -203,7 +204,7 @@ impl Collector for PGLocksCollector {
         let data_lock = match self.data.read() {
             Ok(lock) => lock,
             Err(e) => {
-                eprintln!("pg locks collect: can't acquire read lock: {}", e);
+                error!("pg locks collect: can't acquire read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }

@@ -7,6 +7,7 @@ use prometheus::{
     Counter, IntCounter, IntCounterVec, Opts,
     core::{Collector, Desc},
 };
+use tracing::error;
 
 use crate::{collectors::POSTGRES_V17, instance};
 
@@ -99,7 +100,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGBGwriterCollector> {
     match PGBGwriterCollector::new(dbi) {
         Ok(result) => Some(result),
         Err(e) => {
-            eprintln!("error when create pg bgwriter collector: {}", e);
+            error!("error when create pg bgwriter collector: {}", e);
             None
         }
     }
@@ -290,7 +291,7 @@ impl Collector for PGBGwriterCollector {
         let data_lock = match self.data.read() {
             Ok(lock) => lock,
             Err(e) => {
-                eprintln!("pg bgwriter collect: can't acquire read lock: {}", e);
+                error!("pg bgwriter collect: can't acquire read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }
