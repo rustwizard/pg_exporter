@@ -6,6 +6,7 @@ WORKDIR /usr/src/pg_exporter
 
 COPY ./src ./src
 COPY ./Cargo.toml ./Cargo.toml
+COPY ./build.rs ./build.rs 
 COPY ./pg_exporter.yml ./pg_exporter.yml
 RUN cargo build --release
 

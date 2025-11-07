@@ -1,6 +1,8 @@
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
+pub mod util;
+
 pub fn logger_init() {
     // TODO: get debug flag from config or env and set log level.
 
