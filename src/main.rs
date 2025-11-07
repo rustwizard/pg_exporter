@@ -11,8 +11,7 @@ use actix_web::{
 
 use config::Config;
 use prometheus::{Encoder, Registry};
-use tracing::{Level, error, info};
-use tracing_subscriber::FmtSubscriber;
+use tracing::{error, info};
 
 use crate::error::MetricsError;
 
@@ -44,17 +43,7 @@ async fn main() -> std::io::Result<()> {
         .try_deserialize()
         .expect("config should be initialized");
 
-    // TODO: get debug flag from config or env and set log level.
-
-    // a builder for `FmtSubscriber`.
-    let subscriber = FmtSubscriber::builder()
-        // all spans/events with a level higher than INFO (e.g, info, error, etc.)
-        // will be written to stdout.
-        .with_max_level(Level::INFO)
-        // completes the builder.
-        .finish();
-
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    pg_exporter::logger_init();
 
     info!("starting pg_exporter at {:?}", pge_config.listen_addr);
 
