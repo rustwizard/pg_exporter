@@ -5,8 +5,8 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(name = "", version = concat!("PgExporter v", env!("GIT_HASH")))]
 pub struct Cli {
-    /// Path to the configuration file. Default: "pg_exporter.yaml"
-    #[arg(short, long, default_value = "pg_exporter.yaml")]
+    /// Path to the configuration file. Default: "pg_exporter.yml"
+    #[arg(short, long, default_value = "pg_exporter.yml")]
     pub config: PathBuf,
     /// Subcommand.
     #[command(subcommand)]
