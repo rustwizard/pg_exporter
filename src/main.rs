@@ -45,7 +45,11 @@ async fn main() -> std::io::Result<()> {
 
     pg_exporter::logger_init();
 
-    info!("starting pg_exporter at {:?}", pge_config.listen_addr);
+    info!(
+        "starting pg_exporter at {:?} with version {}",
+        pge_config.listen_addr,
+        pg_exporter::version()
+    );
 
     let mut app = PGEApp {
         instances: Vec::<Arc<instance::PostgresDB>>::new(),
