@@ -1,6 +1,8 @@
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
+pub mod util;
+
 pub fn logger_init() {
     // TODO: get debug flag from config or env and set log level.
 
@@ -13,13 +15,4 @@ pub fn logger_init() {
         .finish();
 
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
-}
-
-/// Get PgExporter's version string.
-pub fn version() -> String {
-    format!(
-        "v{} [main@{}]",
-        env!("CARGO_PKG_VERSION"),
-        std::env::var("GIT_HASH").unwrap_or_default()
-    )
 }

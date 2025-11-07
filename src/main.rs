@@ -5,6 +5,8 @@ mod instance;
 
 use std::{collections::HashMap, sync::Arc};
 
+use pg_exporter::util::version;
+
 use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, Responder, get, http::header::ContentType, web,
 };
@@ -48,7 +50,7 @@ async fn main() -> std::io::Result<()> {
     info!(
         "starting pg_exporter at {:?} with version {}",
         pge_config.listen_addr,
-        pg_exporter::version()
+        version()
     );
 
     let mut app = PGEApp {
