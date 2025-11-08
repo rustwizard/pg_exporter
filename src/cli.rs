@@ -14,4 +14,13 @@ pub struct Cli {
 }
 
 #[derive(Subcommand, Debug, Clone)]
-pub enum Commands {}
+pub enum Commands {
+    /// Start PgExporter.
+    Run {
+        /// Sets the host name or IP address(es) to listen to.
+        #[arg(short, long)]
+        listen_addr: Option<String>,
+    },
+    /// Check configuration file for errors.
+    Configcheck,
+}
