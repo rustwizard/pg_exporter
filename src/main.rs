@@ -161,7 +161,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(app.clone()))
             .service(hello)
-            .route("/metrics", web::get().to(metrics))
+            .route(&pge_config.endpoint, web::get().to(metrics))
     })
     .bind(pge_config.listen_addr)?
     .run()
