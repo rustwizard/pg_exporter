@@ -5,8 +5,8 @@ use std::path::PathBuf;
 #[derive(Parser, Debug)]
 #[command(name = "", version = concat!("PgExporter v", env!("GIT_HASH")))]
 pub struct Cli {
-    /// Path to the configuration file. Default: "pg_exporter.yaml"
-    #[arg(short, long, default_value = "pg_exporter.yaml")]
+    /// Path to the configuration file. Default: "pg_exporter.yml"
+    #[arg(short, long, default_value = "pg_exporter.yml")]
     pub config: PathBuf,
     /// Subcommand.
     #[command(subcommand)]
@@ -14,4 +14,16 @@ pub struct Cli {
 }
 
 #[derive(Subcommand, Debug, Clone)]
-pub enum Commands {}
+pub enum Commands {
+    /// Start PgExporter.
+    Run {
+        /// Sets the host name or IP address(es) to listen to.
+        #[arg(short, long)]
+        listen_addr: Option<String>,
+        /// Sets the HTTP endpoint(e.g. /metrics) that exposes monitoring data in a format Prometheus can scrape.
+        #[arg(short, long)]
+        endpoint: Option<String>,
+    },
+    /// Check configuration file for errors.
+    Configcheck,
+}
