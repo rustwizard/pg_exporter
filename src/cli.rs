@@ -20,7 +20,7 @@ pub enum Commands {
         /// Sets the host name or IP address(es) to listen to.
         #[arg(short, long)]
         listen_addr: Option<String>,
-        /// Sets the HTTP endpoint that exposes monitoring data in a format Prometheus can scrape.
+        /// Sets the HTTP endpoint(e.g. /metrics) that exposes monitoring data in a format Prometheus can scrape.
         #[arg(short, long)]
         endpoint: Option<String>,
     },
