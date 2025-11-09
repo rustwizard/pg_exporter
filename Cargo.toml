@@ -23,4 +23,3 @@ thiserror = "2.0.12"
 rust_decimal = "1.38.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
-clap = { version = "4", features = ["derive"] }
