@@ -20,6 +20,7 @@ use crate::error::MetricsError;
 #[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
 struct PGEConfig {
     listen_addr: String,
+    endpoint: String,
     instances: HashMap<String, instance::Config>,
 }
 
@@ -48,8 +49,9 @@ async fn main() -> std::io::Result<()> {
     pg_exporter::logger_init();
 
     info!(
-        "starting pg_exporter at {:?} with version {}",
+        "starting pg_exporter at http://{}{} with version {}",
         pge_config.listen_addr,
+        pge_config.endpoint,
         version()
     );
 
