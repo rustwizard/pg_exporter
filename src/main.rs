@@ -4,6 +4,7 @@ mod config;
 mod error;
 mod instance;
 
+use std::io;
 use std::{path::PathBuf, sync::Arc};
 
 use pg_exporter::util::version;
@@ -33,7 +34,10 @@ async fn main() -> std::io::Result<()> {
         Ok(conf) => conf,
         Err(e) => {
             error!("pg_exporter: can't load config. {}", e);
-            return Ok(());
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidFilename,
+                "invalid file name",
+            ));
         }
     };
 
