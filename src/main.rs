@@ -31,6 +31,7 @@ struct PGEApp {
 async fn main() -> std::io::Result<()> {
     pg_exporter::logger_init();
 
+    // TODO: parse config path from cli args
     let ec: ExporterConfig = match ExporterConfig::load(Path::new("./pg_exporter.yml")) {
         Ok(conf) => conf,
         Err(e) => {
