@@ -33,7 +33,7 @@ async fn main() -> std::io::Result<()> {
     let ec: ExporterConfig = match ExporterConfig::load(&PathBuf::new()) {
         Ok(conf) => conf,
         Err(e) => {
-            error!("pg_exporter: can't load config. {}", e);
+            error!("can't load config. {}", e);
             return Err(io::Error::new(
                 io::ErrorKind::InvalidFilename,
                 "invalid file name",
