@@ -1,9 +1,12 @@
 #![warn(clippy::unwrap_used)]
 mod collectors;
+mod config;
 mod error;
 mod instance;
 
-use std::{collections::HashMap, sync::Arc};
+use std::io;
+use std::path::Path;
+use std::sync::Arc;
 
 use pg_exporter::util::version;
 
@@ -11,18 +14,11 @@ use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, Responder, get, http::header::ContentType, web,
 };
 
-use config::Config;
 use prometheus::{Encoder, Registry};
 use tracing::{error, info};
 
+use crate::config::ExporterConfig;
 use crate::error::MetricsError;
-
-#[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
-struct PGEConfig {
-    listen_addr: String,
-    endpoint: String,
-    instances: HashMap<String, instance::Config>,
-}
 
 #[derive(Clone)]
 struct PGEApp {
@@ -33,26 +29,26 @@ struct PGEApp {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let settings = Config::builder()
-        // Add in `./pg_exporter.yml`
-        .add_source(config::File::with_name("./pg_exporter.yml"))
-        // Add in settings from the environment (with a prefix of PGE)
-        // Eg.. `PGE_DEBUG=1 ./target/app` would set the `debug` key
-        .add_source(config::Environment::with_prefix("PGE"))
-        .build()
-        .expect("settings should be initialized");
-
-    let pge_config: PGEConfig = settings
-        .try_deserialize()
-        .expect("config should be initialized");
-
     pg_exporter::logger_init();
 
+    // TODO: parse config path from cli args
+    let ec: ExporterConfig = match ExporterConfig::load(Path::new("./pg_exporter.yml")) {
+        Ok(conf) => conf,
+        Err(e) => {
+            error!("can't load config. {}", e);
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidFilename,
+                "invalid file name",
+            ));
+        }
+    };
+
     info!(
-        "starting pg_exporter at http://{}{} with version {}",
-        pge_config.listen_addr,
-        pge_config.endpoint,
-        version()
+        "starting pg_exporter at http://{}{} with version {} and config({:?})",
+        ec.config.listen_addr,
+        ec.config.endpoint,
+        version(),
+        ec.config_path,
     );
 
     let mut app = PGEApp {
@@ -61,10 +57,10 @@ async fn main() -> std::io::Result<()> {
         registry: Registry::new(),
     };
 
-    for (instance, config) in pge_config.instances {
+    for (instance, config) in ec.config.instances {
         info!("starting connection for instance: {instance}");
 
-        let pgi = instance::new(&instance::Config {
+        let pgi = instance::new(&config::Instance {
             dsn: config.dsn,
             exclude_db_names: config.exclude_db_names.clone(),
             const_labels: config.const_labels.clone(),
@@ -161,9 +157,9 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(app.clone()))
             .service(hello)
-            .route("/metrics", web::get().to(metrics))
+            .route(&ec.config.endpoint, web::get().to(metrics))
     })
-    .bind(pge_config.listen_addr)?
+    .bind(ec.config.listen_addr)?
     .run()
     .await
 }
