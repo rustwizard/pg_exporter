@@ -9,7 +9,7 @@ use std::{
 pub struct ExporterConfig {
     /// pg_exporter.yml
     pub config: PGEConfig,
-    /// Path to pg_exporter.toml.
+    /// Path to pg_exporter.yml.
     pub config_path: PathBuf,
 }
 
