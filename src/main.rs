@@ -30,7 +30,7 @@ struct PGEApp {
 async fn main() -> std::io::Result<()> {
     pg_exporter::logger_init();
 
-    let exporter_conf: ExporterConfig = match ExporterConfig::load(&PathBuf::new()) {
+    let ec: ExporterConfig = match ExporterConfig::load(&PathBuf::new()) {
         Ok(conf) => conf,
         Err(e) => {
             error!("pg_exporter: can't load config. {}", e);
@@ -43,10 +43,10 @@ async fn main() -> std::io::Result<()> {
 
     info!(
         "starting pg_exporter at http://{}{} with version {} and config({:?})",
-        exporter_conf.config.listen_addr,
-        exporter_conf.config.endpoint,
+        ec.config.listen_addr,
+        ec.config.endpoint,
         version(),
-        exporter_conf.config_path,
+        ec.config_path,
     );
 
     let mut app = PGEApp {
@@ -55,7 +55,7 @@ async fn main() -> std::io::Result<()> {
         registry: Registry::new(),
     };
 
-    for (instance, config) in exporter_conf.config.instances {
+    for (instance, config) in ec.config.instances {
         info!("starting connection for instance: {instance}");
 
         let pgi = instance::new(&config::Instance {
@@ -155,9 +155,9 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(app.clone()))
             .service(hello)
-            .route(&exporter_conf.config.endpoint, web::get().to(metrics))
+            .route(&ec.config.endpoint, web::get().to(metrics))
     })
-    .bind(exporter_conf.config.listen_addr)?
+    .bind(ec.config.listen_addr)?
     .run()
     .await
 }
