@@ -1,17 +1,18 @@
 #![warn(clippy::unwrap_used)]
 mod collectors;
+mod config;
 mod error;
 mod instance;
 
 use std::{collections::HashMap, sync::Arc};
 
+use ::config::{Config, Environment, File};
 use pg_exporter::util::version;
 
 use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, Responder, get, http::header::ContentType, web,
 };
 
-use config::Config;
 use prometheus::{Encoder, Registry};
 use tracing::{error, info};
 
@@ -21,7 +22,7 @@ use crate::error::MetricsError;
 struct PGEConfig {
     listen_addr: String,
     endpoint: String,
-    instances: HashMap<String, instance::Config>,
+    instances: HashMap<String, config::Instance>,
 }
 
 #[derive(Clone)]
@@ -35,10 +36,10 @@ struct PGEApp {
 async fn main() -> std::io::Result<()> {
     let settings = Config::builder()
         // Add in `./pg_exporter.yml`
-        .add_source(config::File::with_name("./pg_exporter.yml"))
+        .add_source(File::with_name("./pg_exporter.yml"))
         // Add in settings from the environment (with a prefix of PGE)
         // Eg.. `PGE_DEBUG=1 ./target/app` would set the `debug` key
-        .add_source(config::Environment::with_prefix("PGE"))
+        .add_source(Environment::with_prefix("PGE"))
         .build()
         .expect("settings should be initialized");
 
@@ -64,7 +65,7 @@ async fn main() -> std::io::Result<()> {
     for (instance, config) in pge_config.instances {
         info!("starting connection for instance: {instance}");
 
-        let pgi = instance::new(&instance::Config {
+        let pgi = instance::new(&config::Instance {
             dsn: config.dsn,
             exclude_db_names: config.exclude_db_names.clone(),
             const_labels: config.const_labels.clone(),

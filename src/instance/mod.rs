@@ -4,16 +4,7 @@ use std::collections::HashMap;
 use tracing::info;
 
 use crate::collectors;
-
-#[derive(Debug, Default, serde_derive::Deserialize, PartialEq, Eq)]
-pub struct Config {
-    pub dsn: String,
-    pub exclude_db_names: Vec<String>,
-    pub const_labels: HashMap<String, String>,
-    pub collect_top_query: i64,
-    pub collect_top_index: i64,
-    pub no_track_mode: bool,
-}
+use crate::config::Instance;
 
 #[derive(Debug, Clone)]
 pub struct PGConfig {
@@ -38,7 +29,7 @@ pub struct PostgresDB {
     pub cfg: PGConfig,
 }
 
-pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
+pub async fn new(instance_cfg: &Instance) -> anyhow::Result<PostgresDB> {
     let pool = match PgPoolOptions::new()
         .max_connections(10)
         .connect(&instance_cfg.dsn)
