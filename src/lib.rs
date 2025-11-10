@@ -1,6 +1,7 @@
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
+pub mod config;
 pub mod util;
 
 pub fn logger_init() {
