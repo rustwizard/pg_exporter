@@ -4,11 +4,11 @@ mod config;
 mod error;
 mod instance;
 
-use std::io;
+use clap::Parser;
+use pg_exporter::util::version;
 use std::path::Path;
 use std::sync::Arc;
-
-use pg_exporter::util::version;
+use std::{io, process::exit};
 
 use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, Responder, get, http::header::ContentType, web,
@@ -19,6 +19,7 @@ use tracing::{error, info};
 
 use crate::config::ExporterConfig;
 use crate::error::MetricsError;
+use pg_exporter::cli::{self, Commands};
 
 #[derive(Clone)]
 struct PGEApp {
@@ -29,10 +30,11 @@ struct PGEApp {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let args = cli::Cli::parse();
+
     pg_exporter::logger_init();
 
-    // TODO: parse config path from cli args
-    let ec: ExporterConfig = match ExporterConfig::load(Path::new("./pg_exporter.yml")) {
+    let mut ec: ExporterConfig = match ExporterConfig::load(Path::new(&args.config)) {
         Ok(conf) => conf,
         Err(e) => {
             error!("can't load config. {}", e);
@@ -43,125 +45,48 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
+    match args.command {
+        Some(Commands::Configcheck) => {
+            // TODO: load and check config if error occuried then exit(1)
+            info!("✅ config valid");
+            exit(0);
+        }
+
+        Some(Commands::Run {
+            ref listen_addr,
+            ref endpoint,
+        }) => {
+            ec.config.endpoint = endpoint.clone().unwrap_or("/metrics".to_string());
+
+            let laddr = match listen_addr {
+                Some(la) => la,
+                None => {
+                    info!("listen_addr not set, use value from config");
+                    &ec.config.listen_addr
+                }
+            };
+            ec.config.listen_addr = laddr.to_string();
+            info!(
+                "🐘 PgExporter Run command executed. listen_addr: {}, endpoint: {}",
+                ec.config.listen_addr, ec.config.endpoint
+            );
+        }
+
+        _ => (),
+    }
+
     info!(
-        "starting pg_exporter at http://{}{} with version {} and config({:?})",
+        "🐘 PgExporter at http://{}{} with version {} and config({:?})",
         ec.config.listen_addr,
         ec.config.endpoint,
         version(),
         ec.config_path,
     );
 
-    let mut app = PGEApp {
-        instances: Vec::<Arc<instance::PostgresDB>>::new(),
-        collectors: Vec::new(),
-        registry: Registry::new(),
+    match pgexporter(args.command, ec).await {
+        Ok(_) => return Ok(()),
+        Err(e) => return Err(io::Error::new(io::ErrorKind::Interrupted, e)),
     };
-
-    for (instance, config) in ec.config.instances {
-        info!("starting connection for instance: {instance}");
-
-        let pgi = instance::new(&config::Instance {
-            dsn: config.dsn,
-            exclude_db_names: config.exclude_db_names.clone(),
-            const_labels: config.const_labels.clone(),
-            collect_top_query: config.collect_top_query,
-            collect_top_index: config.collect_top_index,
-            no_track_mode: config.no_track_mode,
-        })
-        .await
-        .expect("postgres instance should be initialized");
-
-        let arc_pgi = Arc::new(pgi);
-
-        if let Some(pc_locks) = collectors::pg_locks::new(Arc::clone(&arc_pgi)) {
-            app.registry
-                .register(Box::new(pc_locks.clone()))
-                .expect("pg locks collector should be initialized");
-            app.collectors.push(Box::new(pc_locks));
-        }
-
-        if let Some(pc_pstm) = collectors::pg_postmaster::new(Arc::clone(&arc_pgi)) {
-            app.registry
-                .register(Box::new(pc_pstm.clone()))
-                .expect("pg postmaster collector should be initialized");
-            app.collectors.push(Box::new(pc_pstm));
-        }
-
-        if let Some(pcdb) = collectors::pg_database::new(Arc::clone(&arc_pgi)) {
-            app.registry
-                .register(Box::new(pcdb.clone()))
-                .expect("pg database collector should be initialized");
-            app.collectors.push(Box::new(pcdb));
-        }
-
-        if let Some(pac) = collectors::pg_activity::new(Arc::clone(&arc_pgi)) {
-            app.registry
-                .register(Box::new(pac.clone()))
-                .expect("pg activity collector should be initialized");
-            app.collectors.push(Box::new(pac));
-        }
-
-        if let Some(pbgwr) = collectors::pg_bgwirter::new(Arc::clone(&arc_pgi)) {
-            app.registry
-                .register(Box::new(pbgwr.clone()))
-                .expect("pg bgwriter collector should be initialized");
-            app.collectors.push(Box::new(pbgwr));
-        }
-
-        if let Some(pgwalc) = collectors::pg_wal::new(Arc::clone(&arc_pgi)) {
-            app.registry
-                .register(Box::new(pgwalc.clone()))
-                .expect("pg wal collector should be initialized");
-            app.collectors.push(Box::new(pgwalc));
-        }
-
-        if let Some(pg_statio_c) = collectors::pg_stat_io::new(Arc::clone(&arc_pgi)) {
-            app.registry
-                .register(Box::new(pg_statio_c.clone()))
-                .expect("pg statio collector should be initialized");
-            app.collectors.push(Box::new(pg_statio_c));
-        }
-
-        if let Some(pgarch_c) = collectors::pg_archiver::new(Arc::clone(&arc_pgi)) {
-            app.registry
-                .register(Box::new(pgarch_c.clone()))
-                .expect("pg archiver collector should be initialized");
-            app.collectors.push(Box::new(pgarch_c));
-        }
-
-        if let Some(pgconflc) = collectors::pg_conflict::new(Arc::clone(&arc_pgi)) {
-            app.registry
-                .register(Box::new(pgconflc.clone()))
-                .expect("pg conflict collector should be initialized");
-            app.collectors.push(Box::new(pgconflc));
-        }
-
-        if let Some(pgidx_c) = collectors::pg_indexes::new(Arc::clone(&arc_pgi)) {
-            app.registry
-                .register(Box::new(pgidx_c.clone()))
-                .expect("pg indexes collector should be initialized");
-            app.collectors.push(Box::new(pgidx_c));
-        }
-
-        if let Some(pgstmt_c) = collectors::pg_statements::new(Arc::clone(&arc_pgi)) {
-            app.registry
-                .register(Box::new(pgstmt_c.clone()))
-                .expect("pg indexes collector should be initialized");
-            app.collectors.push(Box::new(pgstmt_c));
-        }
-
-        app.instances.push(arc_pgi);
-    }
-
-    HttpServer::new(move || {
-        App::new()
-            .app_data(web::Data::new(app.clone()))
-            .service(hello)
-            .route(&ec.config.endpoint, web::get().to(metrics))
-    })
-    .bind(ec.config.listen_addr)?
-    .run()
-    .await
 }
 
 #[get("/")]
@@ -213,4 +138,105 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
         .body(response);
 
     Ok(resp)
+}
+
+async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Result<()> {
+    match command {
+        None | Some(Commands::Run { .. }) => {
+            let mut app = PGEApp {
+                instances: Vec::<Arc<instance::PostgresDB>>::new(),
+                collectors: Vec::new(),
+                registry: Registry::new(),
+            };
+
+            for (instance, config) in ec.config.instances {
+                info!("starting connection for instance: {instance}");
+
+                let pgi = instance::new(&config::Instance {
+                    dsn: config.dsn,
+                    exclude_db_names: config.exclude_db_names.clone(),
+                    const_labels: config.const_labels.clone(),
+                    collect_top_query: config.collect_top_query,
+                    collect_top_index: config.collect_top_index,
+                    no_track_mode: config.no_track_mode,
+                })
+                .await?;
+
+                let arc_pgi = Arc::new(pgi);
+
+                if let Some(pc_locks) = collectors::pg_locks::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pc_locks.clone()))?;
+                    app.collectors.push(Box::new(pc_locks));
+                }
+
+                if let Some(pc_pstm) = collectors::pg_postmaster::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pc_pstm.clone()))?;
+                    app.collectors.push(Box::new(pc_pstm));
+                }
+
+                if let Some(pcdb) = collectors::pg_database::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pcdb.clone()))?;
+                    app.collectors.push(Box::new(pcdb));
+                }
+
+                if let Some(pac) = collectors::pg_activity::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pac.clone()))?;
+                    app.collectors.push(Box::new(pac));
+                }
+
+                if let Some(pbgwr) = collectors::pg_bgwirter::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pbgwr.clone()))?;
+                    app.collectors.push(Box::new(pbgwr));
+                }
+
+                if let Some(pgwalc) = collectors::pg_wal::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pgwalc.clone()))?;
+                    app.collectors.push(Box::new(pgwalc));
+                }
+
+                if let Some(pg_statio_c) = collectors::pg_stat_io::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pg_statio_c.clone()))?;
+                    app.collectors.push(Box::new(pg_statio_c));
+                }
+
+                if let Some(pgarch_c) = collectors::pg_archiver::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pgarch_c.clone()))?;
+                    app.collectors.push(Box::new(pgarch_c));
+                }
+
+                if let Some(pgconflc) = collectors::pg_conflict::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pgconflc.clone()))?;
+                    app.collectors.push(Box::new(pgconflc));
+                }
+
+                if let Some(pgidx_c) = collectors::pg_indexes::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pgidx_c.clone()))?;
+                    app.collectors.push(Box::new(pgidx_c));
+                }
+
+                if let Some(pgstmt_c) = collectors::pg_statements::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pgstmt_c.clone()))?;
+                    app.collectors.push(Box::new(pgstmt_c));
+                }
+
+                app.instances.push(arc_pgi);
+            }
+
+            HttpServer::new(move || {
+                App::new()
+                    .app_data(web::Data::new(app.clone()))
+                    .service(hello)
+                    .route(&ec.config.endpoint, web::get().to(metrics))
+            })
+            .bind(ec.config.listen_addr)?
+            .run()
+            .await?
+        }
+
+        Some(ref _command) => {}
+    }
+
+    info!("🐘 PgExporter shutting down");
+
+    Ok(())
 }
