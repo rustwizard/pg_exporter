@@ -1,6 +1,9 @@
 use ::config::{Config, Environment, File};
 use anyhow::bail;
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Clone)]
 pub struct ExporterConfig {
@@ -37,10 +40,10 @@ impl Default for ExporterConfig {
 }
 
 impl ExporterConfig {
-    pub fn load(config_path: &PathBuf) -> anyhow::Result<Self> {
+    pub fn load(config_path: &Path) -> anyhow::Result<Self> {
         let path = match config_path.to_str() {
             Some(p) => p,
-            None => bail!("config: can't load config with empty path"),
+            None => bail!("config: path should be specified"),
         };
 
         let settings = Config::builder()

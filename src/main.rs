@@ -5,7 +5,8 @@ mod error;
 mod instance;
 
 use std::io;
-use std::{path::PathBuf, sync::Arc};
+use std::path::Path;
+use std::sync::Arc;
 
 use pg_exporter::util::version;
 
@@ -30,7 +31,7 @@ struct PGEApp {
 async fn main() -> std::io::Result<()> {
     pg_exporter::logger_init();
 
-    let ec: ExporterConfig = match ExporterConfig::load(&PathBuf::new()) {
+    let ec: ExporterConfig = match ExporterConfig::load(Path::new("./pg_exporter.yml")) {
         Ok(conf) => conf,
         Err(e) => {
             error!("can't load config. {}", e);
