@@ -17,7 +17,7 @@ use actix_web::{
 use prometheus::{Encoder, Registry};
 use tracing::{error, info};
 
-use crate::config::ExporterConfig;
+use crate::config::{ExporterConfig, PGEConfig};
 use crate::error::MetricsError;
 use pg_exporter::cli::{self, Commands};
 
@@ -34,6 +34,43 @@ async fn main() -> std::io::Result<()> {
 
     pg_exporter::logger_init();
 
+    let mut overrides = PGEConfig::default();
+
+    match args.command {
+        Some(Commands::Configcheck) => {
+            if let Err(e) = ExporterConfig::load(Path::new(&args.config)) {
+                error!("{}", e);
+                exit(1);
+            }
+
+            info!("✅ config valid");
+            exit(0);
+        }
+
+        Some(Commands::Run {
+            ref listen_addr,
+            ref endpoint,
+        }) => {
+            let laddr = match listen_addr {
+                Some(la) => la,
+                None => {
+                    info!("listen_addr not set, use value from config");
+                    &"".to_string()
+                }
+            };
+
+            overrides.listen_addr = laddr.to_string();
+            overrides.endpoint = endpoint.clone().unwrap_or("/metrics".to_string());
+
+            info!(
+                "🐘 PgExporter Run command executed. listen_addr: {}, endpoint: {}",
+                overrides.listen_addr, overrides.endpoint
+            );
+        }
+
+        _ => (),
+    }
+
     let mut ec: ExporterConfig = match ExporterConfig::load(Path::new(&args.config)) {
         Ok(conf) => conf,
         Err(e) => {
@@ -45,35 +82,8 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
-    match args.command {
-        Some(Commands::Configcheck) => {
-            // TODO: load and check config if error occuried then exit(1)
-            info!("✅ config valid");
-            exit(0);
-        }
-
-        Some(Commands::Run {
-            ref listen_addr,
-            ref endpoint,
-        }) => {
-            ec.config.endpoint = endpoint.clone().unwrap_or("/metrics".to_string());
-
-            let laddr = match listen_addr {
-                Some(la) => la,
-                None => {
-                    info!("listen_addr not set, use value from config");
-                    &ec.config.listen_addr
-                }
-            };
-            ec.config.listen_addr = laddr.to_string();
-            info!(
-                "🐘 PgExporter Run command executed. listen_addr: {}, endpoint: {}",
-                ec.config.listen_addr, ec.config.endpoint
-            );
-        }
-
-        _ => (),
-    }
+    ec.config.listen_addr = overrides.listen_addr;
+    ec.config.endpoint = overrides.endpoint;
 
     info!(
         "🐘 PgExporter at http://{}{} with version {} and config({:?})",
