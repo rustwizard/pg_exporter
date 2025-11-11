@@ -61,3 +61,20 @@ impl ExporterConfig {
         })
     }
 }
+#[derive(Debug, Clone, Default)]
+pub struct Overrides {
+    pub listen_addr: Option<String>,
+    pub endpoint: Option<String>,
+}
+
+impl PGEConfig {
+    pub fn overrides(&mut self, overrides: Overrides) {
+        if let Some(listen_addr) = overrides.listen_addr {
+            self.listen_addr = Some(listen_addr);
+        }
+
+        if let Some(endpoint) = overrides.endpoint {
+            self.endpoint = Some(endpoint);
+        }
+    }
+}

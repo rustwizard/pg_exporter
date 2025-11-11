@@ -17,7 +17,7 @@ use actix_web::{
 use prometheus::{Encoder, Registry};
 use tracing::{error, info};
 
-use crate::config::{ExporterConfig, PGEConfig};
+use crate::config::{ExporterConfig, Overrides};
 use crate::error::MetricsError;
 use pg_exporter::cli::{self, Commands};
 
@@ -34,7 +34,7 @@ async fn main() -> std::io::Result<()> {
 
     pg_exporter::logger_init();
 
-    let mut overrides = PGEConfig::default();
+    let mut overrides = Overrides::default();
 
     match args.command {
         Some(Commands::Configcheck) => {
@@ -74,14 +74,7 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
-    // TODO: maybe put this to the separtate method for override config
-    if let Some(listen_addr) = overrides.listen_addr {
-        ec.config.listen_addr = Some(listen_addr);
-    }
-
-    if let Some(endpoint) = overrides.endpoint {
-        ec.config.endpoint = Some(endpoint);
-    }
+    ec.config.overrides(overrides);
 
     info!(
         "🐘 PgExporter at http://{}{} with version {} and config({:?})",
