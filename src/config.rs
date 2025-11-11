@@ -15,9 +15,9 @@ pub struct ExporterConfig {
 
 #[derive(Debug, Default, Clone, serde_derive::Deserialize, PartialEq, Eq)]
 pub struct PGEConfig {
-    pub listen_addr: String,
-    pub endpoint: String,
-    pub instances: HashMap<String, Instance>,
+    pub listen_addr: Option<String>,
+    pub endpoint: Option<String>,
+    pub instances: Option<HashMap<String, Instance>>,
 }
 
 #[derive(Debug, Default, Clone, serde_derive::Deserialize, PartialEq, Eq)]

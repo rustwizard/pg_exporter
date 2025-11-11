@@ -51,19 +51,11 @@ async fn main() -> std::io::Result<()> {
             ref listen_addr,
             ref endpoint,
         }) => {
-            let laddr = match listen_addr {
-                Some(la) => la,
-                None => {
-                    info!("listen_addr not set, use value from config");
-                    &"".to_string()
-                }
-            };
-
-            overrides.listen_addr = laddr.to_string();
-            overrides.endpoint = endpoint.clone().unwrap_or("/metrics".to_string());
+            overrides.listen_addr = listen_addr.clone();
+            overrides.endpoint = endpoint.clone();
 
             info!(
-                "🐘 PgExporter Run command executed. listen_addr: {}, endpoint: {}",
+                "🐘 PgExporter Run command executed. listen_addr: {:?}, endpoint: {:?}",
                 overrides.listen_addr, overrides.endpoint
             );
         }
@@ -82,13 +74,19 @@ async fn main() -> std::io::Result<()> {
         }
     };
 
-    ec.config.listen_addr = overrides.listen_addr;
-    ec.config.endpoint = overrides.endpoint;
+    // TODO: maybe put this to the separtate method for override config
+    if let Some(listen_addr) = overrides.listen_addr {
+        ec.config.listen_addr = Some(listen_addr);
+    }
+
+    if let Some(endpoint) = overrides.endpoint {
+        ec.config.endpoint = Some(endpoint);
+    }
 
     info!(
         "🐘 PgExporter at http://{}{} with version {} and config({:?})",
-        ec.config.listen_addr,
-        ec.config.endpoint,
+        ec.config.listen_addr.clone().unwrap_or_default(),
+        ec.config.endpoint.clone().unwrap_or_default(),
         version(),
         ec.config_path,
     );
@@ -162,7 +160,7 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                 registry: Registry::new(),
             };
 
-            for (instance, config) in ec.config.instances {
+            for (instance, config) in ec.config.instances.unwrap_or_default() {
                 info!("starting connection for instance: {instance}");
 
                 let pgi = instance::new(&config::Instance {
@@ -239,9 +237,12 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                 App::new()
                     .app_data(web::Data::new(app.clone()))
                     .service(hello)
-                    .route(&ec.config.endpoint, web::get().to(metrics))
+                    .route(
+                        &ec.config.endpoint.clone().unwrap_or_default(),
+                        web::get().to(metrics),
+                    )
             })
-            .bind(ec.config.listen_addr)?
+            .bind(ec.config.listen_addr.unwrap_or_default())?
             .run()
             .await?
         }
