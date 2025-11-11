@@ -15,9 +15,9 @@ pub struct ExporterConfig {
 
 #[derive(Debug, Default, Clone, serde_derive::Deserialize, PartialEq, Eq)]
 pub struct PGEConfig {
-    pub listen_addr: String,
-    pub endpoint: String,
-    pub instances: HashMap<String, Instance>,
+    pub listen_addr: Option<String>,
+    pub endpoint: Option<String>,
+    pub instances: Option<HashMap<String, Instance>>,
 }
 
 #[derive(Debug, Default, Clone, serde_derive::Deserialize, PartialEq, Eq)]
@@ -59,5 +59,22 @@ impl ExporterConfig {
             config: pge_config,
             config_path: config_path.into(),
         })
+    }
+}
+#[derive(Debug, Clone, Default)]
+pub struct Overrides {
+    pub listen_addr: Option<String>,
+    pub endpoint: Option<String>,
+}
+
+impl PGEConfig {
+    pub fn overrides(&mut self, overrides: Overrides) {
+        if let Some(listen_addr) = overrides.listen_addr {
+            self.listen_addr = Some(listen_addr);
+        }
+
+        if let Some(endpoint) = overrides.endpoint {
+            self.endpoint = Some(endpoint);
+        }
     }
 }

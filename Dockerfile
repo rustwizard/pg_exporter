@@ -19,6 +19,7 @@ WORKDIR /home/pg_exporter/bin/
 COPY --from=cargo-build /usr/src/pg_exporter/target/release/pg_exporter .
 COPY --from=cargo-build /usr/src/pg_exporter/pg_exporter.yml .
 
+STOPSIGNAL SIGINT
 EXPOSE 61488
 
 ENTRYPOINT ["./pg_exporter"]
