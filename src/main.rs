@@ -85,13 +85,16 @@ async fn main() -> std::io::Result<()> {
 
     match pgexporter(args.command, ec).await {
         Ok(_) => return Ok(()),
-        Err(e) => return Err(io::Error::new(io::ErrorKind::Interrupted, e)),
+        Err(e) => {
+            error!("PgExporter crashed with error: {}", e);
+            return Err(io::Error::new(io::ErrorKind::Interrupted, e));
+        }
     };
 }
 
 #[get("/")]
 async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("This is a pg_exporter for Prometheus written in Rust")
+    HttpResponse::Ok().body("This is a PgExporter for Prometheus written in Rust")
 }
 
 async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpResponse, MetricsError> {
