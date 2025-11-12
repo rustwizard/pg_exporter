@@ -112,6 +112,7 @@ pub struct PGTableCollector {
     data: Arc<RwLock<Vec<PGTablesStats>>>,
     descs: Vec<Desc>,
     seqscan: IntGaugeVec,
+    seqtupread: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -141,11 +142,24 @@ impl PGTableCollector {
         )?;
         descs.extend(seqscan.desc().into_iter().cloned());
 
+        let seqtupread = IntGaugeVec::new(
+            Opts::new(
+                "seq_tup_read_total",
+                "The total number of tuples have been read by sequential scans.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(seqtupread.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
             descs,
             seqscan,
+            seqtupread,
         })
     }
 }
@@ -176,9 +190,18 @@ impl Collector for PGTableCollector {
                     row.table.as_str(),
                 ])
                 .set(row.seq_scan.unwrap_or_default());
+
+            self.seqtupread
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.seq_tup_read.unwrap_or_default());
         }
 
         mfs.extend(self.seqscan.collect());
+        mfs.extend(self.seqtupread.collect());
         mfs
     }
 }
