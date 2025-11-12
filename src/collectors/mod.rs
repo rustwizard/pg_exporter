@@ -8,6 +8,7 @@ pub mod pg_locks;
 pub mod pg_postmaster;
 pub mod pg_stat_io;
 pub mod pg_statements;
+pub mod pg_tables;
 pub mod pg_wal;
 
 use async_trait::async_trait;
