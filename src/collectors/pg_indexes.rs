@@ -72,7 +72,7 @@ impl PGIndexesStats {
     }
 }
 
-// NewPostgresIndexesCollector returns a new Collector exposing postgres indexes stats.
+// PGIndexesCollector returns a new Collector exposing postgres indexes stats.
 // For details see
 // https://www.postgresql.org/docs/current/monitoring-stats.html#PG-STAT-ALL-INDEXES-VIEW
 // https://www.postgresql.org/docs/current/monitoring-stats.html#PG-STATIO-ALL-INDEXES-VIEW

@@ -27,6 +27,7 @@ pub struct Instance {
     pub const_labels: HashMap<String, String>,
     pub collect_top_query: i64,
     pub collect_top_index: i64,
+    pub collect_top_table: i64,
     pub no_track_mode: bool,
 }
 
