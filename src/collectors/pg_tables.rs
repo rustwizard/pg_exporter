@@ -1,3 +1,5 @@
+use rust_decimal::Decimal;
+
 const POSTGRES_USERS_TABLE: &str = "SELECT current_database() AS database, s1.schemaname AS schema, s1.relname AS table, 
 		seq_scan, seq_tup_read, idx_scan, idx_tup_fetch, n_tup_ins, n_tup_upd, n_tup_del, n_tup_hot_upd, 
 		n_live_tup, n_dead_tup, n_mod_since_analyze, 
@@ -45,3 +47,39 @@ const POSTGRES_USERS_TABLE_TOPK: &str = "WITH stat AS ( SELECT s1.schemaname AS 
 		NULLIF(SUM(COALESCE(toast_blks_hit,0)),0), NULLIF(SUM(COALESCE(tidx_blks_read,0)),0), NULLIF(SUM(COALESCE(tidx_blks_hit, 0)),0), 
 		NULLIF(SUM(COALESCE(size_bytes,0)),0), NULLIF(SUM(COALESCE(reltuples,0)),0) FROM stat 
 		WHERE NOT visible HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible))";
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct PGTablesStats {
+    database: String,
+    schema: String,
+    table: String,
+    seq_scan: i64,
+    seq_tup_read: i64,
+    idx_scan: i64,
+    idx_tup_fetch: i64,
+    n_tup_ins: i64,
+    n_tup_upd: i64,
+    n_tup_del: i64,
+    n_tup_hot_upd: i64,
+    n_live_tup: i64,
+    n_dead_tup: i64,
+    n_mod_since_analyze: i64,
+    last_vacuum_seconds: Decimal,
+    last_analyze_seconds: Decimal,
+    last_vacuum_time: Decimal,
+    last_analyze_time: Decimal,
+    vacuum_count: i64,
+    autovacuum_count: i64,
+    analyze_count: i64,
+    autoanalyze_count: i64,
+    heap_blks_read: i64,
+    heap_blks_hit: i64,
+    idx_blks_read: i64,
+    idx_blks_hit: i64,
+    toast_blks_read: i64,
+    toast_blks_hit: i64,
+    tidx_blks_read: i64,
+    tidx_blks_hit: i64,
+    size_bytes: i64,
+    reltuples: f64,
+}
