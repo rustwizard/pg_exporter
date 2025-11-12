@@ -6,7 +6,6 @@ use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::{Gauge, GaugeVec, IntCounterVec, IntGauge};
 use prometheus::{IntGaugeVec, proto};
 use tracing::error;
 
