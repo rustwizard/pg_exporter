@@ -1,5 +1,18 @@
 use rust_decimal::Decimal;
 
+use std::sync::{Arc, RwLock};
+
+use anyhow::bail;
+use async_trait::async_trait;
+
+use prometheus::core::{Collector, Desc, Opts};
+use prometheus::{GaugeVec, IntCounterVec};
+use prometheus::{IntGaugeVec, proto};
+use tracing::error;
+
+use crate::collectors::PG;
+use crate::instance;
+
 const POSTGRES_USERS_TABLE: &str = "SELECT current_database() AS database, s1.schemaname AS schema, s1.relname AS table, 
 		seq_scan, seq_tup_read, idx_scan, idx_tup_fetch, n_tup_ins, n_tup_upd, n_tup_del, n_tup_hot_upd, 
 		n_live_tup, n_dead_tup, n_mod_since_analyze, 
@@ -88,4 +101,15 @@ impl PGTablesStats {
     fn new() -> Self {
         Self::default()
     }
+}
+
+// PGTableCollector returns a new Collector exposing postgres tables stats.
+// For details see
+// https://www.postgresql.org/docs/current/monitoring-stats.html#PG-STAT-ALL-TABLES-VIEW
+// https://www.postgresql.org/docs/current/monitoring-stats.html#PG-STATIO-ALL-TABLES-VIEW
+#[derive(Debug, Clone)]
+pub struct PGTableCollector {
+    dbi: Arc<instance::PostgresDB>,
+    data: Arc<RwLock<Vec<PGTablesStats>>>,
+    descs: Vec<Desc>,
 }
