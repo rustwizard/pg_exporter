@@ -13,6 +13,7 @@ pub struct PGConfig {
     pub pg_wal_segment_size: i64,
     pub pg_collect_topidx: i64,
     pub pg_collect_topq: i64,
+    pub pg_collect_top_table: i64,
     // NoTrackMode controls collector to gather and send sensitive information, such as queries texts.
     pub notrack: bool,
     // pg_stat_statements defines is pg_stat_statements available in shared_preload_libraries and available for queries.
@@ -107,6 +108,7 @@ pub async fn new(instance_cfg: &Instance) -> anyhow::Result<PostgresDB> {
         pg_wal_segment_size,
         pg_collect_topidx: instance_cfg.collect_top_index,
         pg_collect_topq: instance_cfg.collect_top_query,
+        pg_collect_top_table: instance_cfg.collect_top_table,
         notrack: instance_cfg.no_track_mode,
         pg_stat_statements: exist,
         pg_stat_statements_schema: scheme,

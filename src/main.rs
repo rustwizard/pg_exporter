@@ -162,6 +162,7 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                     const_labels: config.const_labels.clone(),
                     collect_top_query: config.collect_top_query,
                     collect_top_index: config.collect_top_index,
+                    collect_top_table: config.collect_top_table,
                     no_track_mode: config.no_track_mode,
                 })
                 .await?;
@@ -221,6 +222,11 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                 if let Some(pgstmt_c) = collectors::pg_statements::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pgstmt_c.clone()))?;
                     app.collectors.push(Box::new(pgstmt_c));
+                }
+
+                if let Some(pgtbl_c) = collectors::pg_tables::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pgtbl_c.clone()))?;
+                    app.collectors.push(Box::new(pgtbl_c));
                 }
 
                 app.instances.push(arc_pgi);

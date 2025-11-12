@@ -6,7 +6,7 @@ use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::{GaugeVec, IntCounterVec};
+use prometheus::{Gauge, GaugeVec, IntCounterVec, IntGauge};
 use prometheus::{IntGaugeVec, proto};
 use tracing::error;
 
@@ -50,7 +50,7 @@ const POSTGRES_USERS_TABLE_TOPK: &str = "WITH stat AS ( SELECT s1.schemaname AS 
 		n_tup_hot_upd, n_live_tup, n_dead_tup, n_mod_since_analyze, last_vacuum_seconds, last_analyze_seconds, last_vacuum_time, last_analyze_time, 
 		vacuum_count, autovacuum_count, analyze_count, autoanalyze_count, heap_blks_read, heap_blks_hit, idx_blks_read, idx_blks_hit, toast_blks_read, 
 		toast_blks_hit, tidx_blks_read, tidx_blks_hit, size_bytes, reltuples FROM stat WHERE visible UNION ALL (SELECT current_database() AS database, 
-		'all_shemas', 'all_other_tables', NULLIF(SUM(COALESCE(seq_scan,0)),0), NULLIF(SUM(COALESCE(seq_tup_read,0)),0), NULLIF(SUM(COALESCE(idx_scan,0)),0), 
+		'all_shemas', 'all_other_tables', NULLIF(SUM(COALESCE(seq_scan,0)),0)::INT8, NULLIF(SUM(COALESCE(seq_tup_read,0)),0), NULLIF(SUM(COALESCE(idx_scan,0)),0), 
 		NULLIF(SUM(COALESCE(idx_tup_fetch,0)),0), NULLIF(SUM(COALESCE(n_tup_ins,0)),0), NULLIF(SUM(COALESCE(n_tup_upd,0)),0), 
 		NULLIF(SUM(COALESCE(n_tup_del,0)),0), NULLIF(SUM(COALESCE(n_tup_hot_upd,0)),0), NULLIF(SUM(COALESCE(n_live_tup,0)),0), 
 		NULLIF(SUM(COALESCE(n_dead_tup,0)),0), NULLIF(SUM(COALESCE(n_mod_since_analyze,0)),0), NULL, NULL, NULL, NULL, 
@@ -112,4 +112,90 @@ pub struct PGTableCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<Vec<PGTablesStats>>>,
     descs: Vec<Desc>,
+    seqscan: IntGauge,
+}
+
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
+    match PGTableCollector::new(dbi) {
+        Ok(result) => Some(result),
+        Err(e) => {
+            error!("error when create pg tables collector: {}", e);
+            None
+        }
+    }
+}
+
+impl PGTableCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
+        let mut descs = Vec::new();
+        let data = Arc::new(RwLock::new(vec![PGTablesStats::new()]));
+
+        let seqscan = IntGauge::with_opts(
+            Opts::new(
+                "seq_scan_total",
+                "The total number of sequential scans have been done.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+        )?;
+        descs.extend(seqscan.desc().into_iter().cloned());
+
+        Ok(Self {
+            dbi,
+            data,
+            descs,
+            seqscan,
+        })
+    }
+}
+
+impl Collector for PGTableCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        self.descs.iter().collect()
+    }
+
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(4);
+
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                error!("pg tables collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
+
+        for row in data_lock.iter() {}
+
+        mfs
+    }
+}
+
+#[async_trait]
+impl PG for PGTableCollector {
+    async fn update(&self) -> Result<(), anyhow::Error> {
+        let mut pg_tables_stat_rows = if self.dbi.cfg.pg_collect_top_table > 0 {
+            sqlx::query_as::<_, PGTablesStats>(POSTGRES_USERS_TABLE_TOPK)
+                .bind(self.dbi.cfg.pg_collect_topidx)
+                .fetch_all(&self.dbi.db)
+                .await?
+        } else {
+            sqlx::query_as::<_, PGTablesStats>(POSTGRES_USERS_TABLE)
+                .fetch_all(&self.dbi.db)
+                .await?
+        };
+
+        let mut data_lock = match self.data.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!("pg tables collector: can't acquire write lock. {}", e),
+        };
+
+        data_lock.clear();
+        data_lock.append(&mut pg_tables_stat_rows);
+
+        Ok(())
+    }
 }
