@@ -48,7 +48,7 @@ const POSTGRES_USERS_TABLE_TOPK: &str = "WITH stat AS ( SELECT s1.schemaname AS 
 		NULLIF(SUM(COALESCE(size_bytes,0)),0), NULLIF(SUM(COALESCE(reltuples,0)),0) FROM stat 
 		WHERE NOT visible HAVING EXISTS (SELECT 1 FROM stat WHERE NOT visible))";
 
-#[derive(sqlx::FromRow, Debug)]
+#[derive(sqlx::FromRow, Debug, Default)]
 pub struct PGTablesStats {
     database: String,
     schema: String,
@@ -82,4 +82,10 @@ pub struct PGTablesStats {
     tidx_blks_hit: i64,
     size_bytes: i64,
     reltuples: f64,
+}
+
+impl PGTablesStats {
+    fn new() -> Self {
+        Self::default()
+    }
 }
