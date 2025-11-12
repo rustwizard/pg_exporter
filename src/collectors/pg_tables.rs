@@ -112,7 +112,7 @@ pub struct PGTableCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<Vec<PGTablesStats>>>,
     descs: Vec<Desc>,
-    seqscan: IntGauge,
+    seqscan: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -130,7 +130,7 @@ impl PGTableCollector {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGTablesStats::new()]));
 
-        let seqscan = IntGauge::with_opts(
+        let seqscan = IntGaugeVec::new(
             Opts::new(
                 "seq_scan_total",
                 "The total number of sequential scans have been done.",
@@ -138,6 +138,7 @@ impl PGTableCollector {
             .namespace(super::NAMESPACE)
             .subsystem("table")
             .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
         )?;
         descs.extend(seqscan.desc().into_iter().cloned());
 
@@ -168,8 +169,17 @@ impl Collector for PGTableCollector {
             }
         };
 
-        for row in data_lock.iter() {}
+        for row in data_lock.iter() {
+            self.seqscan
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.seq_scan.unwrap_or_default());
+        }
 
+        mfs.extend(self.seqscan.collect());
         mfs
     }
 }
