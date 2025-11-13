@@ -1,4 +1,5 @@
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 use std::sync::{Arc, RwLock};
 
@@ -113,6 +114,16 @@ pub struct PGTableCollector {
     descs: Vec<Desc>,
     seqscan: IntGaugeVec,
     seqtupread: IntGaugeVec,
+    idxscan: IntGaugeVec,
+    idxtupfetch: IntGaugeVec,
+    tup_inserted: IntGaugeVec,
+    tup_updated: IntGaugeVec,
+    tup_hot_updated: IntGaugeVec,
+    tup_deleted: IntGaugeVec,
+    tup_live: IntGaugeVec,
+    tup_dead: IntGaugeVec,
+    tup_modified: IntGaugeVec,
+    maint_last_vacuum_age: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -154,12 +165,142 @@ impl PGTableCollector {
         )?;
         descs.extend(seqtupread.desc().into_iter().cloned());
 
+        let idxscan = IntGaugeVec::new(
+            Opts::new(
+                "idx_scan_total",
+                "Total number of index scans initiated on this table.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(idxscan.desc().into_iter().cloned());
+
+        let idxtupfetch = IntGaugeVec::new(
+            Opts::new(
+                "idx_tup_fetch_total",
+                "Total number of live rows fetched by index scans.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(idxtupfetch.desc().into_iter().cloned());
+
+        let tup_inserted = IntGaugeVec::new(
+            Opts::new(
+                "tuples_inserted_total",
+                "Total number of tuples (rows) have been inserted in the table.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(tup_inserted.desc().into_iter().cloned());
+
+        let tup_updated = IntGaugeVec::new(
+            Opts::new(
+                "tuples_updated_total",
+                "Total number of tuples (rows) have been updated in the table (including HOT).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(tup_updated.desc().into_iter().cloned());
+
+        let tup_hot_updated = IntGaugeVec::new(
+            Opts::new(
+                "tuples_hot_updated_total",
+                "Total number of tuples (rows) have been updated in the table (HOT only).",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(tup_hot_updated.desc().into_iter().cloned());
+
+        let tup_deleted = IntGaugeVec::new(
+            Opts::new(
+                "tuples_deleted_total",
+                "Total number of tuples (rows) have been deleted in the table.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(tup_deleted.desc().into_iter().cloned());
+
+        let tup_live = IntGaugeVec::new(
+            Opts::new(
+                "tuples_live_total",
+                "Estimated total number of live tuples in the table.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(tup_live.desc().into_iter().cloned());
+
+        let tup_dead = IntGaugeVec::new(
+            Opts::new(
+                "tuples_dead_total",
+                "Estimated total number of dead tuples in the table.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(tup_dead.desc().into_iter().cloned());
+
+        let tup_modified = IntGaugeVec::new(
+            Opts::new(
+                "tuples_modified_total",
+                "Estimated total number of modified tuples in the table since last vacuum.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(tup_modified.desc().into_iter().cloned());
+
+        let maint_last_vacuum_age = IntGaugeVec::new(
+            Opts::new(
+                "since_last_vacuum_seconds_total",
+                "Total time since table was vacuumed manually or automatically (not counting VACUUM FULL), in seconds. DEPRECATED.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(maint_last_vacuum_age.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
             descs,
             seqscan,
             seqtupread,
+            idxscan,
+            idxtupfetch,
+            tup_inserted,
+            tup_updated,
+            tup_hot_updated,
+            tup_deleted,
+            tup_live,
+            tup_dead,
+            tup_modified,
+            maint_last_vacuum_age,
         })
     }
 }
@@ -183,6 +324,7 @@ impl Collector for PGTableCollector {
         };
 
         for row in data_lock.iter() {
+            // scan stats
             self.seqscan
                 .with_label_values(&[
                     row.database.as_str(),
@@ -198,10 +340,112 @@ impl Collector for PGTableCollector {
                     row.table.as_str(),
                 ])
                 .set(row.seq_tup_read.unwrap_or_default());
+
+            self.idxscan
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.idx_scan.unwrap_or_default());
+
+            self.idxtupfetch
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.idx_tup_fetch.unwrap_or_default());
+
+            // tuples stats
+            self.tup_inserted
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.n_tup_ins.unwrap_or_default());
+
+            self.tup_updated
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.n_tup_upd.unwrap_or_default());
+
+            self.tup_hot_updated
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.n_tup_hot_upd.unwrap_or_default());
+
+            self.tup_deleted
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.n_tup_del.unwrap_or_default());
+
+            // tuples total stats
+            self.tup_live
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.n_live_tup.unwrap_or_default());
+
+            self.tup_dead
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.n_dead_tup.unwrap_or_default());
+
+            self.tup_modified
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.n_mod_since_analyze.unwrap_or_default());
+
+            // maintenance stats -- avoid metrics spam produced by inactive tables, don't send metrics if counters are zero.
+            let last_vacuum_seconds = row
+                .last_vacuum_seconds
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if last_vacuum_seconds > 0 {
+                self.maint_last_vacuum_age
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                    ])
+                    .set(last_vacuum_seconds);
+            }
         }
 
         mfs.extend(self.seqscan.collect());
         mfs.extend(self.seqtupread.collect());
+        mfs.extend(self.idxscan.collect());
+        mfs.extend(self.idxtupfetch.collect());
+        mfs.extend(self.tup_inserted.collect());
+        mfs.extend(self.tup_updated.collect());
+        mfs.extend(self.tup_hot_updated.collect());
+        mfs.extend(self.tup_deleted.collect());
+        mfs.extend(self.tup_live.collect());
+        mfs.extend(self.tup_dead.collect());
+        mfs.extend(self.tup_modified.collect());
+        mfs.extend(self.maint_last_vacuum_age.collect());
+
         mfs
     }
 }
