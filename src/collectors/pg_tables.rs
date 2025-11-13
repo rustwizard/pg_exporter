@@ -114,6 +114,7 @@ pub struct PGTableCollector {
     seqscan: IntGaugeVec,
     seqtupread: IntGaugeVec,
     idxscan: IntGaugeVec,
+    idxtupfetch: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -167,6 +168,18 @@ impl PGTableCollector {
         )?;
         descs.extend(idxscan.desc().into_iter().cloned());
 
+        let idxtupfetch = IntGaugeVec::new(
+            Opts::new(
+                "idx_tup_fetch_total",
+                "Total number of live rows fetched by index scans.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(idxtupfetch.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
@@ -174,6 +187,7 @@ impl PGTableCollector {
             seqscan,
             seqtupread,
             idxscan,
+            idxtupfetch,
         })
     }
 }
@@ -197,6 +211,7 @@ impl Collector for PGTableCollector {
         };
 
         for row in data_lock.iter() {
+            // scan stats
             self.seqscan
                 .with_label_values(&[
                     row.database.as_str(),
@@ -220,11 +235,20 @@ impl Collector for PGTableCollector {
                     row.table.as_str(),
                 ])
                 .set(row.idx_scan.unwrap_or_default());
+
+            self.idxtupfetch
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.idx_tup_fetch.unwrap_or_default());
         }
 
         mfs.extend(self.seqscan.collect());
         mfs.extend(self.seqtupread.collect());
         mfs.extend(self.idxscan.collect());
+        mfs.extend(self.idxtupfetch.collect());
 
         mfs
     }
