@@ -118,6 +118,7 @@ pub struct PGTableCollector {
     tup_inserted: IntGaugeVec,
     tup_updated: IntGaugeVec,
     tup_hot_updated: IntGaugeVec,
+    tup_deleted: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -219,6 +220,18 @@ impl PGTableCollector {
         )?;
         descs.extend(tup_hot_updated.desc().into_iter().cloned());
 
+        let tup_deleted = IntGaugeVec::new(
+            Opts::new(
+                "tuples_deleted_total",
+                "Total number of tuples (rows) have been deleted in the table.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(tup_deleted.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
@@ -230,6 +243,7 @@ impl PGTableCollector {
             tup_inserted,
             tup_updated,
             tup_hot_updated,
+            tup_deleted,
         })
     }
 }
@@ -310,6 +324,14 @@ impl Collector for PGTableCollector {
                     row.table.as_str(),
                 ])
                 .set(row.n_tup_hot_upd.unwrap_or_default());
+
+            self.tup_deleted
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.n_tup_del.unwrap_or_default());
         }
 
         mfs.extend(self.seqscan.collect());
@@ -319,6 +341,7 @@ impl Collector for PGTableCollector {
         mfs.extend(self.tup_inserted.collect());
         mfs.extend(self.tup_updated.collect());
         mfs.extend(self.tup_hot_updated.collect());
+        mfs.extend(self.tup_deleted.collect());
 
         mfs
     }
