@@ -1,4 +1,5 @@
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 use std::sync::{Arc, RwLock};
 
@@ -122,6 +123,7 @@ pub struct PGTableCollector {
     tup_live: IntGaugeVec,
     tup_dead: IntGaugeVec,
     tup_modified: IntGaugeVec,
+    maint_last_vacuum_age: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -271,6 +273,18 @@ impl PGTableCollector {
         )?;
         descs.extend(tup_modified.desc().into_iter().cloned());
 
+        let maint_last_vacuum_age = IntGaugeVec::new(
+            Opts::new(
+                "since_last_vacuum_seconds_total",
+                "Total time since table was vacuumed manually or automatically (not counting VACUUM FULL), in seconds. DEPRECATED.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(maint_last_vacuum_age.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
@@ -286,6 +300,7 @@ impl PGTableCollector {
             tup_live,
             tup_dead,
             tup_modified,
+            maint_last_vacuum_age,
         })
     }
 }
@@ -399,6 +414,23 @@ impl Collector for PGTableCollector {
                     row.table.as_str(),
                 ])
                 .set(row.n_mod_since_analyze.unwrap_or_default());
+
+            // maintenance stats -- avoid metrics spam produced by inactive tables, don't send metrics if counters are zero.
+            let last_vacuum_seconds = row
+                .last_vacuum_seconds
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if last_vacuum_seconds > 0 {
+                self.maint_last_vacuum_age
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                    ])
+                    .set(last_vacuum_seconds);
+            }
         }
 
         mfs.extend(self.seqscan.collect());
@@ -412,6 +444,7 @@ impl Collector for PGTableCollector {
         mfs.extend(self.tup_live.collect());
         mfs.extend(self.tup_dead.collect());
         mfs.extend(self.tup_modified.collect());
+        mfs.extend(self.maint_last_vacuum_age.collect());
 
         mfs
     }
