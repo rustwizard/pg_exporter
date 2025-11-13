@@ -119,6 +119,7 @@ pub struct PGTableCollector {
     tup_updated: IntGaugeVec,
     tup_hot_updated: IntGaugeVec,
     tup_deleted: IntGaugeVec,
+    tup_live: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -232,6 +233,18 @@ impl PGTableCollector {
         )?;
         descs.extend(tup_deleted.desc().into_iter().cloned());
 
+        let tup_live = IntGaugeVec::new(
+            Opts::new(
+                "tuples_live_total",
+                "Estimated total number of live tuples in the table.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(tup_live.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
@@ -244,6 +257,7 @@ impl PGTableCollector {
             tup_updated,
             tup_hot_updated,
             tup_deleted,
+            tup_live,
         })
     }
 }
@@ -332,6 +346,15 @@ impl Collector for PGTableCollector {
                     row.table.as_str(),
                 ])
                 .set(row.n_tup_del.unwrap_or_default());
+
+            // tuples total stats
+            self.tup_live
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.n_live_tup.unwrap_or_default());
         }
 
         mfs.extend(self.seqscan.collect());
@@ -342,6 +365,7 @@ impl Collector for PGTableCollector {
         mfs.extend(self.tup_updated.collect());
         mfs.extend(self.tup_hot_updated.collect());
         mfs.extend(self.tup_deleted.collect());
+        mfs.extend(self.tup_live.collect());
 
         mfs
     }
