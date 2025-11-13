@@ -115,6 +115,7 @@ pub struct PGTableCollector {
     seqtupread: IntGaugeVec,
     idxscan: IntGaugeVec,
     idxtupfetch: IntGaugeVec,
+    tup_inserted: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -180,6 +181,18 @@ impl PGTableCollector {
         )?;
         descs.extend(idxtupfetch.desc().into_iter().cloned());
 
+        let tup_inserted = IntGaugeVec::new(
+            Opts::new(
+                "tuples_inserted_total",
+                "Total number of tuples (rows) have been inserted in the table.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(tup_inserted.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
@@ -188,6 +201,7 @@ impl PGTableCollector {
             seqtupread,
             idxscan,
             idxtupfetch,
+            tup_inserted,
         })
     }
 }
@@ -243,12 +257,22 @@ impl Collector for PGTableCollector {
                     row.table.as_str(),
                 ])
                 .set(row.idx_tup_fetch.unwrap_or_default());
+
+            // tuples stats
+            self.tup_inserted
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.n_tup_ins.unwrap_or_default());
         }
 
         mfs.extend(self.seqscan.collect());
         mfs.extend(self.seqtupread.collect());
         mfs.extend(self.idxscan.collect());
         mfs.extend(self.idxtupfetch.collect());
+        mfs.extend(self.tup_inserted.collect());
 
         mfs
     }
