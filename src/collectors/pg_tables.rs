@@ -7,7 +7,7 @@ use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::{IntGaugeVec, proto};
+use prometheus::{GaugeVec, IntGaugeVec, proto};
 use tracing::error;
 
 use crate::collectors::PG;
@@ -22,7 +22,7 @@ const POSTGRES_USERS_TABLE: &str = "SELECT current_database() AS database, s1.sc
 		EXTRACT(EPOCH FROM GREATEST(last_analyze, last_autoanalyze)) AS last_analyze_time, 
 		vacuum_count, autovacuum_count,  analyze_count, autoanalyze_count, heap_blks_read, heap_blks_hit, idx_blks_read, 
 		idx_blks_hit, toast_blks_read, toast_blks_hit, tidx_blks_read, tidx_blks_hit, 
-		pg_table_size(s1.relid) AS size_bytes, reltuples 
+		pg_table_size(s1.relid) AS size_bytes, reltuples::FLOAT8 
 		FROM pg_stat_user_tables s1 JOIN pg_statio_user_tables s2 USING (schemaname, relname) JOIN pg_class c ON s1.relid = c.oid 
 		WHERE NOT EXISTS (SELECT 1 FROM pg_locks WHERE relation = s1.relid AND mode = 'AccessExclusiveLock' AND granted)";
 
@@ -49,7 +49,7 @@ const POSTGRES_USERS_TABLE_TOPK: &str = "WITH stat AS ( SELECT s1.schemaname AS 
 		SELECT current_database() AS database, schema, \"table\", seq_scan, seq_tup_read, idx_scan, idx_tup_fetch, n_tup_ins, n_tup_upd, n_tup_del, 
 		n_tup_hot_upd, n_live_tup, n_dead_tup, n_mod_since_analyze, last_vacuum_seconds, last_analyze_seconds, last_vacuum_time, last_analyze_time, 
 		vacuum_count, autovacuum_count, analyze_count, autoanalyze_count, heap_blks_read, heap_blks_hit, idx_blks_read, idx_blks_hit, toast_blks_read, 
-		toast_blks_hit, tidx_blks_read, tidx_blks_hit, size_bytes, reltuples FROM stat WHERE visible UNION ALL (SELECT current_database() AS database, 
+		toast_blks_hit, tidx_blks_read, tidx_blks_hit, size_bytes, reltuples::FLOAT8 FROM stat WHERE visible UNION ALL (SELECT current_database() AS database, 
 		'all_shemas', 'all_other_tables', NULLIF(SUM(COALESCE(seq_scan,0)),0)::INT8, NULLIF(SUM(COALESCE(seq_tup_read,0)),0)::INT8, NULLIF(SUM(COALESCE(idx_scan,0)),0)::INT8, 
 		NULLIF(SUM(COALESCE(idx_tup_fetch,0)),0)::INT8, NULLIF(SUM(COALESCE(n_tup_ins,0)),0)::INT8, NULLIF(SUM(COALESCE(n_tup_upd,0)),0)::INT8, 
 		NULLIF(SUM(COALESCE(n_tup_del,0)),0)::INT8, NULLIF(SUM(COALESCE(n_tup_hot_upd,0)),0)::INT8, NULLIF(SUM(COALESCE(n_live_tup,0)),0)::INT8, 
@@ -94,7 +94,7 @@ pub struct PGTablesStats {
     tidx_blks_read: Option<i64>,
     tidx_blks_hit: Option<i64>,
     size_bytes: Option<i64>,
-    reltuples: Option<f32>,
+    reltuples: Option<f64>,
 }
 
 impl PGTablesStats {
@@ -130,6 +130,7 @@ pub struct PGTableCollector {
     maintenance: IntGaugeVec,
     io: IntGaugeVec,
     sizes: IntGaugeVec,
+    reltuples: GaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -360,6 +361,18 @@ impl PGTableCollector {
         )?;
         descs.extend(sizes.desc().into_iter().cloned());
 
+        let reltuples = GaugeVec::new(
+            Opts::new(
+                "tuples_total",
+                "Number of rows in the table based on pg_class.reltuples value.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(reltuples.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
@@ -382,6 +395,7 @@ impl PGTableCollector {
             maintenance,
             io,
             sizes,
+            reltuples,
         })
     }
 }
@@ -781,6 +795,14 @@ impl Collector for PGTableCollector {
                     row.table.as_str(),
                 ])
                 .set(row.size_bytes.unwrap_or_default());
+
+            self.reltuples
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.reltuples.unwrap_or_default());
         }
 
         mfs.extend(self.seqscan.collect());
@@ -801,6 +823,7 @@ impl Collector for PGTableCollector {
         mfs.extend(self.maintenance.collect());
         mfs.extend(self.io.collect());
         mfs.extend(self.sizes.collect());
+        mfs.extend(self.reltuples.collect());
 
         mfs
     }
