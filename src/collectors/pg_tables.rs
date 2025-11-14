@@ -129,6 +129,7 @@ pub struct PGTableCollector {
     maint_last_analyze_time: IntGaugeVec,
     maintenance: IntGaugeVec,
     io: IntGaugeVec,
+    sizes: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -347,6 +348,18 @@ impl PGTableCollector {
         )?;
         descs.extend(io.desc().into_iter().cloned());
 
+        let sizes = IntGaugeVec::new(
+            Opts::new(
+                "size_bytes",
+                "Total size of the table (including all forks and TOASTed data), in bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(sizes.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
@@ -368,6 +381,7 @@ impl PGTableCollector {
             maint_last_analyze_time,
             maintenance,
             io,
+            sizes,
         })
     }
 }
@@ -759,6 +773,14 @@ impl Collector for PGTableCollector {
                     ])
                     .set(tidxhit);
             }
+
+            self.sizes
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.size_bytes.unwrap_or_default());
         }
 
         mfs.extend(self.seqscan.collect());
@@ -778,6 +800,7 @@ impl Collector for PGTableCollector {
         mfs.extend(self.maint_last_analyze_age.collect());
         mfs.extend(self.maintenance.collect());
         mfs.extend(self.io.collect());
+        mfs.extend(self.sizes.collect());
 
         mfs
     }
