@@ -126,6 +126,7 @@ pub struct PGTableCollector {
     maint_last_vacuum_age: IntGaugeVec,
     maint_last_analyze_age: IntGaugeVec,
     maint_last_vacuum_time: IntGaugeVec,
+    maint_last_analyze_time: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -311,6 +312,18 @@ impl PGTableCollector {
         )?;
         descs.extend(maint_last_vacuum_time.desc().into_iter().cloned());
 
+        let maint_last_analyze_time = IntGaugeVec::new(
+            Opts::new(
+                "last_analyze_time",
+                "Time of last analyze or autoanalyze has been done, in unixtime.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(maint_last_analyze_time.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
@@ -329,6 +342,7 @@ impl PGTableCollector {
             maint_last_vacuum_age,
             maint_last_analyze_age,
             maint_last_vacuum_time,
+            maint_last_analyze_time,
         })
     }
 }
@@ -491,6 +505,22 @@ impl Collector for PGTableCollector {
                     ])
                     .set(last_vacuum_time);
             }
+
+            let last_analyze_time = row
+                .last_analyze_time
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if last_analyze_time > 0 {
+                self.maint_last_analyze_time
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                    ])
+                    .set(last_analyze_time);
+            }
         }
 
         mfs.extend(self.seqscan.collect());
@@ -507,6 +537,7 @@ impl Collector for PGTableCollector {
         mfs.extend(self.maint_last_vacuum_age.collect());
         mfs.extend(self.maint_last_analyze_age.collect());
         mfs.extend(self.maint_last_vacuum_time.collect());
+        mfs.extend(self.maint_last_analyze_age.collect());
 
         mfs
     }
