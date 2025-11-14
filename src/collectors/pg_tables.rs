@@ -127,6 +127,7 @@ pub struct PGTableCollector {
     maint_last_analyze_age: IntGaugeVec,
     maint_last_vacuum_time: IntGaugeVec,
     maint_last_analyze_time: IntGaugeVec,
+    maintenance: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -324,6 +325,18 @@ impl PGTableCollector {
         )?;
         descs.extend(maint_last_analyze_time.desc().into_iter().cloned());
 
+        let maintenance = IntGaugeVec::new(
+            Opts::new(
+                "maintenance_total",
+                "Total number of times this table has been maintained by each type of maintenance operation.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table", "type"],
+        )?;
+        descs.extend(maintenance.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
@@ -343,6 +356,7 @@ impl PGTableCollector {
             maint_last_analyze_age,
             maint_last_vacuum_time,
             maint_last_analyze_time,
+            maintenance,
         })
     }
 }
@@ -521,6 +535,74 @@ impl Collector for PGTableCollector {
                     ])
                     .set(last_analyze_time);
             }
+
+            let vacuum = row
+                .vacuum_count
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if vacuum > 0 {
+                self.maintenance
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "vacuum",
+                    ])
+                    .set(vacuum);
+            }
+
+            let autovacuum = row
+                .autovacuum_count
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if autovacuum > 0 {
+                self.maintenance
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "autovacuum",
+                    ])
+                    .set(autovacuum);
+            }
+
+            let analyze = row
+                .analyze_count
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if analyze > 0 {
+                self.maintenance
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "analyze",
+                    ])
+                    .set(analyze);
+            }
+
+            let autoanalyze = row
+                .autoanalyze_count
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if autoanalyze > 0 {
+                self.maintenance
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "autoanalyze",
+                    ])
+                    .set(autoanalyze);
+            }
         }
 
         mfs.extend(self.seqscan.collect());
@@ -538,6 +620,7 @@ impl Collector for PGTableCollector {
         mfs.extend(self.maint_last_analyze_age.collect());
         mfs.extend(self.maint_last_vacuum_time.collect());
         mfs.extend(self.maint_last_analyze_age.collect());
+        mfs.extend(self.maintenance.collect());
 
         mfs
     }
