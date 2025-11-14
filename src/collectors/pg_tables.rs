@@ -128,6 +128,7 @@ pub struct PGTableCollector {
     maint_last_vacuum_time: IntGaugeVec,
     maint_last_analyze_time: IntGaugeVec,
     maintenance: IntGaugeVec,
+    io: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -337,6 +338,15 @@ impl PGTableCollector {
         )?;
         descs.extend(maintenance.desc().into_iter().cloned());
 
+        let io = IntGaugeVec::new(
+            Opts::new("blocks_total", "Total number of table's blocks processed.")
+                .namespace(super::NAMESPACE)
+                .subsystem("table")
+                .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table", "type", "access"],
+        )?;
+        descs.extend(io.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
@@ -357,6 +367,7 @@ impl PGTableCollector {
             maint_last_vacuum_time,
             maint_last_analyze_time,
             maintenance,
+            io,
         })
     }
 }
@@ -603,6 +614,151 @@ impl Collector for PGTableCollector {
                     ])
                     .set(autoanalyze);
             }
+
+            // io stats -- avoid metrics spam produced by inactive tables, don't send metrics if counters are zero.
+            let heapread = row
+                .heap_blks_read
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if heapread > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "heap",
+                        "read",
+                    ])
+                    .set(heapread);
+            }
+
+            let heaphit = row
+                .heap_blks_hit
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if heapread > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "heap",
+                        "hit",
+                    ])
+                    .set(heaphit);
+            }
+
+            let idxread = row
+                .idx_blks_read
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if idxread > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "idx",
+                        "read",
+                    ])
+                    .set(idxread);
+            }
+
+            let idxhit = row
+                .idx_blks_hit
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if idxhit > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "idx",
+                        "hit",
+                    ])
+                    .set(idxhit);
+            }
+
+            let toastread = row
+                .toast_blks_read
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if toastread > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "toast",
+                        "read",
+                    ])
+                    .set(toastread);
+            }
+
+            let toasthit = row
+                .toast_blks_hit
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if toasthit > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "toast",
+                        "hit",
+                    ])
+                    .set(toasthit);
+            }
+
+            let tidxread = row
+                .tidx_blks_read
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if tidxread > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "tidx",
+                        "read",
+                    ])
+                    .set(tidxread);
+            }
+
+            let tidxhit = row
+                .tidx_blks_hit
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if tidxhit > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "tidx",
+                        "hit",
+                    ])
+                    .set(tidxhit);
+            }
         }
 
         mfs.extend(self.seqscan.collect());
@@ -621,6 +777,7 @@ impl Collector for PGTableCollector {
         mfs.extend(self.maint_last_vacuum_time.collect());
         mfs.extend(self.maint_last_analyze_age.collect());
         mfs.extend(self.maintenance.collect());
+        mfs.extend(self.io.collect());
 
         mfs
     }
