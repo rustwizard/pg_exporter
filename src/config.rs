@@ -20,6 +20,7 @@ pub struct PGEConfig {
     pub instances: Option<HashMap<String, Instance>>,
 }
 
+// TODO: make fields Optional
 #[derive(Debug, Default, Clone, serde_derive::Deserialize, PartialEq, Eq)]
 pub struct Instance {
     pub dsn: String,

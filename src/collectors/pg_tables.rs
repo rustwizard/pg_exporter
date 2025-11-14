@@ -7,7 +7,7 @@ use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::{IntGaugeVec, proto};
+use prometheus::{GaugeVec, IntGaugeVec, proto};
 use tracing::error;
 
 use crate::collectors::PG;
@@ -22,7 +22,7 @@ const POSTGRES_USERS_TABLE: &str = "SELECT current_database() AS database, s1.sc
 		EXTRACT(EPOCH FROM GREATEST(last_analyze, last_autoanalyze)) AS last_analyze_time, 
 		vacuum_count, autovacuum_count,  analyze_count, autoanalyze_count, heap_blks_read, heap_blks_hit, idx_blks_read, 
 		idx_blks_hit, toast_blks_read, toast_blks_hit, tidx_blks_read, tidx_blks_hit, 
-		pg_table_size(s1.relid) AS size_bytes, reltuples 
+		pg_table_size(s1.relid) AS size_bytes, reltuples::FLOAT8 
 		FROM pg_stat_user_tables s1 JOIN pg_statio_user_tables s2 USING (schemaname, relname) JOIN pg_class c ON s1.relid = c.oid 
 		WHERE NOT EXISTS (SELECT 1 FROM pg_locks WHERE relation = s1.relid AND mode = 'AccessExclusiveLock' AND granted)";
 
@@ -49,7 +49,7 @@ const POSTGRES_USERS_TABLE_TOPK: &str = "WITH stat AS ( SELECT s1.schemaname AS 
 		SELECT current_database() AS database, schema, \"table\", seq_scan, seq_tup_read, idx_scan, idx_tup_fetch, n_tup_ins, n_tup_upd, n_tup_del, 
 		n_tup_hot_upd, n_live_tup, n_dead_tup, n_mod_since_analyze, last_vacuum_seconds, last_analyze_seconds, last_vacuum_time, last_analyze_time, 
 		vacuum_count, autovacuum_count, analyze_count, autoanalyze_count, heap_blks_read, heap_blks_hit, idx_blks_read, idx_blks_hit, toast_blks_read, 
-		toast_blks_hit, tidx_blks_read, tidx_blks_hit, size_bytes, reltuples FROM stat WHERE visible UNION ALL (SELECT current_database() AS database, 
+		toast_blks_hit, tidx_blks_read, tidx_blks_hit, size_bytes, reltuples::FLOAT8 FROM stat WHERE visible UNION ALL (SELECT current_database() AS database, 
 		'all_shemas', 'all_other_tables', NULLIF(SUM(COALESCE(seq_scan,0)),0)::INT8, NULLIF(SUM(COALESCE(seq_tup_read,0)),0)::INT8, NULLIF(SUM(COALESCE(idx_scan,0)),0)::INT8, 
 		NULLIF(SUM(COALESCE(idx_tup_fetch,0)),0)::INT8, NULLIF(SUM(COALESCE(n_tup_ins,0)),0)::INT8, NULLIF(SUM(COALESCE(n_tup_upd,0)),0)::INT8, 
 		NULLIF(SUM(COALESCE(n_tup_del,0)),0)::INT8, NULLIF(SUM(COALESCE(n_tup_hot_upd,0)),0)::INT8, NULLIF(SUM(COALESCE(n_live_tup,0)),0)::INT8, 
@@ -94,7 +94,7 @@ pub struct PGTablesStats {
     tidx_blks_read: Option<i64>,
     tidx_blks_hit: Option<i64>,
     size_bytes: Option<i64>,
-    reltuples: Option<f32>,
+    reltuples: Option<f64>,
 }
 
 impl PGTablesStats {
@@ -124,6 +124,13 @@ pub struct PGTableCollector {
     tup_dead: IntGaugeVec,
     tup_modified: IntGaugeVec,
     maint_last_vacuum_age: IntGaugeVec,
+    maint_last_analyze_age: IntGaugeVec,
+    maint_last_vacuum_time: IntGaugeVec,
+    maint_last_analyze_time: IntGaugeVec,
+    maintenance: IntGaugeVec,
+    io: IntGaugeVec,
+    sizes: IntGaugeVec,
+    reltuples: GaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
@@ -285,6 +292,87 @@ impl PGTableCollector {
         )?;
         descs.extend(maint_last_vacuum_age.desc().into_iter().cloned());
 
+        let maint_last_analyze_age = IntGaugeVec::new(
+            Opts::new(
+                "since_last_analyze_seconds_total",
+                "Total time since table was analyzed manually or automatically, in seconds. DEPRECATED.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(maint_last_analyze_age.desc().into_iter().cloned());
+
+        let maint_last_vacuum_time = IntGaugeVec::new(
+            Opts::new(
+                "last_vacuum_time",
+                "Time of last vacuum or autovacuum has been done (not counting VACUUM FULL), in unixtime.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(maint_last_vacuum_time.desc().into_iter().cloned());
+
+        let maint_last_analyze_time = IntGaugeVec::new(
+            Opts::new(
+                "last_analyze_time",
+                "Time of last analyze or autoanalyze has been done, in unixtime.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(maint_last_analyze_time.desc().into_iter().cloned());
+
+        let maintenance = IntGaugeVec::new(
+            Opts::new(
+                "maintenance_total",
+                "Total number of times this table has been maintained by each type of maintenance operation.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table", "type"],
+        )?;
+        descs.extend(maintenance.desc().into_iter().cloned());
+
+        let io = IntGaugeVec::new(
+            Opts::new("blocks_total", "Total number of table's blocks processed.")
+                .namespace(super::NAMESPACE)
+                .subsystem("table")
+                .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table", "type", "access"],
+        )?;
+        descs.extend(io.desc().into_iter().cloned());
+
+        let sizes = IntGaugeVec::new(
+            Opts::new(
+                "size_bytes",
+                "Total size of the table (including all forks and TOASTed data), in bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(sizes.desc().into_iter().cloned());
+
+        let reltuples = GaugeVec::new(
+            Opts::new(
+                "tuples_total",
+                "Number of rows in the table based on pg_class.reltuples value.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("table")
+            .const_labels(dbi.labels.clone()),
+            &["database", "schema", "table"],
+        )?;
+        descs.extend(reltuples.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
@@ -301,6 +389,13 @@ impl PGTableCollector {
             tup_dead,
             tup_modified,
             maint_last_vacuum_age,
+            maint_last_analyze_age,
+            maint_last_vacuum_time,
+            maint_last_analyze_time,
+            maintenance,
+            io,
+            sizes,
+            reltuples,
         })
     }
 }
@@ -431,6 +526,283 @@ impl Collector for PGTableCollector {
                     ])
                     .set(last_vacuum_seconds);
             }
+
+            let last_analyze_seconds = row
+                .last_analyze_seconds
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if last_analyze_seconds > 0 {
+                self.maint_last_analyze_age
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                    ])
+                    .set(last_analyze_seconds);
+            }
+
+            let last_vacuum_time = row
+                .last_vacuum_time
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if last_vacuum_time > 0 {
+                self.maint_last_vacuum_time
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                    ])
+                    .set(last_vacuum_time);
+            }
+
+            let last_analyze_time = row
+                .last_analyze_time
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if last_analyze_time > 0 {
+                self.maint_last_analyze_time
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                    ])
+                    .set(last_analyze_time);
+            }
+
+            let vacuum = row
+                .vacuum_count
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if vacuum > 0 {
+                self.maintenance
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "vacuum",
+                    ])
+                    .set(vacuum);
+            }
+
+            let autovacuum = row
+                .autovacuum_count
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if autovacuum > 0 {
+                self.maintenance
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "autovacuum",
+                    ])
+                    .set(autovacuum);
+            }
+
+            let analyze = row
+                .analyze_count
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if analyze > 0 {
+                self.maintenance
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "analyze",
+                    ])
+                    .set(analyze);
+            }
+
+            let autoanalyze = row
+                .autoanalyze_count
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if autoanalyze > 0 {
+                self.maintenance
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "autoanalyze",
+                    ])
+                    .set(autoanalyze);
+            }
+
+            // io stats -- avoid metrics spam produced by inactive tables, don't send metrics if counters are zero.
+            let heapread = row
+                .heap_blks_read
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if heapread > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "heap",
+                        "read",
+                    ])
+                    .set(heapread);
+            }
+
+            let heaphit = row
+                .heap_blks_hit
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if heapread > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "heap",
+                        "hit",
+                    ])
+                    .set(heaphit);
+            }
+
+            let idxread = row
+                .idx_blks_read
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if idxread > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "idx",
+                        "read",
+                    ])
+                    .set(idxread);
+            }
+
+            let idxhit = row
+                .idx_blks_hit
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if idxhit > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "idx",
+                        "hit",
+                    ])
+                    .set(idxhit);
+            }
+
+            let toastread = row
+                .toast_blks_read
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if toastread > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "toast",
+                        "read",
+                    ])
+                    .set(toastread);
+            }
+
+            let toasthit = row
+                .toast_blks_hit
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if toasthit > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "toast",
+                        "hit",
+                    ])
+                    .set(toasthit);
+            }
+
+            let tidxread = row
+                .tidx_blks_read
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if tidxread > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "tidx",
+                        "read",
+                    ])
+                    .set(tidxread);
+            }
+
+            let tidxhit = row
+                .tidx_blks_hit
+                .unwrap_or_default()
+                .to_i64()
+                .unwrap_or_default();
+
+            if tidxhit > 0 {
+                self.io
+                    .with_label_values(&[
+                        row.database.as_str(),
+                        row.schema.as_str(),
+                        row.table.as_str(),
+                        "tidx",
+                        "hit",
+                    ])
+                    .set(tidxhit);
+            }
+
+            self.sizes
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.size_bytes.unwrap_or_default());
+
+            self.reltuples
+                .with_label_values(&[
+                    row.database.as_str(),
+                    row.schema.as_str(),
+                    row.table.as_str(),
+                ])
+                .set(row.reltuples.unwrap_or_default());
         }
 
         mfs.extend(self.seqscan.collect());
@@ -445,6 +817,13 @@ impl Collector for PGTableCollector {
         mfs.extend(self.tup_dead.collect());
         mfs.extend(self.tup_modified.collect());
         mfs.extend(self.maint_last_vacuum_age.collect());
+        mfs.extend(self.maint_last_analyze_age.collect());
+        mfs.extend(self.maint_last_vacuum_time.collect());
+        mfs.extend(self.maint_last_analyze_age.collect());
+        mfs.extend(self.maintenance.collect());
+        mfs.extend(self.io.collect());
+        mfs.extend(self.sizes.collect());
+        mfs.extend(self.reltuples.collect());
 
         mfs
     }
