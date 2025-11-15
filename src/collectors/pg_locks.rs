@@ -46,32 +46,21 @@ pub struct PGLocksCollector {
 
 #[derive(sqlx::FromRow, Debug, Default)]
 pub struct LocksStat {
-    access_share_lock: i64,
-    row_share_lock: i64,
-    row_exclusive_lock: i64,
-    share_update_exclusive_lock: i64,
-    share_lock: i64,
-    share_row_exclusive_lock: i64,
-    exclusive_lock: i64,
-    access_exclusive_lock: i64,
-    not_granted: i64,
-    total: i64,
+    access_share_lock: Option<i64>,
+    row_share_lock: Option<i64>,
+    row_exclusive_lock: Option<i64>,
+    share_update_exclusive_lock: Option<i64>,
+    share_lock: Option<i64>,
+    share_row_exclusive_lock: Option<i64>,
+    exclusive_lock: Option<i64>,
+    access_exclusive_lock: Option<i64>,
+    not_granted: Option<i64>,
+    total: Option<i64>,
 }
 
 impl LocksStat {
     pub fn new() -> LocksStat {
-        LocksStat {
-            access_share_lock: (0),
-            row_share_lock: (0),
-            row_exclusive_lock: (0),
-            share_update_exclusive_lock: (0),
-            share_lock: (0),
-            share_row_exclusive_lock: (0),
-            exclusive_lock: (0),
-            access_exclusive_lock: (0),
-            not_granted: (0),
-            total: (0),
-        }
+        LocksStat::default()
     }
 }
 
@@ -210,19 +199,55 @@ impl Collector for PGLocksCollector {
             }
         };
 
-        self.access_share_lock.set(data_lock.access_share_lock);
-        self.access_exclusive_lock
-            .set(data_lock.access_exclusive_lock);
-        self.exclusive_lock.set(data_lock.exclusive_lock);
-        self.row_exclusive_lock.set(data_lock.row_exclusive_lock);
-        self.row_share_lock.set(data_lock.row_share_lock);
-        self.not_granted.set(data_lock.not_granted);
-        self.share_lock.set(data_lock.share_lock);
-        self.share_row_exclusive_lock
-            .set(data_lock.share_row_exclusive_lock);
-        self.share_update_exclusive_lock
-            .set(data_lock.share_update_exclusive_lock);
-        self.total.set(data_lock.total);
+        let access_share_lock = data_lock.access_share_lock.unwrap_or_default();
+        if access_share_lock > 0 {
+            self.access_share_lock.set(access_share_lock);
+        }
+
+        let access_exclusive_lock = data_lock.access_exclusive_lock.unwrap_or_default();
+        if access_exclusive_lock > 0 {
+            self.access_exclusive_lock.set(access_exclusive_lock);
+        }
+
+        let exclusive_lock = data_lock.exclusive_lock.unwrap_or_default();
+        if exclusive_lock > 0 {
+            self.exclusive_lock.set(exclusive_lock);
+        }
+
+        let row_exclusive_lock = data_lock.row_exclusive_lock.unwrap_or_default();
+        if row_exclusive_lock > 0 {
+            self.row_exclusive_lock.set(row_exclusive_lock);
+        }
+        let row_share_lock = data_lock.row_share_lock.unwrap_or_default();
+        if row_share_lock > 0 {
+            self.row_share_lock.set(row_share_lock);
+        }
+
+        let not_granted = data_lock.not_granted.unwrap_or_default();
+        if not_granted > 0 {
+            self.not_granted.set(not_granted);
+        }
+
+        let share_lock = data_lock.share_lock.unwrap_or_default();
+        if share_lock > 0 {
+            self.share_lock.set(share_lock);
+        }
+
+        let share_row_exclusive_lock = data_lock.share_row_exclusive_lock.unwrap_or_default();
+        if share_row_exclusive_lock > 0 {
+            self.share_row_exclusive_lock.set(share_row_exclusive_lock);
+        }
+
+        let share_update_exclusive_lock = data_lock.share_update_exclusive_lock.unwrap_or_default();
+        if share_update_exclusive_lock > 0 {
+            self.share_update_exclusive_lock
+                .set(share_update_exclusive_lock);
+        }
+
+        let total = data_lock.total.unwrap_or_default();
+        if total > 0 {
+            self.total.set(total);
+        }
 
         mfs.extend(self.access_exclusive_lock.collect());
         mfs.extend(self.access_share_lock.collect());
