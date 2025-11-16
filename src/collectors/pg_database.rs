@@ -16,7 +16,7 @@ const PG_DATABASE_QUERY: &str = "SELECT pg_database.datname as name FROM pg_data
 const PG_DATABASE_SIZE_QUERY: &str = "SELECT pg_database_size($1)";
 const DATABASE_SUBSYSTEM: &str = "database";
 
-#[derive(sqlx::FromRow, Debug)]
+#[derive(sqlx::FromRow, Debug, Default)]
 pub struct PGDatabaseStats {
     size_bytes: HashMap<String, i64>,
 }
@@ -27,10 +27,8 @@ pub struct PGDatabaseName {
 }
 
 impl PGDatabaseStats {
-    pub fn new() -> PGDatabaseStats {
-        PGDatabaseStats {
-            size_bytes: HashMap::new(),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 

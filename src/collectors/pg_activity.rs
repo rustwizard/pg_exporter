@@ -39,7 +39,7 @@ const ST_WAITING: &str = "waiting"; // fake state based on 'wait_event_type == L
 // Wait event type names
 const WE_LOCK: &str = "Lock";
 
-#[derive(sqlx::FromRow, Debug)]
+#[derive(sqlx::FromRow, Debug, Default)]
 pub struct PGActivityStats {
     start_time_seconds: f64, // unix time when postmaster has been started
     query_select: i64,       // number of select queries: SELECT, TABLE
@@ -70,33 +70,15 @@ pub struct PGActivityStats {
     re: QueryRegexp,
 }
 
+impl Default for QueryRegexp {
+    fn default() -> Self {
+        QueryRegexp::new()
+    }
+}
+
 impl PGActivityStats {
     pub fn new() -> PGActivityStats {
-        PGActivityStats {
-            start_time_seconds: (0.0),
-            query_select: (0),
-            query_mod: (0),
-            query_ddl: (0),
-            query_maint: (0),
-            query_with: (0),
-            query_copy: (0),
-            query_other: (0),
-            prepared: (0),
-            vacuum_ops: HashMap::new(),
-            max_idle_user: HashMap::new(),
-            max_idle_maint: HashMap::new(),
-            max_active_user: HashMap::new(),
-            max_active_maint: HashMap::new(),
-            max_wait_user: HashMap::new(),
-            max_wait_maint: HashMap::new(),
-            idle: HashMap::new(),
-            idlexact: HashMap::new(),
-            active: HashMap::new(),
-            other: HashMap::new(),
-            waiting: HashMap::new(),
-            wait_events: HashMap::new(),
-            re: QueryRegexp::new(),
-        }
+        Self::default()
     }
 
     pub fn update_state(&mut self, usename: &str, datname: &str, state: &str) {
