@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use tracing::info;
 
 use crate::collectors;
-use crate::config::Instance;
 
 #[derive(Debug, Clone)]
 pub struct PGConfig {
@@ -30,7 +29,19 @@ pub struct PostgresDB {
     pub cfg: PGConfig,
 }
 
-pub async fn new(instance_cfg: &Instance) -> anyhow::Result<PostgresDB> {
+// TODO: make fields Optional
+#[derive(Debug, Default, Clone, serde_derive::Deserialize, PartialEq, Eq)]
+pub struct Config {
+    pub dsn: String,
+    pub exclude_db_names: Option<Vec<String>>,
+    pub const_labels: HashMap<String, String>,
+    pub collect_top_query: Option<i64>,
+    pub collect_top_index: Option<i64>,
+    pub collect_top_table: Option<i64>,
+    pub no_track_mode: Option<bool>,
+}
+
+pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
     let pool = match PgPoolOptions::new()
         .max_connections(10)
         .connect(&instance_cfg.dsn)
@@ -106,17 +117,17 @@ pub async fn new(instance_cfg: &Instance) -> anyhow::Result<PostgresDB> {
         pg_version,
         pg_block_size,
         pg_wal_segment_size,
-        pg_collect_topidx: instance_cfg.collect_top_index,
-        pg_collect_topq: instance_cfg.collect_top_query,
-        pg_collect_top_table: instance_cfg.collect_top_table,
-        notrack: instance_cfg.no_track_mode,
+        pg_collect_topidx: instance_cfg.collect_top_index.unwrap_or_default(),
+        pg_collect_topq: instance_cfg.collect_top_query.unwrap_or_default(),
+        pg_collect_top_table: instance_cfg.collect_top_table.unwrap_or_default(),
+        notrack: instance_cfg.no_track_mode.unwrap_or_default(),
         pg_stat_statements: exist,
         pg_stat_statements_schema: scheme,
     };
 
     Ok(PostgresDB::new(
         pool,
-        instance_cfg.exclude_db_names.clone(),
+        instance_cfg.exclude_db_names.clone().unwrap_or_default(),
         instance_cfg.const_labels.clone(),
         cfg,
     ))

@@ -5,6 +5,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::instance;
+
 #[derive(Debug, Clone)]
 pub struct ExporterConfig {
     /// pg_exporter.yml
@@ -17,19 +19,7 @@ pub struct ExporterConfig {
 pub struct PGEConfig {
     pub listen_addr: Option<String>,
     pub endpoint: Option<String>,
-    pub instances: Option<HashMap<String, Instance>>,
-}
-
-// TODO: make fields Optional
-#[derive(Debug, Default, Clone, serde_derive::Deserialize, PartialEq, Eq)]
-pub struct Instance {
-    pub dsn: String,
-    pub exclude_db_names: Vec<String>,
-    pub const_labels: HashMap<String, String>,
-    pub collect_top_query: i64,
-    pub collect_top_index: i64,
-    pub collect_top_table: i64,
-    pub no_track_mode: bool,
+    pub instances: Option<HashMap<String, instance::Config>>,
 }
 
 impl Default for ExporterConfig {
