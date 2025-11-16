@@ -14,16 +14,14 @@ use super::PG;
 const POSTMASTER_QUERY: &str = "SELECT extract(epoch from pg_postmaster_start_time)::FLOAT8 as start_time_seconds from pg_postmaster_start_time()";
 const POSTMASTER_SUBSYSTEM: &str = "postmaster";
 
-#[derive(sqlx::FromRow, Debug)]
+#[derive(sqlx::FromRow, Debug, Default)]
 pub struct PGPostmasterStats {
     start_time_seconds: f64,
 }
 
 impl PGPostmasterStats {
-    pub fn new() -> PGPostmasterStats {
-        PGPostmasterStats {
-            start_time_seconds: (0.0),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
