@@ -156,7 +156,7 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
             for (instance, config) in ec.config.instances.unwrap_or_default() {
                 info!("starting connection for instance: {instance}");
 
-                let pgi = instance::new(&config::Instance {
+                let pgi = instance::new(&instance::Config {
                     dsn: config.dsn,
                     exclude_db_names: config.exclude_db_names.clone(),
                     const_labels: config.const_labels.clone(),
