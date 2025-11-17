@@ -10,7 +10,7 @@ use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{GaugeVec, IntGaugeVec, proto};
 use tracing::{error, info};
 
-use crate::collectors::{PG, POSTGRES_V10};
+use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V12};
 use crate::instance;
 
 const POSTGRES_TEMP_FILES_INFLIGHT: &str = "SELECT ts.spcname AS tablespace, COALESCE(COUNT(size), 0) AS files_total, COALESCE(sum(size), 0) AS bytes_total, 
@@ -33,6 +33,7 @@ pub struct PGStorageCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<Vec<PGStorageStats>>>,
     descs: Vec<Desc>,
+    temp_files: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStorageCollector> {
@@ -56,7 +57,24 @@ impl PGStorageCollector {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGStorageStats::default()]));
 
-        Ok(Self { dbi, data, descs })
+        let temp_files = IntGaugeVec::new(
+            Opts::new(
+                "in_flight",
+                "Number of temporary files processed in flight.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("temp_files")
+            .const_labels(dbi.labels.clone()),
+            &["tablespace"],
+        )?;
+        descs.extend(temp_files.desc().into_iter().cloned());
+
+        Ok(Self {
+            dbi,
+            data,
+            descs,
+            temp_files,
+        })
     }
 }
 
@@ -66,7 +84,33 @@ impl Collector for PGStorageCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        todo!()
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(4);
+
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                error!("pg tables collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
+
+        for row in data_lock.iter() {
+            let tablespace = row.tablespace.clone().unwrap_or_default();
+            if self.dbi.cfg.pg_version >= POSTGRES_V12 {
+                self.temp_files.with_label_values(&[tablespace]).set(
+                    row.bytes_total
+                        .unwrap_or_default()
+                        .to_i64()
+                        .unwrap_or_default(),
+                );
+            }
+        }
+
+        mfs.extend(self.temp_files.collect());
+
+        mfs
     }
 }
 
