@@ -64,6 +64,20 @@ impl Collector for PGStorageCollector {
 #[async_trait]
 impl PG for PGStorageCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
+        let mut pg_storage_stat_rows =
+            sqlx::query_as::<_, PGStorageStats>(POSTGRES_TEMP_FILES_INFLIGHT)
+                .bind(self.dbi.cfg.pg_collect_topidx)
+                .fetch_all(&self.dbi.db)
+                .await?;
+
+        let mut data_lock = match self.data.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!("pg storage collector: can't acquire write lock. {}", e),
+        };
+
+        data_lock.clear();
+        data_lock.append(&mut pg_storage_stat_rows);
+
         Ok(())
     }
 }
