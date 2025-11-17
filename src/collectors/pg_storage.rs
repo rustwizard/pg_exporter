@@ -8,9 +8,9 @@ use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{GaugeVec, IntGaugeVec, proto};
-use tracing::error;
+use tracing::{error, info};
 
-use crate::collectors::PG;
+use crate::collectors::{PG, POSTGRES_V10};
 use crate::instance;
 
 const POSTGRES_TEMP_FILES_INFLIGHT: &str = "SELECT ts.spcname AS tablespace, COALESCE(COUNT(size), 0) AS files_total, COALESCE(sum(size), 0) AS bytes_total, 
@@ -36,18 +36,27 @@ pub struct PGStorageCollector {
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStorageCollector> {
-    match PGStorageCollector::new(dbi) {
-        Ok(result) => Some(result),
-        Err(e) => {
-            error!("error when create pg storage collector: {}", e);
-            None
+    // Collecting pg_storage since Postgres 10.
+    if dbi.cfg.pg_version >= POSTGRES_V10 {
+        match PGStorageCollector::new(dbi) {
+            Ok(result) => Some(result),
+            Err(e) => {
+                error!("error when create pg storage collector: {}", e);
+                None
+            }
         }
+    } else {
+        info!("some server-side functions are not available, required Postgres 10 or newer");
+        None
     }
 }
 
 impl PGStorageCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
-        todo!()
+        let mut descs = Vec::new();
+        let data = Arc::new(RwLock::new(vec![PGStorageStats::default()]));
+
+        Ok(Self { dbi, data, descs })
     }
 }
 
