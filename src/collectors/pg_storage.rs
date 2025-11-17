@@ -34,6 +34,7 @@ pub struct PGStorageCollector {
     data: Arc<RwLock<Vec<PGStorageStats>>>,
     descs: Vec<Desc>,
     temp_files: IntGaugeVec,
+    temp_bytes: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStorageCollector> {
@@ -69,11 +70,24 @@ impl PGStorageCollector {
         )?;
         descs.extend(temp_files.desc().into_iter().cloned());
 
+        let temp_bytes = IntGaugeVec::new(
+            Opts::new(
+                "in_flight",
+                "Number of bytes occupied by temporary files processed in flight.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("temp_bytes")
+            .const_labels(dbi.labels.clone()),
+            &["tablespace"],
+        )?;
+        descs.extend(temp_bytes.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
             descs,
             temp_files,
+            temp_bytes,
         })
     }
 }
@@ -99,7 +113,14 @@ impl Collector for PGStorageCollector {
         for row in data_lock.iter() {
             let tablespace = row.tablespace.clone().unwrap_or_default();
             if self.dbi.cfg.pg_version >= POSTGRES_V12 {
-                self.temp_files.with_label_values(&[tablespace]).set(
+                self.temp_files.with_label_values(&[&tablespace]).set(
+                    row.files_total
+                        .unwrap_or_default()
+                        .to_i64()
+                        .unwrap_or_default(),
+                );
+
+                self.temp_bytes.with_label_values(&[&tablespace]).set(
                     row.bytes_total
                         .unwrap_or_default()
                         .to_i64()
@@ -109,6 +130,7 @@ impl Collector for PGStorageCollector {
         }
 
         mfs.extend(self.temp_files.collect());
+        mfs.extend(self.temp_bytes.collect());
 
         mfs
     }
