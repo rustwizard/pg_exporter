@@ -35,6 +35,7 @@ pub struct PGStorageCollector {
     descs: Vec<Desc>,
     temp_files: IntGaugeVec,
     temp_bytes: IntGaugeVec,
+    temp_files_max_age: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStorageCollector> {
@@ -82,12 +83,25 @@ impl PGStorageCollector {
         )?;
         descs.extend(temp_bytes.desc().into_iter().cloned());
 
+        let temp_files_max_age = IntGaugeVec::new(
+            Opts::new(
+                "max_age_seconds",
+                "The age of the oldest temporary file, in seconds.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("temp_bytes")
+            .const_labels(dbi.labels.clone()),
+            &["tablespace"],
+        )?;
+        descs.extend(temp_files_max_age.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
             descs,
             temp_files,
             temp_bytes,
+            temp_files_max_age,
         })
     }
 }
@@ -112,6 +126,8 @@ impl Collector for PGStorageCollector {
 
         for row in data_lock.iter() {
             let tablespace = row.tablespace.clone().unwrap_or_default();
+
+            // Collecting in-flight temp only since Postgres 12.
             if self.dbi.cfg.pg_version >= POSTGRES_V12 {
                 self.temp_files.with_label_values(&[&tablespace]).set(
                     row.files_total
@@ -126,11 +142,21 @@ impl Collector for PGStorageCollector {
                         .to_i64()
                         .unwrap_or_default(),
                 );
+
+                self.temp_files_max_age
+                    .with_label_values(&[&tablespace])
+                    .set(
+                        row.max_age_seconds
+                            .unwrap_or_default()
+                            .to_i64()
+                            .unwrap_or_default(),
+                    );
             }
         }
 
         mfs.extend(self.temp_files.collect());
         mfs.extend(self.temp_bytes.collect());
+        mfs.extend(self.temp_files_max_age.collect());
 
         mfs
     }
