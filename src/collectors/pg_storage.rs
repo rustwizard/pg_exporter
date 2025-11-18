@@ -7,7 +7,7 @@ use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
-use prometheus::{GaugeVec, IntGaugeVec, proto};
+use prometheus::{IntGaugeVec, proto};
 use tracing::{error, info};
 
 use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V12};
