@@ -49,6 +49,7 @@ pub struct PGStorageCollector {
     temp_files_max_age: IntGaugeVec,
     wal_dir_bytes: IntGaugeVec,
     wal_dir_files: IntGaugeVec,
+    tmp_files_bytes: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStorageCollector> {
@@ -134,6 +135,18 @@ impl PGStorageCollector {
         )?;
         descs.extend(wal_dir_files.desc().into_iter().cloned());
 
+        let tmp_files_bytes = IntGaugeVec::new(
+            Opts::new(
+                "bytes",
+                "The size of all Postgres temp directories, in bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("temp_files_all")
+            .const_labels(dbi.labels.clone()),
+            &["device", "mountpoint", "path"],
+        )?;
+        descs.extend(tmp_files_bytes.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
@@ -144,6 +157,7 @@ impl PGStorageCollector {
             temp_files_max_age,
             wal_dir_bytes,
             wal_dir_files,
+            tmp_files_bytes,
         })
     }
 }
@@ -221,11 +235,21 @@ impl Collector for PGStorageCollector {
             .with_label_values(&["unknown", "unknown", &waldir_path])
             .set(waldir_files_count);
 
+        let tmp_files_bytes = dirstat_lock
+            .tmpfiles_size_bytes
+            .unwrap_or_default()
+            .to_i64()
+            .unwrap_or_default();
+        self.tmp_files_bytes
+            .with_label_values(&["temp", "temp", "temp"])
+            .set(tmp_files_bytes);
+
         mfs.extend(self.temp_files.collect());
         mfs.extend(self.temp_bytes.collect());
         mfs.extend(self.temp_files_max_age.collect());
         mfs.extend(self.wal_dir_bytes.collect());
         mfs.extend(self.wal_dir_files.collect());
+        mfs.extend(self.tmp_files_bytes.collect());
 
         mfs
     }
