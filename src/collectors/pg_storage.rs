@@ -13,6 +13,8 @@ use tracing::{error, info};
 use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V12};
 use crate::instance;
 
+use sqlx::Row;
+
 const POSTGRES_TEMP_FILES_INFLIGHT: &str = "SELECT ts.spcname AS tablespace, COALESCE(COUNT(size), 0) AS files_total, COALESCE(sum(size), 0) AS bytes_total, 
 		COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - min(modification)), 0) AS max_age_seconds 
 		FROM pg_tablespace ts LEFT JOIN (SELECT spcname,(pg_ls_tmpdir(oid)).* FROM pg_tablespace WHERE spcname != 'pg_global') ls ON ls.spcname = ts.spcname 
@@ -25,6 +27,14 @@ pub struct PGStorageStats {
     bytes_total: Option<Decimal>,
     max_age_seconds: Option<Decimal>,
 }
+#[derive(sqlx::FromRow, Debug, Default)]
+pub struct PGDirStats {
+    waldir_path: Option<String>,
+    waldir_size_bytes: Option<Decimal>,
+    waldir_files_count: Option<i64>,
+    tmpfiles_size_bytes: Option<Decimal>,
+    tmpfiles_count: Option<i64>,
+}
 
 // PGStorageCollector exposing various stats related to Postgres storage layer.
 // This stats observed using different stats sources.
@@ -32,10 +42,12 @@ pub struct PGStorageStats {
 pub struct PGStorageCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<Vec<PGStorageStats>>>,
+    data_dirstat: Arc<RwLock<PGDirStats>>,
     descs: Vec<Desc>,
     temp_files: IntGaugeVec,
     temp_bytes: IntGaugeVec,
     temp_files_max_age: IntGaugeVec,
+    wal_dir_bytes: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStorageCollector> {
@@ -58,6 +70,8 @@ impl PGStorageCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGStorageStats::default()]));
+
+        let data_dirstat = Arc::new(RwLock::new(PGDirStats::default()));
 
         let temp_files = IntGaugeVec::new(
             Opts::new(
@@ -95,13 +109,27 @@ impl PGStorageCollector {
         )?;
         descs.extend(temp_files_max_age.desc().into_iter().cloned());
 
+        let wal_dir_bytes = IntGaugeVec::new(
+            Opts::new(
+                "bytes",
+                "The size of Postgres server WAL directory, in bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("wal_directory")
+            .const_labels(dbi.labels.clone()),
+            &["device", "mountpoint", "path"],
+        )?;
+        descs.extend(wal_dir_bytes.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
+            data_dirstat,
             descs,
             temp_files,
             temp_bytes,
             temp_files_max_age,
+            wal_dir_bytes,
         })
     }
 }
@@ -119,6 +147,15 @@ impl Collector for PGStorageCollector {
             Ok(lock) => lock,
             Err(e) => {
                 error!("pg tables collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
+
+        let dirstat_lock = match self.data_dirstat.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                error!("pg tables collect: can't acquire dirstat read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }
@@ -154,9 +191,21 @@ impl Collector for PGStorageCollector {
             }
         }
 
+        let waldir_path = dirstat_lock.waldir_path.clone().unwrap_or_default();
+        self.wal_dir_bytes
+            .with_label_values(&["unknown", "unknown", &waldir_path])
+            .set(
+                dirstat_lock
+                    .waldir_size_bytes
+                    .unwrap_or_default()
+                    .to_i64()
+                    .unwrap_or_default(),
+            );
+
         mfs.extend(self.temp_files.collect());
         mfs.extend(self.temp_bytes.collect());
         mfs.extend(self.temp_files_max_age.collect());
+        mfs.extend(self.wal_dir_bytes.collect());
 
         mfs
     }
@@ -171,6 +220,21 @@ impl PG for PGStorageCollector {
                 .fetch_all(&self.dbi.db)
                 .await?;
 
+        let waldir_row = sqlx::query("SELECT current_setting('data_directory')||'/pg_wal' AS path, COALESCE(sum(size), 0) AS bytes, COALESCE(count(name), 0) AS count FROM pg_ls_waldir()")
+            .fetch_one(&self.dbi.db)
+            .await?;
+
+        let wal_path: String = waldir_row.try_get("path")?;
+        let wal_bytes: Decimal = waldir_row.try_get("bytes")?;
+        let wal_count: i64 = waldir_row.try_get("count")?;
+
+        let tmpdir_row = sqlx::query("SELECT coalesce(sum(size), 0) AS bytes, coalesce(count(name), 0) AS count FROM (SELECT (pg_ls_tmpdir(oid)).* FROM pg_tablespace WHERE spcname != 'pg_global') tablespaces")
+        .fetch_one(&self.dbi.db)
+        .await?;
+
+        let tmpdir_bytes: Decimal = tmpdir_row.try_get("bytes")?;
+        let tmpdir_count: i64 = tmpdir_row.try_get("count")?;
+
         let mut data_lock = match self.data.write() {
             Ok(data_lock) => data_lock,
             Err(e) => bail!("pg storage collector: can't acquire write lock. {}", e),
@@ -178,6 +242,20 @@ impl PG for PGStorageCollector {
 
         data_lock.clear();
         data_lock.append(&mut pg_storage_stat_rows);
+
+        let mut dirstat_lock = match self.data_dirstat.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!(
+                "pg storage collector: can't acquire dirstat write lock. {}",
+                e
+            ),
+        };
+
+        dirstat_lock.tmpfiles_count = Some(tmpdir_count);
+        dirstat_lock.tmpfiles_size_bytes = Some(tmpdir_bytes);
+        dirstat_lock.waldir_files_count = Some(wal_count);
+        dirstat_lock.waldir_path = Some(wal_path);
+        dirstat_lock.waldir_size_bytes = Some(wal_bytes);
 
         Ok(())
     }
