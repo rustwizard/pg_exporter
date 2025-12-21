@@ -13,7 +13,7 @@ config = "0.15.8"
 serde_derive = "1.0"
 serde = "1.0"
 prometheus = {version="0.14", features = ["process"]}
-sqlx = {version="0.8.6", features = [ "postgres", "runtime-tokio", "rust_decimal"]}
+sqlx = {version="0.8", features = [ "postgres", "runtime-tokio", "rust_decimal"]}
 anyhow = "1.0.96"
 async-trait = "0.1.86"
 dyn-clone = "1.0.18"
@@ -24,3 +24,15 @@ rust_decimal = "1.38.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
 clap = { version = "4", features = ["derive"] }
+
+
+[dev-dependencies]
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "macros", "migrate"] }
+testcontainers = "0.26"
+testcontainers-modules = { version = "0.14", features = ["postgres"] }
+tokio = { version = "1", features = ["full"] }
+
+
+[[test]]
+name = "integration"
+path = "src/tests/integration.rs"
