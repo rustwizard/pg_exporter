@@ -1,3 +1,6 @@
+use tracing::Level;
+use tracing_subscriber::FmtSubscriber;
+
 mod integration_tests {
     use std::sync::Arc;
 
@@ -5,10 +8,12 @@ mod integration_tests {
         collectors::{self, PG},
         instance,
     };
-    use prometheus::Registry;
+    use prometheus::{Encoder, Registry};
     use sqlx::postgres::PgPoolOptions;
     use testcontainers::{runners::AsyncRunner, *};
     use testcontainers_modules::postgres::Postgres;
+
+    use crate::setup_tracing;
 
     #[tokio::test]
     async fn test_database_interaction() -> Result<(), Box<dyn std::error::Error>> {
@@ -42,6 +47,8 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_pg_activity_collector() -> Result<(), Box<dyn std::error::Error>> {
+        setup_tracing();
+
         // 1. Start the PostgreSQL container
         let container = Postgres::default()
             .with_tag("latest") // Specify the image tag
@@ -85,6 +92,29 @@ mod integration_tests {
             task.await?;
         }
 
+        let mut buffer = Vec::new();
+        let postgres_metrics = registry.gather();
+
+        assert_eq!(postgres_metrics.len(), 8);
+
+        let encoder = prometheus::TextEncoder::new();
+        encoder.encode(&postgres_metrics, &mut buffer)?;
+        let response =
+            String::from_utf8(buffer.clone()).expect("Failed to convert bytes to string");
+
+        assert!(!response.is_empty());
+
         Ok(())
     }
+}
+
+pub fn setup_tracing() {
+    let subscriber = FmtSubscriber::builder()
+        // all spans/events with a level higher than INFO (e.g, info, error, etc.)
+        // will be written to stdout.
+        .with_max_level(Level::INFO)
+        // completes the builder.
+        .finish();
+
+    let _ = tracing::subscriber::set_global_default(subscriber);
 }
