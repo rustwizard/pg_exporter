@@ -1,4 +1,11 @@
 mod integration_tests {
+    use std::sync::Arc;
+
+    use pg_exporter::{
+        collectors::{self, PG},
+        instance,
+    };
+    use prometheus::Registry;
     use sqlx::postgres::PgPoolOptions;
     use testcontainers::{runners::AsyncRunner, *};
     use testcontainers_modules::postgres::Postgres;
@@ -31,5 +38,53 @@ mod integration_tests {
 
         Ok(())
         // The container is automatically stopped when the `container` variable goes out of scope (Drop trait)
+    }
+
+    #[tokio::test]
+    async fn test_pg_activity_collector() -> Result<(), Box<dyn std::error::Error>> {
+        // 1. Start the PostgreSQL container
+        let container = Postgres::default()
+            .with_tag("latest") // Specify the image tag
+            .start()
+            .await?;
+
+        // 2. Get the dynamic host port and construct the database URL
+        let host_port = container.get_host_port_ipv4(5432).await?;
+        let dsn = &format!(
+            "postgresql://postgres:postgres@localhost:{}/postgres", // Default user/password for testcontainers postgres module
+            host_port
+        );
+
+        let cfg = instance::Config {
+            dsn: dsn.to_string(),
+            ..Default::default()
+        };
+
+        let pgi = instance::new(&cfg).await?;
+
+        let registry = Registry::new();
+        let mut collectors = Vec::new();
+
+        if let Some(pac) = collectors::pg_activity::new(Arc::clone(&Arc::new(pgi))) {
+            registry.register(Box::new(pac.clone()))?;
+            collectors.push(Box::new(pac));
+        }
+
+        let tasks: Vec<_> = collectors
+            .clone()
+            .into_iter()
+            .map(|col| {
+                tokio::spawn(async move {
+                    let update_result = col.update().await;
+                    assert!(update_result.is_ok())
+                })
+            })
+            .collect();
+
+        for task in tasks {
+            task.await?;
+        }
+
+        Ok(())
     }
 }
