@@ -1,6 +1,7 @@
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
+pub mod app;
 pub mod cli;
 pub mod collectors;
 pub mod config;

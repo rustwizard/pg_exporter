@@ -6,9 +6,8 @@ use prometheus::proto;
 use std::sync::{Arc, RwLock};
 use tracing::error;
 
+use crate::collectors::PG;
 use crate::instance;
-
-use super::PG;
 
 const LOCKSQUERY: &str = "SELECT  \
 		count(*) FILTER (WHERE mode = 'AccessShareLock') AS access_share_lock,  \

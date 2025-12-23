@@ -1,4 +1,5 @@
 #![warn(clippy::unwrap_used)]
+mod app;
 mod collectors;
 mod config;
 mod error;
@@ -14,19 +15,13 @@ use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, Responder, get, http::header::ContentType, web,
 };
 
-use prometheus::{Encoder, Registry};
+use prometheus::Encoder;
 use tracing::{error, info};
 
+use crate::app::PGEApp;
 use crate::config::{ExporterConfig, Overrides};
 use crate::error::MetricsError;
 use pg_exporter::cli::{self, Commands};
-
-#[derive(Clone)]
-struct PGEApp {
-    instances: Vec<Arc<instance::PostgresDB>>,
-    collectors: Vec<Box<dyn collectors::PG>>,
-    registry: Registry,
-}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -147,11 +142,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
 async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Result<()> {
     match command {
         None | Some(Commands::Run { .. }) => {
-            let mut app = PGEApp {
-                instances: Vec::<Arc<instance::PostgresDB>>::new(),
-                collectors: Vec::new(),
-                registry: Registry::new(),
-            };
+            let mut app = PGEApp::new();
 
             for (instance, config) in ec.config.instances.unwrap_or_default() {
                 info!("starting connection for instance: {instance}");
@@ -171,67 +162,67 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
 
                 if let Some(pc_locks) = collectors::pg_locks::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pc_locks.clone()))?;
-                    app.collectors.push(Box::new(pc_locks));
+                    app.add_collector(Box::new(pc_locks));
                 }
 
                 if let Some(pc_pstm) = collectors::pg_postmaster::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pc_pstm.clone()))?;
-                    app.collectors.push(Box::new(pc_pstm));
+                    app.add_collector(Box::new(pc_pstm));
                 }
 
                 if let Some(pcdb) = collectors::pg_database::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pcdb.clone()))?;
-                    app.collectors.push(Box::new(pcdb));
+                    app.add_collector(Box::new(pcdb));
                 }
 
                 if let Some(pac) = collectors::pg_activity::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pac.clone()))?;
-                    app.collectors.push(Box::new(pac));
+                    app.add_collector(Box::new(pac));
                 }
 
                 if let Some(pbgwr) = collectors::pg_bgwirter::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pbgwr.clone()))?;
-                    app.collectors.push(Box::new(pbgwr));
+                    app.add_collector(Box::new(pbgwr));
                 }
 
                 if let Some(pgwalc) = collectors::pg_wal::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pgwalc.clone()))?;
-                    app.collectors.push(Box::new(pgwalc));
+                    app.add_collector(Box::new(pgwalc));
                 }
 
                 if let Some(pg_statio_c) = collectors::pg_stat_io::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pg_statio_c.clone()))?;
-                    app.collectors.push(Box::new(pg_statio_c));
+                    app.add_collector(Box::new(pg_statio_c));
                 }
 
                 if let Some(pgarch_c) = collectors::pg_archiver::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pgarch_c.clone()))?;
-                    app.collectors.push(Box::new(pgarch_c));
+                    app.add_collector(Box::new(pgarch_c));
                 }
 
                 if let Some(pgconflc) = collectors::pg_conflict::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pgconflc.clone()))?;
-                    app.collectors.push(Box::new(pgconflc));
+                    app.add_collector(Box::new(pgconflc));
                 }
 
                 if let Some(pgidx_c) = collectors::pg_indexes::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pgidx_c.clone()))?;
-                    app.collectors.push(Box::new(pgidx_c));
+                    app.add_collector(Box::new(pgidx_c));
                 }
 
                 if let Some(pgstmt_c) = collectors::pg_statements::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pgstmt_c.clone()))?;
-                    app.collectors.push(Box::new(pgstmt_c));
+                    app.add_collector(Box::new(pgstmt_c));
                 }
 
                 if let Some(pgtbl_c) = collectors::pg_tables::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pgtbl_c.clone()))?;
-                    app.collectors.push(Box::new(pgtbl_c));
+                    app.add_collector(Box::new(pgtbl_c));
                 }
 
                 if let Some(pgst_c) = collectors::pg_storage::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pgst_c.clone()))?;
-                    app.collectors.push(Box::new(pgst_c));
+                    app.add_collector(Box::new(pgst_c));
                 }
 
                 app.instances.push(arc_pgi);
