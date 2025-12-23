@@ -16,8 +16,8 @@ pub fn setup_tracing() {
 pub fn setupe_pge_app() -> anyhow::Result<app::PGEApp> {
     let app = app::PGEApp {
         instances: todo!(),
-        collectors: todo!(),
         registry: todo!(),
+        collectors: todo!(),
     };
     Ok(app)
 }
