@@ -1,6 +1,7 @@
+use anyhow::Ok;
+use pg_exporter::app;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
-
 pub fn setup_tracing() {
     let subscriber = FmtSubscriber::builder()
         // all spans/events with a level higher than INFO (e.g, info, error, etc.)
@@ -10,4 +11,13 @@ pub fn setup_tracing() {
         .finish();
 
     let _ = tracing::subscriber::set_global_default(subscriber);
+}
+
+pub fn setupe_pge_app() -> anyhow::Result<app::PGEApp> {
+    let app = app::PGEApp {
+        instances: todo!(),
+        collectors: todo!(),
+        registry: todo!(),
+    };
+    Ok(app)
 }

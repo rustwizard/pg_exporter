@@ -1,4 +1,5 @@
 #![warn(clippy::unwrap_used)]
+mod app;
 mod collectors;
 mod config;
 mod error;
@@ -14,19 +15,13 @@ use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, Responder, get, http::header::ContentType, web,
 };
 
-use prometheus::{Encoder, Registry};
+use prometheus::Encoder;
 use tracing::{error, info};
 
+use crate::app::PGEApp;
 use crate::config::{ExporterConfig, Overrides};
 use crate::error::MetricsError;
 use pg_exporter::cli::{self, Commands};
-
-#[derive(Clone)]
-struct PGEApp {
-    instances: Vec<Arc<instance::PostgresDB>>,
-    collectors: Vec<Box<dyn collectors::PG>>,
-    registry: Registry,
-}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -147,11 +142,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
 async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Result<()> {
     match command {
         None | Some(Commands::Run { .. }) => {
-            let mut app = PGEApp {
-                instances: Vec::<Arc<instance::PostgresDB>>::new(),
-                collectors: Vec::new(),
-                registry: Registry::new(),
-            };
+            let mut app = PGEApp::new();
 
             for (instance, config) in ec.config.instances.unwrap_or_default() {
                 info!("starting connection for instance: {instance}");
@@ -171,12 +162,12 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
 
                 if let Some(pc_locks) = collectors::pg_locks::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pc_locks.clone()))?;
-                    app.collectors.push(Box::new(pc_locks));
+                    app.add_collector(Box::new(pc_locks));
                 }
 
                 if let Some(pc_pstm) = collectors::pg_postmaster::new(Arc::clone(&arc_pgi)) {
                     app.registry.register(Box::new(pc_pstm.clone()))?;
-                    app.collectors.push(Box::new(pc_pstm));
+                    app.add_collector(Box::new(pc_pstm));
                 }
 
                 if let Some(pcdb) = collectors::pg_database::new(Arc::clone(&arc_pgi)) {
