@@ -174,7 +174,7 @@ impl Collector for PGStorageCollector {
         let data_lock = match self.data.read() {
             Ok(lock) => lock,
             Err(e) => {
-                error!("pg tables collect: can't acquire read lock: {}", e);
+                error!("pg storage collect: can't acquire read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }
@@ -183,7 +183,7 @@ impl Collector for PGStorageCollector {
         let dirstat_lock = match self.data_dirstat.read() {
             Ok(lock) => lock,
             Err(e) => {
-                error!("pg tables collect: can't acquire dirstat read lock: {}", e);
+                error!("pg storage collect: can't acquire dirstat read lock: {}", e);
                 // return empty mfs
                 return mfs;
             }
