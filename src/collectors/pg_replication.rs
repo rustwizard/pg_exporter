@@ -5,6 +5,7 @@ use std::sync::{Arc, RwLock};
 use anyhow::bail;
 use async_trait::async_trait;
 
+use crate::instance;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{IntGaugeVec, proto};
 use sqlx::Row;
@@ -59,4 +60,15 @@ pub struct PGReplicationStats {
     flush_lag_seconds: Option<Decimal>,
     replay_lag_seconds: Option<Decimal>,
     total_lag_seconds: Option<Decimal>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PGReplicationCollector {
+    dbi: Arc<instance::PostgresDB>,
+    data: Arc<RwLock<Vec<PGReplicationStats>>>,
+    descs: Vec<Desc>,
+    lag_bytes: IntGaugeVec,
+    lag_seconds: IntGaugeVec,
+    lag_total_bytes: IntGaugeVec,
+    lag_total_seconds: IntGaugeVec,
 }
