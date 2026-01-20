@@ -6,6 +6,7 @@ pub mod pg_database;
 pub mod pg_indexes;
 pub mod pg_locks;
 pub mod pg_postmaster;
+pub mod pg_replication;
 pub mod pg_stat_io;
 pub mod pg_statements;
 pub mod pg_storage;
