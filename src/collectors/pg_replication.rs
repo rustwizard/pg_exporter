@@ -11,6 +11,8 @@ use prometheus::{IntGaugeVec, proto};
 use sqlx::Row;
 use tracing::{error, info};
 
+use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V96};
+
 // Query for Postgres version 9.6 and older.
 const POSTGRES_REPLICATION_QUERY96: &str = "SELECT pid, COALESCE(host(client_addr), '127.0.0.1') AS client_addr, 
 		COALESCE(client_port, '0') AS client_port, 
@@ -71,4 +73,43 @@ pub struct PGReplicationCollector {
     lag_seconds: IntGaugeVec,
     lag_total_bytes: IntGaugeVec,
     lag_total_seconds: IntGaugeVec,
+}
+
+pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGReplicationCollector> {
+    // Collecting pg_replication since Postgres 9.6.
+    if dbi.cfg.pg_version >= POSTGRES_V96 {
+        match PGReplicationCollector::new(dbi) {
+            Ok(result) => Some(result),
+            Err(e) => {
+                error!("error when create pg replication collector: {}", e);
+                None
+            }
+        }
+    } else {
+        info!("some server-side functions are not available, required Postgres 9.6 or newer");
+        None
+    }
+}
+
+impl PGReplicationCollector {
+    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
+        todo!()
+    }
+}
+
+impl Collector for PGReplicationCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        todo!()
+    }
+
+    fn collect(&self) -> Vec<proto::MetricFamily> {
+        todo!()
+    }
+}
+
+#[async_trait]
+impl PG for PGReplicationCollector {
+    async fn update(&self) -> Result<(), anyhow::Error> {
+        Ok(())
+    }
 }

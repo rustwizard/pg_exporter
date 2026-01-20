@@ -20,6 +20,7 @@ const NAMESPACE: &str = "pg";
 
 // Postgres server versions
 const POSTGRES_V95: i64 = 90500;
+const POSTGRES_V96: i64 = 90600;
 const POSTGRES_V10: i64 = 100000;
 const POSTGRES_V12: i64 = 120000;
 const POSTGRES_V13: i64 = 130000;
