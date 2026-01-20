@@ -1,3 +1,5 @@
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use std::sync::{Arc, RwLock};
 
 use anyhow::bail;
@@ -5,6 +7,7 @@ use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{IntGaugeVec, proto};
+use sqlx::Row;
 use tracing::{error, info};
 
 // Query for Postgres version 9.6 and older.
@@ -38,3 +41,22 @@ const POSTGRES_REPLICATION_QUERY_LATEST: &str = "SELECT pid, COALESCE(host(clien
 		COALESCE(EXTRACT(EPOCH FROM replay_lag), 0) AS replay_lag_seconds, 
 		COALESCE(EXTRACT(EPOCH FROM write_lag+flush_lag+replay_lag), 0) AS total_lag_seconds 
 		FROM pg_stat_replication";
+
+#[derive(sqlx::FromRow, Debug, Default)]
+pub struct PGReplicationStats {
+    pid: Option<i32>,
+    client_addr: Option<String>,
+    client_port: Option<i32>,
+    user: Option<String>,
+    application_name: Option<String>,
+    state: Option<String>,
+    pending_lag_bytes: Option<Decimal>,
+    write_lag_bytes: Option<Decimal>,
+    flush_lag_bytes: Option<Decimal>,
+    replay_lag_bytes: Option<Decimal>,
+    total_lag_bytes: Option<Decimal>,
+    write_lag_seconds: Option<Decimal>,
+    flush_lag_seconds: Option<Decimal>,
+    replay_lag_seconds: Option<Decimal>,
+    total_lag_seconds: Option<Decimal>,
+}
