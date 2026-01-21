@@ -93,7 +93,18 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGReplicationCollector> {
 
 impl PGReplicationCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
-        todo!()
+        let mut descs = Vec::new();
+        let data = Arc::new(RwLock::new(vec![PGReplicationStats::default()]));
+
+        Ok(Self {
+            dbi,
+            data,
+            descs,
+            lag_bytes: todo!(),
+            lag_seconds: todo!(),
+            lag_total_bytes: todo!(),
+            lag_total_seconds: todo!(),
+        })
     }
 }
 
