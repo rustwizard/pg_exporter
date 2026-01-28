@@ -1,4 +1,4 @@
-FROM rust:1.91-slim AS cargo-build
+FROM rust:1.93-slim AS cargo-build
 
 RUN apt-get update && apt-get -y install libssl-dev pkg-config ca-certificates
 
