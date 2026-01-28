@@ -225,6 +225,11 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                     app.add_collector(Box::new(pgst_c));
                 }
 
+                if let Some(pgrpl_c) = collectors::pg_replication::new(Arc::clone(&arc_pgi)) {
+                    app.registry.register(Box::new(pgrpl_c.clone()))?;
+                    app.add_collector(Box::new(pgrpl_c));
+                }
+
                 app.instances.push(arc_pgi);
             }
 
