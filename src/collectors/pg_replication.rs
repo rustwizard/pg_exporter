@@ -96,6 +96,14 @@ impl PGReplicationCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGReplicationStats::default()]));
+        let label_names = vec![
+            "client_addr".to_string(),
+            "client_port".to_string(),
+            "user".to_string(),
+            "application_name".to_string(),
+            "state".to_string(),
+            "lag".to_string(),
+        ];
 
         let label_names = vec![
             "client_addr".to_string(),
