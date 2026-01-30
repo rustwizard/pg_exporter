@@ -69,6 +69,7 @@ pub struct PGReplicationCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<Vec<PGReplicationStats>>>,
     descs: Vec<Desc>,
+    label_names: Vec<String>,
     lag_bytes: IntGaugeVec,
     lag_seconds: IntGaugeVec,
     lag_total_bytes: IntGaugeVec,
@@ -95,11 +96,20 @@ impl PGReplicationCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGReplicationStats::default()]));
+        let label_names = vec![
+            "client_addr".to_string(),
+            "client_port".to_string(),
+            "user".to_string(),
+            "application_name".to_string(),
+            "state".to_string(),
+            "lag".to_string(),
+        ];
 
         Ok(Self {
             dbi,
             data,
             descs,
+            label_names,
             lag_bytes: todo!(),
             lag_seconds: todo!(),
             lag_total_bytes: todo!(),
