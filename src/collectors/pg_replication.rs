@@ -105,12 +105,31 @@ impl PGReplicationCollector {
             "lag".to_string(),
         ];
 
+        let lag_bytes = IntGaugeVec::new(
+            Opts::new(
+                "lag_bytes",
+                "Number of bytes standby is behind than primary in each WAL processing phase.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("replication")
+            .const_labels(dbi.labels.clone()),
+            &[
+                "client_addr",
+                "client_port",
+                "user",
+                "application_name",
+                "state",
+                "lag",
+            ],
+        )?;
+        descs.extend(lag_bytes.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
             descs,
             label_names,
-            lag_bytes: todo!(),
+            lag_bytes,
             lag_seconds: todo!(),
             lag_total_bytes: todo!(),
             lag_total_seconds: todo!(),
@@ -120,11 +139,27 @@ impl PGReplicationCollector {
 
 impl Collector for PGReplicationCollector {
     fn desc(&self) -> Vec<&Desc> {
-        todo!()
+        self.descs.iter().collect()
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        todo!()
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(4);
+
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                error!("pg replication collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
+
+        for row in data_lock.iter() {}
+
+        mfs.extend(self.lag_bytes.collect());
+
+        mfs
     }
 }
 
