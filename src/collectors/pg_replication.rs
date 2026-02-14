@@ -5,10 +5,9 @@ use std::sync::{Arc, RwLock};
 use anyhow::bail;
 use async_trait::async_trait;
 
-use crate::instance;
+use crate::{app, instance};
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{IntGaugeVec, proto};
-use sqlx::Row;
 use tracing::{error, info};
 
 use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V96};
@@ -69,7 +68,6 @@ pub struct PGReplicationCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<Vec<PGReplicationStats>>>,
     descs: Vec<Desc>,
-    label_names: Vec<String>,
     lag_bytes: IntGaugeVec,
     lag_seconds: IntGaugeVec,
     lag_total_bytes: IntGaugeVec,
@@ -97,49 +95,159 @@ impl PGReplicationCollector {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGReplicationStats::default()]));
         let label_names = vec![
-            "client_addr".to_string(),
-            "client_port".to_string(),
-            "user".to_string(),
-            "application_name".to_string(),
-            "state".to_string(),
-            "lag".to_string(),
+            "client_addr",
+            "client_port",
+            "user",
+            "application_name",
+            "state",
+            "lag",
         ];
 
-        let label_names = vec![
-            "client_addr".to_string(),
-            "client_port".to_string(),
-            "user".to_string(),
-            "application_name".to_string(),
-            "state".to_string(),
-            "lag".to_string(),
-        ];
+        let lag_bytes = IntGaugeVec::new(
+            Opts::new(
+                "lag_bytes",
+                "Number of bytes standby is behind than primary in each WAL processing phase.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("replication")
+            .const_labels(dbi.labels.clone()),
+            &label_names,
+        )?;
+        descs.extend(lag_bytes.desc().into_iter().cloned());
+
+        let lag_seconds = IntGaugeVec::new(
+            Opts::new(
+                "lag_seconds",
+                "Number of seconds standby is behind than primary in each WAL processing phase.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("replication")
+            .const_labels(dbi.labels.clone()),
+            &label_names,
+        )?;
+        descs.extend(lag_seconds.desc().into_iter().cloned());
+
+        let lag_total_bytes = IntGaugeVec::new(
+            Opts::new(
+                "lag_all_bytes",
+                "Number of bytes standby is behind than primary including all phases.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("replication")
+            .const_labels(dbi.labels.clone()),
+            &label_names,
+        )?;
+        descs.extend(lag_total_bytes.desc().into_iter().cloned());
+
+        let lag_total_seconds = IntGaugeVec::new(
+            Opts::new(
+                "lag_all_seconds",
+                "Number of seconds standby is behind than primary including all phases.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("replication")
+            .const_labels(dbi.labels.clone()),
+            &label_names,
+        )?;
+        descs.extend(lag_total_seconds.desc().into_iter().cloned());
 
         Ok(Self {
             dbi,
             data,
             descs,
-            label_names,
-            lag_bytes: todo!(),
-            lag_seconds: todo!(),
-            lag_total_bytes: todo!(),
-            lag_total_seconds: todo!(),
+            lag_bytes,
+            lag_seconds,
+            lag_total_bytes,
+            lag_total_seconds,
         })
     }
 }
 
 impl Collector for PGReplicationCollector {
     fn desc(&self) -> Vec<&Desc> {
-        todo!()
+        self.descs.iter().collect()
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        todo!()
+        // collect MetricFamilies.
+        let mut mfs = Vec::with_capacity(4);
+
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                error!("pg replication collect: can't acquire read lock: {}", e);
+                // return empty mfs
+                return mfs;
+            }
+        };
+
+        for row in data_lock.iter() {
+            let client_addr = row.client_addr.clone().unwrap_or_default();
+            let client_port = row.client_port.unwrap_or_default().to_string();
+            let user = row.user.clone().unwrap_or_default();
+            let app_name = row.application_name.clone().unwrap_or_default();
+            let state = row.state.clone().unwrap_or_default();
+
+            self.lag_bytes
+                .with_label_values(&[
+                    client_addr.as_str(),
+                    client_port.as_str(),
+                    user.as_str(),
+                    app_name.as_str(),
+                    state.as_str(),
+                    "pending",
+                ])
+                .set(
+                    row.pending_lag_bytes
+                        .unwrap_or_default()
+                        .to_i64()
+                        .unwrap_or_default(),
+                );
+
+            self.lag_bytes
+                .with_label_values(&[
+                    client_addr.as_str(),
+                    client_port.as_str(),
+                    user.as_str(),
+                    app_name.as_str(),
+                    state.as_str(),
+                    "write",
+                ])
+                .set(
+                    row.write_lag_bytes
+                        .unwrap_or_default()
+                        .to_i64()
+                        .unwrap_or_default(),
+                );
+        }
+
+        mfs.extend(self.lag_bytes.collect());
+
+        mfs
     }
 }
 
 #[async_trait]
 impl PG for PGReplicationCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
+        let mut pg_replc_stat_rows = if self.dbi.cfg.pg_version < POSTGRES_V10 {
+            sqlx::query_as::<_, PGReplicationStats>(POSTGRES_REPLICATION_QUERY96)
+                .bind(self.dbi.cfg.pg_collect_topidx)
+                .fetch_all(&self.dbi.db)
+                .await?
+        } else {
+            sqlx::query_as::<_, PGReplicationStats>(POSTGRES_REPLICATION_QUERY_LATEST)
+                .fetch_all(&self.dbi.db)
+                .await?
+        };
+        let mut data_lock = match self.data.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!("pg replication collector: can't acquire write lock. {}", e),
+        };
+
+        data_lock.clear();
+        data_lock.append(&mut pg_replc_stat_rows);
+
         Ok(())
     }
 }
