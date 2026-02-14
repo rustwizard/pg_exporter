@@ -155,7 +155,14 @@ impl Collector for PGReplicationCollector {
             }
         };
 
-        for row in data_lock.iter() {}
+        for row in data_lock.iter() {
+            self.lag_bytes.with_label_values(&["pending"]).set(
+                row.pending_lag_bytes
+                    .unwrap_or_default()
+                    .to_i64()
+                    .unwrap_or_default(),
+            );
+        }
 
         mfs.extend(self.lag_bytes.collect());
 
