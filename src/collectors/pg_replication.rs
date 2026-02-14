@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use anyhow::bail;
 use async_trait::async_trait;
 
-use crate::instance;
+use crate::{app, instance};
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{IntGaugeVec, proto};
 use tracing::{error, info};
@@ -68,7 +68,6 @@ pub struct PGReplicationCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<Vec<PGReplicationStats>>>,
     descs: Vec<Desc>,
-    label_names: Vec<String>,
     lag_bytes: IntGaugeVec,
     lag_seconds: IntGaugeVec,
     lag_total_bytes: IntGaugeVec,
@@ -96,12 +95,12 @@ impl PGReplicationCollector {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGReplicationStats::default()]));
         let label_names = vec![
-            "client_addr".to_string(),
-            "client_port".to_string(),
-            "user".to_string(),
-            "application_name".to_string(),
-            "state".to_string(),
-            "lag".to_string(),
+            "client_addr",
+            "client_port",
+            "user",
+            "application_name",
+            "state",
+            "lag",
         ];
 
         let lag_bytes = IntGaugeVec::new(
@@ -112,14 +111,7 @@ impl PGReplicationCollector {
             .namespace(super::NAMESPACE)
             .subsystem("replication")
             .const_labels(dbi.labels.clone()),
-            &[
-                "client_addr",
-                "client_port",
-                "user",
-                "application_name",
-                "state",
-                "lag",
-            ],
+            &label_names,
         )?;
         descs.extend(lag_bytes.desc().into_iter().cloned());
 
@@ -131,14 +123,7 @@ impl PGReplicationCollector {
             .namespace(super::NAMESPACE)
             .subsystem("replication")
             .const_labels(dbi.labels.clone()),
-            &[
-                "client_addr",
-                "client_port",
-                "user",
-                "application_name",
-                "state",
-                "lag",
-            ],
+            &label_names,
         )?;
         descs.extend(lag_seconds.desc().into_iter().cloned());
 
@@ -150,13 +135,7 @@ impl PGReplicationCollector {
             .namespace(super::NAMESPACE)
             .subsystem("replication")
             .const_labels(dbi.labels.clone()),
-            &[
-                "client_addr",
-                "client_port",
-                "user",
-                "application_name",
-                "state",
-            ],
+            &label_names,
         )?;
         descs.extend(lag_total_bytes.desc().into_iter().cloned());
 
@@ -168,13 +147,7 @@ impl PGReplicationCollector {
             .namespace(super::NAMESPACE)
             .subsystem("replication")
             .const_labels(dbi.labels.clone()),
-            &[
-                "client_addr",
-                "client_port",
-                "user",
-                "application_name",
-                "state",
-            ],
+            &label_names,
         )?;
         descs.extend(lag_total_seconds.desc().into_iter().cloned());
 
@@ -182,7 +155,6 @@ impl PGReplicationCollector {
             dbi,
             data,
             descs,
-            label_names,
             lag_bytes,
             lag_seconds,
             lag_total_bytes,
@@ -210,12 +182,43 @@ impl Collector for PGReplicationCollector {
         };
 
         for row in data_lock.iter() {
-            self.lag_bytes.with_label_values(&["pending"]).set(
-                row.pending_lag_bytes
-                    .unwrap_or_default()
-                    .to_i64()
-                    .unwrap_or_default(),
-            );
+            let client_addr = row.client_addr.clone().unwrap_or_default();
+            let client_port = row.client_port.unwrap_or_default().to_string();
+            let user = row.user.clone().unwrap_or_default();
+            let app_name = row.application_name.clone().unwrap_or_default();
+            let state = row.state.clone().unwrap_or_default();
+
+            self.lag_bytes
+                .with_label_values(&[
+                    client_addr.as_str(),
+                    client_port.as_str(),
+                    user.as_str(),
+                    app_name.as_str(),
+                    state.as_str(),
+                    "pending",
+                ])
+                .set(
+                    row.pending_lag_bytes
+                        .unwrap_or_default()
+                        .to_i64()
+                        .unwrap_or_default(),
+                );
+
+            self.lag_bytes
+                .with_label_values(&[
+                    client_addr.as_str(),
+                    client_port.as_str(),
+                    user.as_str(),
+                    app_name.as_str(),
+                    state.as_str(),
+                    "write",
+                ])
+                .set(
+                    row.write_lag_bytes
+                        .unwrap_or_default()
+                        .to_i64()
+                        .unwrap_or_default(),
+                );
         }
 
         mfs.extend(self.lag_bytes.collect());

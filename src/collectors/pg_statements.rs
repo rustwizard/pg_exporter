@@ -893,10 +893,7 @@ impl Collector for PGStatementsCollector {
                     self.wal_buffers
                         .with_label_values(&[user, database, query_id.as_str()])
                         .set(wal_buffers);
-                    mfs.extend(self.wal_buffers.collect());
                 }
-
-                mfs.extend(self.wal_records.collect());
             }
         }
 
@@ -915,6 +912,8 @@ impl Collector for PGStatementsCollector {
         mfs.extend(self.local_written.collect());
         mfs.extend(self.temp_read.collect());
         mfs.extend(self.temp_written.collect());
+        mfs.extend(self.wal_buffers.collect());
+        mfs.extend(self.wal_records.collect());
 
         mfs
     }
