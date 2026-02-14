@@ -8,7 +8,6 @@ use async_trait::async_trait;
 use crate::instance;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{IntGaugeVec, proto};
-use sqlx::Row;
 use tracing::{error, info};
 
 use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V96};
@@ -124,15 +123,70 @@ impl PGReplicationCollector {
         )?;
         descs.extend(lag_bytes.desc().into_iter().cloned());
 
+        let lag_seconds = IntGaugeVec::new(
+            Opts::new(
+                "lag_seconds",
+                "Number of seconds standby is behind than primary in each WAL processing phase.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("replication")
+            .const_labels(dbi.labels.clone()),
+            &[
+                "client_addr",
+                "client_port",
+                "user",
+                "application_name",
+                "state",
+                "lag",
+            ],
+        )?;
+        descs.extend(lag_seconds.desc().into_iter().cloned());
+
+        let lag_total_bytes = IntGaugeVec::new(
+            Opts::new(
+                "lag_all_bytes",
+                "Number of bytes standby is behind than primary including all phases.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("replication")
+            .const_labels(dbi.labels.clone()),
+            &[
+                "client_addr",
+                "client_port",
+                "user",
+                "application_name",
+                "state",
+            ],
+        )?;
+        descs.extend(lag_total_bytes.desc().into_iter().cloned());
+
+        let lag_total_seconds = IntGaugeVec::new(
+            Opts::new(
+                "lag_all_seconds",
+                "Number of seconds standby is behind than primary including all phases.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("replication")
+            .const_labels(dbi.labels.clone()),
+            &[
+                "client_addr",
+                "client_port",
+                "user",
+                "application_name",
+                "state",
+            ],
+        )?;
+        descs.extend(lag_total_seconds.desc().into_iter().cloned());
+
         Ok(Self {
             dbi,
             data,
             descs,
             label_names,
             lag_bytes,
-            lag_seconds: todo!(),
-            lag_total_bytes: todo!(),
-            lag_total_seconds: todo!(),
+            lag_seconds,
+            lag_total_bytes,
+            lag_total_seconds,
         })
     }
 }
@@ -173,6 +227,24 @@ impl Collector for PGReplicationCollector {
 #[async_trait]
 impl PG for PGReplicationCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
+        let mut pg_replc_stat_rows = if self.dbi.cfg.pg_version < POSTGRES_V10 {
+            sqlx::query_as::<_, PGReplicationStats>(POSTGRES_REPLICATION_QUERY96)
+                .bind(self.dbi.cfg.pg_collect_topidx)
+                .fetch_all(&self.dbi.db)
+                .await?
+        } else {
+            sqlx::query_as::<_, PGReplicationStats>(POSTGRES_REPLICATION_QUERY_LATEST)
+                .fetch_all(&self.dbi.db)
+                .await?
+        };
+        let mut data_lock = match self.data.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!("pg replication collector: can't acquire write lock. {}", e),
+        };
+
+        data_lock.clear();
+        data_lock.append(&mut pg_replc_stat_rows);
+
         Ok(())
     }
 }
