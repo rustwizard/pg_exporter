@@ -251,6 +251,54 @@ impl Collector for PGReplicationCollector {
                         .to_i64()
                         .unwrap_or_default(),
                 );
+
+            self.lag_seconds
+                .with_label_values(&[
+                    client_addr.as_str(),
+                    client_port.as_str(),
+                    user.as_str(),
+                    app_name.as_str(),
+                    state.as_str(),
+                    "write",
+                ])
+                .set(
+                    row.write_lag_seconds
+                        .unwrap_or_default()
+                        .to_i64()
+                        .unwrap_or_default(),
+                );
+
+            self.lag_seconds
+                .with_label_values(&[
+                    client_addr.as_str(),
+                    client_port.as_str(),
+                    user.as_str(),
+                    app_name.as_str(),
+                    state.as_str(),
+                    "flush",
+                ])
+                .set(
+                    row.flush_lag_seconds
+                        .unwrap_or_default()
+                        .to_i64()
+                        .unwrap_or_default(),
+                );
+
+            self.lag_seconds
+                .with_label_values(&[
+                    client_addr.as_str(),
+                    client_port.as_str(),
+                    user.as_str(),
+                    app_name.as_str(),
+                    state.as_str(),
+                    "replay",
+                ])
+                .set(
+                    row.replay_lag_seconds
+                        .unwrap_or_default()
+                        .to_i64()
+                        .unwrap_or_default(),
+                );
         }
 
         mfs.extend(self.lag_bytes.collect());
