@@ -299,6 +299,36 @@ impl Collector for PGReplicationCollector {
                         .to_i64()
                         .unwrap_or_default(),
                 );
+
+            self.lag_total_bytes
+                .with_label_values(&[
+                    client_addr.as_str(),
+                    client_port.as_str(),
+                    user.as_str(),
+                    app_name.as_str(),
+                    state.as_str(),
+                ])
+                .set(
+                    row.total_lag_bytes
+                        .unwrap_or_default()
+                        .to_i64()
+                        .unwrap_or_default(),
+                );
+
+            self.lag_total_seconds
+                .with_label_values(&[
+                    client_addr.as_str(),
+                    client_port.as_str(),
+                    user.as_str(),
+                    app_name.as_str(),
+                    state.as_str(),
+                ])
+                .set(
+                    row.total_lag_seconds
+                        .unwrap_or_default()
+                        .to_i64()
+                        .unwrap_or_default(),
+                );
         }
 
         mfs.extend(self.lag_bytes.collect());
