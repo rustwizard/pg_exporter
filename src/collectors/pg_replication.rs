@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use anyhow::bail;
 use async_trait::async_trait;
 
-use crate::{app, instance};
+use crate::instance;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{IntGaugeVec, proto};
 use tracing::{error, info};
@@ -95,6 +95,7 @@ impl PGReplicationCollector {
         let mut descs = Vec::new();
         let data = Arc::new(RwLock::new(vec![PGReplicationStats::default()]));
         let label_names = vec![
+            "pid",
             "client_addr",
             "client_port",
             "user",
@@ -182,6 +183,7 @@ impl Collector for PGReplicationCollector {
         };
 
         for row in data_lock.iter() {
+            let pid = row.pid.unwrap_or_default();
             let client_addr = row.client_addr.clone().unwrap_or_default();
             let client_port = row.client_port.unwrap_or_default().to_string();
             let user = row.user.clone().unwrap_or_default();
@@ -190,6 +192,7 @@ impl Collector for PGReplicationCollector {
 
             self.lag_bytes
                 .with_label_values(&[
+                    pid.to_string().as_str(),
                     client_addr.as_str(),
                     client_port.as_str(),
                     user.as_str(),
@@ -206,6 +209,7 @@ impl Collector for PGReplicationCollector {
 
             self.lag_bytes
                 .with_label_values(&[
+                    pid.to_string().as_str(),
                     client_addr.as_str(),
                     client_port.as_str(),
                     user.as_str(),
@@ -222,6 +226,7 @@ impl Collector for PGReplicationCollector {
 
             self.lag_bytes
                 .with_label_values(&[
+                    pid.to_string().as_str(),
                     client_addr.as_str(),
                     client_port.as_str(),
                     user.as_str(),
@@ -238,6 +243,7 @@ impl Collector for PGReplicationCollector {
 
             self.lag_bytes
                 .with_label_values(&[
+                    pid.to_string().as_str(),
                     client_addr.as_str(),
                     client_port.as_str(),
                     user.as_str(),
@@ -254,6 +260,7 @@ impl Collector for PGReplicationCollector {
 
             self.lag_seconds
                 .with_label_values(&[
+                    pid.to_string().as_str(),
                     client_addr.as_str(),
                     client_port.as_str(),
                     user.as_str(),
@@ -270,6 +277,7 @@ impl Collector for PGReplicationCollector {
 
             self.lag_seconds
                 .with_label_values(&[
+                    pid.to_string().as_str(),
                     client_addr.as_str(),
                     client_port.as_str(),
                     user.as_str(),
@@ -286,6 +294,7 @@ impl Collector for PGReplicationCollector {
 
             self.lag_seconds
                 .with_label_values(&[
+                    pid.to_string().as_str(),
                     client_addr.as_str(),
                     client_port.as_str(),
                     user.as_str(),
@@ -302,6 +311,7 @@ impl Collector for PGReplicationCollector {
 
             self.lag_total_bytes
                 .with_label_values(&[
+                    pid.to_string().as_str(),
                     client_addr.as_str(),
                     client_port.as_str(),
                     user.as_str(),
@@ -317,6 +327,7 @@ impl Collector for PGReplicationCollector {
 
             self.lag_total_seconds
                 .with_label_values(&[
+                    pid.to_string().as_str(),
                     client_addr.as_str(),
                     client_port.as_str(),
                     user.as_str(),
