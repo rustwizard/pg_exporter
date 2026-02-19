@@ -38,6 +38,7 @@ pub struct PGReplicationSlotsCollector {
     dbi: Arc<instance::PostgresDB>,
     data: Arc<RwLock<Vec<PGReplicationSlotsStats>>>,
     descs: Vec<Desc>,
+    retained_bytes: IntGaugeVec,
 }
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGReplicationSlotsCollector> {
@@ -58,7 +59,28 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGReplicationSlotsCollector
 
 impl PGReplicationSlotsCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
-        todo!()
+        let mut descs = Vec::new();
+        let data = Arc::new(RwLock::new(vec![PGReplicationSlotsStats::default()]));
+        let label_names = vec!["database", "slot_name", "slot_type", "active"];
+
+        let retained_bytes = IntGaugeVec::new(
+            Opts::new(
+                "wal_retain_bytes",
+                "Number of WAL retained and required by consumers, in bytes.",
+            )
+            .namespace(super::NAMESPACE)
+            .subsystem("replication_slot")
+            .const_labels(dbi.labels.clone()),
+            &label_names,
+        )?;
+        descs.extend(retained_bytes.desc().into_iter().cloned());
+
+        Ok(Self {
+            dbi,
+            data,
+            descs,
+            retained_bytes,
+        })
     }
 }
 
