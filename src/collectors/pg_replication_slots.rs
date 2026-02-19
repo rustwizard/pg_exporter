@@ -135,6 +135,27 @@ impl Collector for PGReplicationSlotsCollector {
 #[async_trait]
 impl PG for PGReplicationSlotsCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
+        let mut pg_replc_slots_stat_rows = if self.dbi.cfg.pg_version < POSTGRES_V10 {
+            sqlx::query_as::<_, PGReplicationSlotsStats>(POSTGRES_REPLICATION_QUERY96)
+                .bind(self.dbi.cfg.pg_collect_topidx)
+                .fetch_all(&self.dbi.db)
+                .await?
+        } else {
+            sqlx::query_as::<_, PGReplicationSlotsStats>(POSTGRES_REPLICATION_QUERY_LATEST)
+                .fetch_all(&self.dbi.db)
+                .await?
+        };
+        let mut data_lock = match self.data.write() {
+            Ok(data_lock) => data_lock,
+            Err(e) => bail!(
+                "pg replication slots collector: can't acquire write lock. {}",
+                e
+            ),
+        };
+
+        data_lock.clear();
+        data_lock.append(&mut pg_replc_slots_stat_rows);
+
         Ok(())
     }
 }
