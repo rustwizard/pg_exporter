@@ -91,7 +91,42 @@ impl Collector for PGReplicationSlotsCollector {
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
         // collect MetricFamilies.
-        let mut mfs = Vec::with_capacity(4);
+        let mut mfs = Vec::with_capacity(1);
+
+        let data_lock = match self.data.read() {
+            Ok(lock) => lock,
+            Err(e) => {
+                error!(
+                    "pg replication slots collect: can't acquire read lock: {}",
+                    e
+                );
+                // return empty mfs
+                return mfs;
+            }
+        };
+
+        for row in data_lock.iter() {
+            let active = row.active.unwrap_or_default();
+            let database: String = row.database.clone().unwrap_or_default().to_string();
+            let slot_name = row.slot_name.clone().unwrap_or_default();
+            let slot_type = row.slot_type.clone().unwrap_or_default();
+
+            self.retained_bytes
+                .with_label_values(&[
+                    database.as_str(),
+                    slot_name.as_str(),
+                    slot_type.as_str(),
+                    active.to_string().as_str(),
+                ])
+                .set(
+                    row.since_restart_bytes
+                        .unwrap_or_default()
+                        .to_i64()
+                        .unwrap_or_default(),
+                );
+        }
+
+        mfs.extend(self.retained_bytes.collect());
 
         mfs
     }
