@@ -1,105 +1,73 @@
 mod common;
 
 mod integration_tests {
-    use std::sync::Arc;
-
-    use pg_exporter::{
-        collectors::{self, PG},
-        instance,
-    };
+    use pg_exporter::collectors::{self, PG};
     use prometheus::{Encoder, Registry};
-    use sqlx::postgres::PgPoolOptions;
-    use testcontainers::{runners::AsyncRunner, *};
-    use testcontainers_modules::postgres::Postgres;
 
     use crate::common;
-
-    #[tokio::test]
-    async fn test_database_interaction() -> Result<(), Box<dyn std::error::Error>> {
-        // 1. Start the PostgreSQL container
-        let container = Postgres::default()
-            .with_tag("latest") // Specify the image tag
-            .start()
-            .await?;
-
-        // 2. Get the dynamic host port and construct the database URL
-        let host_port = container.get_host_port_ipv4(5432).await?;
-        let database_url = &format!(
-            "postgresql://postgres:postgres@localhost:{}/postgres", // Default user/password for testcontainers postgres module
-            host_port
-        );
-
-        // 3. Create a sqlx connection pool
-        let pool = PgPoolOptions::new()
-            .max_connections(5)
-            .connect(database_url)
-            .await?;
-
-        // 5. Perform your test logic using the `pool`
-        let row: (i32,) = sqlx::query_as("SELECT 1 + 1").fetch_one(&pool).await?;
-
-        assert_eq!(row.0, 2);
-
-        Ok(())
-        // The container is automatically stopped when the `container` variable goes out of scope (Drop trait)
-    }
 
     #[tokio::test]
     async fn test_pg_activity_collector() -> Result<(), Box<dyn std::error::Error>> {
         common::setup_tracing();
 
-        // 1. Start the PostgreSQL container
-        let container = Postgres::default()
-            .with_tag("latest") // Specify the image tag
-            .start()
-            .await?;
-
-        // 2. Get the dynamic host port and construct the database URL
-        let host_port = container.get_host_port_ipv4(5432).await?;
-        let dsn = &format!(
-            "postgresql://postgres:postgres@localhost:{}/postgres", // Default user/password for testcontainers postgres module
-            host_port
-        );
-
-        let cfg = instance::Config {
-            dsn: dsn.to_string(),
-            ..Default::default()
-        };
-
-        let pgi = instance::new(&cfg).await?;
+        let (_container, pgi) = common::create_test_instance().await?;
 
         let registry = Registry::new();
-        let mut collectors = Vec::new();
 
-        if let Some(pac) = collectors::pg_activity::new(Arc::clone(&Arc::new(pgi))) {
-            registry.register(Box::new(pac.clone()))?;
-            collectors.push(Box::new(pac));
-        }
+        let pac = collectors::pg_activity::new(pgi).expect("pg_activity collector should init");
+        registry.register(Box::new(pac.clone()))?;
 
-        let tasks: Vec<_> = collectors
-            .clone()
-            .into_iter()
-            .map(|col| {
-                tokio::spawn(async move {
-                    let update_result = col.update().await;
-                    assert!(update_result.is_ok())
-                })
-            })
-            .collect();
-
-        for task in tasks {
-            task.await?;
-        }
+        pac.update().await?;
 
         let mut buffer = Vec::new();
         let postgres_metrics = registry.gather();
+        let metric_names: Vec<&str> = postgres_metrics.iter().map(|mf| mf.name()).collect();
 
-        assert_eq!(postgres_metrics.len(), 8);
+        assert!(metric_names.contains(&"pg_up"));
+        assert!(metric_names.contains(&"pg_start_time_seconds"));
+        assert!(metric_names.contains(&"pg_activity_connections_all_in_flight"));
+        assert!(metric_names.contains(&"pg_activity_prepared_transactions_in_flight"));
 
         let encoder = prometheus::TextEncoder::new();
         encoder.encode(&postgres_metrics, &mut buffer)?;
-        let response =
-            String::from_utf8(buffer.clone()).expect("Failed to convert bytes to string");
+        let response = String::from_utf8(buffer)?;
+
+        assert!(!response.is_empty());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pg_locks_collector() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+
+        let registry = Registry::new();
+
+        let pc_locks = collectors::pg_locks::new(pgi).expect("pg_locks collector should init");
+        registry.register(Box::new(pc_locks.clone()))?;
+
+        pc_locks.update().await?;
+
+        let mut buffer = Vec::new();
+        let postgres_metrics = registry.gather();
+        let metric_names: Vec<&str> = postgres_metrics.iter().map(|mf| mf.name()).collect();
+
+        assert!(metric_names.contains(&"pg_locks_total"));
+        assert!(metric_names.contains(&"pg_locks_not_granted"));
+        assert!(metric_names.contains(&"pg_locks_access_share_lock"));
+        assert!(metric_names.contains(&"pg_locks_access_exclusive_lock"));
+        assert!(metric_names.contains(&"pg_locks_exclusive_lock"));
+        assert!(metric_names.contains(&"pg_locks_row_exclusive_lock"));
+        assert!(metric_names.contains(&"pg_locks_row_share_lock"));
+        assert!(metric_names.contains(&"pg_locks_share_lock"));
+        assert!(metric_names.contains(&"pg_locks_share_row_exclusive_lock"));
+        assert!(metric_names.contains(&"pg_locks_share_update_exclusive_lock"));
+
+        let encoder = prometheus::TextEncoder::new();
+        encoder.encode(&postgres_metrics, &mut buffer)?;
+        let response = String::from_utf8(buffer)?;
 
         assert!(!response.is_empty());
 
