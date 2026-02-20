@@ -32,37 +32,28 @@ const POSTGRES_WAL_QUERY_LATEST: &str = "SELECT pg_is_in_recovery()::int AS reco
 		wal_bytes, wal_buffers_full, extract('epoch' from stats_reset) as reset_time 
 		FROM pg_stat_wal";
 
-#[derive(sqlx::FromRow, Debug)]
+#[derive(sqlx::FromRow, Debug, Default)]
 pub struct PGWALStats {
     recovery: i32,
-    wal_records: i64,
-    wal_fpi: i64,
     wal_written: f64,
+    #[sqlx(default)]
+    wal_records: i64,
+    #[sqlx(default)]
+    wal_fpi: i64,
+    #[sqlx(default)]
     wal_bytes: f64,
+    #[sqlx(default)]
     wal_buffers_full: i64,
+    #[sqlx(default)]
     wal_write: i64,
+    #[sqlx(default)]
     wal_sync: i64,
+    #[sqlx(default)]
     wal_write_time: f64,
+    #[sqlx(default)]
     wal_sync_time: f64,
+    #[sqlx(default)]
     reset_time: i64,
-}
-
-impl PGWALStats {
-    fn new() -> Self {
-        PGWALStats {
-            recovery: (0),
-            wal_records: (0),
-            wal_fpi: (0),
-            wal_written: (0.0),
-            wal_bytes: (0.0),
-            wal_buffers_full: (0),
-            wal_write: (0),
-            wal_sync: (0),
-            wal_write_time: (0.0),
-            wal_sync_time: (0.0),
-            reset_time: (0),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -94,11 +85,10 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGWALCollector> {
 }
 
 impl PGWALCollector {
-    fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGWALCollector> {
+    pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGWALCollector> {
         let mut descs = Vec::new();
 
-        let data = Arc::new(RwLock::new(PGWALStats::new()));
-
+        let data = Arc::new(RwLock::new(PGWALStats::default()));
         let recovery_info = IntGauge::with_opts(
             Opts::new(
                 "info",
@@ -319,16 +309,7 @@ impl PG for PGWALCollector {
                 Err(e) => bail!("pg wal collector: can't acquire write lock. {}", e),
             };
 
-            data_lock.recovery = pg_wal_stats.recovery;
-            data_lock.reset_time = pg_wal_stats.reset_time;
-            data_lock.wal_buffers_full = pg_wal_stats.wal_buffers_full;
-            data_lock.wal_bytes = pg_wal_stats.wal_bytes;
-            data_lock.wal_fpi = pg_wal_stats.wal_fpi;
-            data_lock.wal_records = pg_wal_stats.wal_records;
-            data_lock.wal_sync = pg_wal_stats.wal_sync;
-            data_lock.wal_write = pg_wal_stats.wal_write;
-            data_lock.wal_write_time = pg_wal_stats.wal_write_time;
-            data_lock.wal_written = pg_wal_stats.wal_written;
+            *data_lock = pg_wal_stats;
         }
 
         Ok(())
