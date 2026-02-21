@@ -179,6 +179,10 @@ Integration tests start a real PostgreSQL container via Docker:
 cargo test --test integration
 ```
 
+## License
+
+BSD 2-Clause License. See [LICENSE](LICENSE) for details.
+
 ## Thanks to
 
 ### pgSCV
