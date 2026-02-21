@@ -149,4 +149,35 @@ mod integration_tests {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_pg_conflict_collector() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+
+        let registry = Registry::new();
+
+        let pc_conflict =
+            collectors::pg_conflict::new(pgi).expect("pg_conflict collector should init");
+        registry.register(Box::new(pc_conflict.clone()))?;
+
+        // The conflict query filters WHERE pg_is_in_recovery() = 't'.
+        // A primary (non-standby) instance returns no rows, but update() still succeeds.
+        pc_conflict.update().await?;
+
+        let mut buffer = Vec::new();
+        let postgres_metrics = registry.gather();
+        let metric_names: Vec<&str> = postgres_metrics.iter().map(|mf| mf.name()).collect();
+
+        assert!(metric_names.contains(&"pg_recovery_conflicts_total"));
+
+        let encoder = prometheus::TextEncoder::new();
+        encoder.encode(&postgres_metrics, &mut buffer)?;
+        let response = String::from_utf8(buffer)?;
+
+        assert!(!response.is_empty());
+
+        Ok(())
+    }
 }
