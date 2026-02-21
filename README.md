@@ -181,7 +181,7 @@ cargo test --test integration
 
 ## License
 
-BSD 2-Clause License. See [LICENSE](LICENSE) for details.
+BSD 3-Clause License. See [LICENSE](LICENSE) for details.
 
 ## Thanks to
 
