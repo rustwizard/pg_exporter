@@ -154,8 +154,10 @@ instances:
         let path = write_tmp_config("pge_test_optional.yml", yaml);
         let ec = ExporterConfig::load(&path).expect("should load");
 
-        let instances = ec.config.instances.unwrap();
-        let inst = instances.get("pg:5432").unwrap();
+        let instances = ec.config.instances.expect("instances should be present");
+        let inst = instances
+            .get("pg:5432")
+            .expect("instance pg:5432 should exist");
 
         assert_eq!(inst.dsn, "postgres://u:p@localhost/db");
         assert!(inst.exclude_db_names.is_none());
@@ -177,10 +179,12 @@ instances:
     exclude_db_names: ["postgres", "template0", "template1"]
 "#;
         let path = write_tmp_config("pge_test_exclude.yml", yaml);
-        let ec = ExporterConfig::load(&path).unwrap();
+        let ec = ExporterConfig::load(&path).expect("should load valid config");
 
-        let instances = ec.config.instances.unwrap();
-        let inst = instances.get("pg:5432").unwrap();
+        let instances = ec.config.instances.expect("instances should be present");
+        let inst = instances
+            .get("pg:5432")
+            .expect("instance pg:5432 should exist");
 
         let excluded = inst
             .exclude_db_names
