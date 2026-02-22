@@ -13,15 +13,15 @@ use tracing::{error, info};
 use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V96};
 
 // Query for Postgres version 9.6 and older.
-const POSTGRES_REPLICATION_QUERY96: &str = "SELECT database, slot_name, slot_type, active, 
-		CASE WHEN pg_is_in_recovery() THEN pg_xlog_location_diff(pg_last_xlog_receive_location(), restart_lsn) 
-		ELSE pg_xlog_location_diff(pg_current_xlog_location(), restart_lsn) END AS since_restart_bytes 
+const POSTGRES_REPLICATION_QUERY96: &str = "SELECT database, slot_name, slot_type, active,
+		CASE WHEN pg_is_in_recovery() THEN pg_xlog_location_diff(pg_last_xlog_receive_location(), restart_lsn)
+		ELSE pg_xlog_location_diff(pg_current_xlog_location(), restart_lsn) END AS since_restart_bytes
 		FROM pg_replication_slots";
 
 // Query for Postgres versions from 10 and newer.
-const POSTGRES_REPLICATION_QUERY_LATEST: &str = "SELECT database, slot_name, slot_type, active, 
-    CASE WHEN pg_is_in_recovery() THEN pg_wal_lsn_diff(pg_last_wal_receive_lsn(), restart_lsn) 
-    ELSE pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn) END AS since_restart_bytes 
+const POSTGRES_REPLICATION_QUERY_LATEST: &str = "SELECT database, slot_name, slot_type, active,
+    CASE WHEN pg_is_in_recovery() THEN pg_wal_lsn_diff(pg_last_wal_receive_lsn(), restart_lsn)
+    ELSE pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn) END AS since_restart_bytes
     FROM pg_replication_slots";
 
 #[derive(sqlx::FromRow, Debug, Default)]
