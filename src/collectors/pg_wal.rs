@@ -12,24 +12,24 @@ use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V14, POSTGRES_V18};
 use crate::instance;
 
 const POSTGRES_WAL_QUERY96: &str =
-    "SELECT pg_is_in_recovery()::int AS recovery, 
+    "SELECT pg_is_in_recovery()::int AS recovery,
 		((CASE pg_is_in_recovery() WHEN 't' THEN pg_last_xlog_receive_location() ELSE pg_current_xlog_location() END) - '0/00000000')::FLOAT8 AS wal_written";
 
 const POSTGRES_WAL_QUERY13: &str =
-    "SELECT pg_is_in_recovery()::int AS recovery, 
+    "SELECT pg_is_in_recovery()::int AS recovery,
 		((CASE pg_is_in_recovery() WHEN 't' THEN pg_last_wal_receive_lsn() ELSE pg_current_wal_lsn() END) - '0/00000000')::FLOAT8 AS wal_written";
 
 const POSTGRES_WAL_QUERY17: &str =
-    "SELECT pg_is_in_recovery()::int AS recovery, wal_records, wal_fpi, 
-		(CASE pg_is_in_recovery() WHEN 't' THEN pg_last_wal_receive_lsn() - '0/00000000' ELSE pg_current_wal_lsn() - '0/00000000' END)::FLOAT8 AS wal_written, 
-		wal_bytes::FLOAT8, wal_buffers_full, wal_write, wal_sync, wal_write_time, wal_sync_time, extract('epoch' from stats_reset)::INT8 as reset_time 
+    "SELECT pg_is_in_recovery()::int AS recovery, wal_records, wal_fpi,
+		(CASE pg_is_in_recovery() WHEN 't' THEN pg_last_wal_receive_lsn() - '0/00000000' ELSE pg_current_wal_lsn() - '0/00000000' END)::FLOAT8 AS wal_written,
+		wal_bytes::FLOAT8, wal_buffers_full, wal_write, wal_sync, wal_write_time, wal_sync_time, extract('epoch' from stats_reset)::INT8 as reset_time
 		FROM pg_stat_wal";
 
 const POSTGRES_WAL_QUERY_LATEST: &str = "SELECT pg_is_in_recovery()::int AS recovery,
 		(CASE pg_is_in_recovery() WHEN 'f' THEN FALSE::int ELSE pg_is_wal_replay_paused()::int END) AS recovery_paused,
-		wal_records, wal_fpi, 
-		(CASE pg_is_in_recovery() WHEN 't' THEN pg_last_wal_receive_lsn() - '0/00000000' ELSE pg_current_wal_lsn() - '0/00000000' END) AS wal_written, 
-		wal_bytes, wal_buffers_full, extract('epoch' from stats_reset) as reset_time 
+		wal_records, wal_fpi,
+		(CASE pg_is_in_recovery() WHEN 't' THEN pg_last_wal_receive_lsn() - '0/00000000' ELSE pg_current_wal_lsn() - '0/00000000' END) AS wal_written,
+		wal_bytes, wal_buffers_full, extract('epoch' from stats_reset) as reset_time
 		FROM pg_stat_wal";
 
 #[derive(sqlx::FromRow, Debug, Default)]
