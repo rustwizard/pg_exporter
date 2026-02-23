@@ -329,15 +329,16 @@ impl Collector for PGBGwriterCollector {
         self.checkpoints_all
             .inc_by((data_lock.checkpoints_timed + data_lock.checkpoints_req) as u64);
 
+        let pg_block_size = self.dbi.current_cfg().map(|c| c.pg_block_size).unwrap_or(0);
         self.written_bytes
             .with_label_values(&["checkpointer"])
-            .inc_by((data_lock.buffers_checkpoint * self.dbi.cfg.pg_block_size) as u64);
+            .inc_by((data_lock.buffers_checkpoint * pg_block_size) as u64);
         self.written_bytes
             .with_label_values(&["bgwriter"])
-            .inc_by((data_lock.buffers_clean * self.dbi.cfg.pg_block_size) as u64);
+            .inc_by((data_lock.buffers_clean * pg_block_size) as u64);
         self.written_bytes
             .with_label_values(&["backend"])
-            .inc_by(data_lock.buffers_backend as u64 * self.dbi.cfg.pg_block_size as u64);
+            .inc_by(data_lock.buffers_backend as u64 * pg_block_size as u64);
 
         self.ckpt_stats_age_seconds
             .inc_by(data_lock.ckpt_stats_age_seconds as u64);
@@ -366,7 +367,8 @@ impl Collector for PGBGwriterCollector {
 #[async_trait]
 impl PG for PGBGwriterCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let maybe_bgwr_stats = if self.dbi.cfg.pg_version < POSTGRES_V17 {
+        let cfg = self.dbi.ensure_ready().await?;
+        let maybe_bgwr_stats = if cfg.pg_version < POSTGRES_V17 {
             sqlx::query_as::<_, PGBGwriterStats>(BGWRITER_QUERY16)
                 .fetch_optional(&self.dbi.db)
                 .await?

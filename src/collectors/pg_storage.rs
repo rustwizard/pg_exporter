@@ -54,7 +54,7 @@ pub struct PGStorageCollector {
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStorageCollector> {
     // Collecting pg_storage since Postgres 10.
-    if dbi.cfg.pg_version >= POSTGRES_V10 {
+    if dbi.current_cfg().map(|c| c.pg_version).unwrap_or(POSTGRES_V10) >= POSTGRES_V10 {
         match PGStorageCollector::new(dbi) {
             Ok(result) => Some(result),
             Err(e) => {
@@ -189,11 +189,13 @@ impl Collector for PGStorageCollector {
             }
         };
 
+        let pg_version = self.dbi.current_cfg().map(|c| c.pg_version).unwrap_or(0);
+
         for row in data_lock.iter() {
             let tablespace = row.tablespace.clone().unwrap_or_default();
 
             // Collecting in-flight temp only since Postgres 12.
-            if self.dbi.cfg.pg_version >= POSTGRES_V12 {
+            if pg_version >= POSTGRES_V12 {
                 self.temp_files.with_label_values(&[&tablespace]).set(
                     row.files_total
                         .unwrap_or_default()
@@ -258,9 +260,10 @@ impl Collector for PGStorageCollector {
 #[async_trait]
 impl PG for PGStorageCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
+        let cfg = self.dbi.ensure_ready().await?;
         let mut pg_storage_stat_rows =
             sqlx::query_as::<_, PGStorageStats>(POSTGRES_TEMP_FILES_INFLIGHT)
-                .bind(self.dbi.cfg.pg_collect_topidx)
+                .bind(cfg.pg_collect_topidx)
                 .fetch_all(&self.dbi.db)
                 .await?;
 

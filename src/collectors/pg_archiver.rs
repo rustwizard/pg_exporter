@@ -8,7 +8,7 @@ use prometheus::proto::MetricFamily;
 use prometheus::{Gauge, IntCounter, IntGauge};
 use tracing::error;
 
-use crate::collectors::{PG, POSTGRES_V12};
+use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13};
 use crate::instance;
 
 const POSTGRES_WAL_ARCHIVING_QUERY: &str = "SELECT archived_count, failed_count,
@@ -50,7 +50,7 @@ pub struct PGArchiverCollector {
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGArchiverCollector> {
     // some system functions are not available, required Postgres 12 or newer
-    if dbi.cfg.pg_version > POSTGRES_V12 {
+    if dbi.current_cfg().map(|c| c.pg_version).unwrap_or(POSTGRES_V13) > POSTGRES_V12 {
         match PGArchiverCollector::new(dbi) {
             Ok(result) => Some(result),
             Err(e) => {
@@ -146,8 +146,10 @@ impl Collector for PGArchiverCollector {
             self.failed_total.inc_by(row.failed as u64);
             self.since_last_archive_seconds
                 .set(row.since_archived_seconds);
+            let pg_wal_segment_size =
+                self.dbi.current_cfg().map(|c| c.pg_wal_segment_size).unwrap_or(0);
             self.lag_bytes
-                .set(row.lag_files * self.dbi.cfg.pg_wal_segment_size);
+                .set(row.lag_files * pg_wal_segment_size);
         }
 
         mfs.extend(self.archived_total.collect());

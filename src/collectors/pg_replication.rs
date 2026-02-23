@@ -76,7 +76,7 @@ pub struct PGReplicationCollector {
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGReplicationCollector> {
     // Collecting pg_replication since Postgres 9.6.
-    if dbi.cfg.pg_version >= POSTGRES_V96 {
+    if dbi.current_cfg().map(|c| c.pg_version).unwrap_or(POSTGRES_V96) >= POSTGRES_V96 {
         match PGReplicationCollector::new(dbi) {
             Ok(result) => Some(result),
             Err(e) => {
@@ -351,9 +351,10 @@ impl Collector for PGReplicationCollector {
 #[async_trait]
 impl PG for PGReplicationCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let mut pg_replc_stat_rows = if self.dbi.cfg.pg_version < POSTGRES_V10 {
+        let cfg = self.dbi.ensure_ready().await?;
+        let mut pg_replc_stat_rows = if cfg.pg_version < POSTGRES_V10 {
             sqlx::query_as::<_, PGReplicationStats>(POSTGRES_REPLICATION_QUERY96)
-                .bind(self.dbi.cfg.pg_collect_topidx)
+                .bind(cfg.pg_collect_topidx)
                 .fetch_all(&self.dbi.db)
                 .await?
         } else {

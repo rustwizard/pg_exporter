@@ -285,15 +285,16 @@ impl Collector for PGWALCollector {
 #[async_trait]
 impl PG for PGWALCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let maybe_pg_wal_stats = if self.dbi.cfg.pg_version < POSTGRES_V10 {
+        let cfg = self.dbi.ensure_ready().await?;
+        let maybe_pg_wal_stats = if cfg.pg_version < POSTGRES_V10 {
             sqlx::query_as::<_, PGWALStats>(POSTGRES_WAL_QUERY96)
                 .fetch_optional(&self.dbi.db)
                 .await?
-        } else if self.dbi.cfg.pg_version < POSTGRES_V14 {
+        } else if cfg.pg_version < POSTGRES_V14 {
             sqlx::query_as::<_, PGWALStats>(POSTGRES_WAL_QUERY13)
                 .fetch_optional(&self.dbi.db)
                 .await?
-        } else if self.dbi.cfg.pg_version < POSTGRES_V18 {
+        } else if cfg.pg_version < POSTGRES_V18 {
             sqlx::query_as::<_, PGWALStats>(POSTGRES_WAL_QUERY17)
                 .fetch_optional(&self.dbi.db)
                 .await?

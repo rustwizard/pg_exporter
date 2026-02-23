@@ -530,58 +530,54 @@ impl PGStatementsCollector {
         })
     }
 
-    fn select_query(&self) -> String {
-        let query_column = if self.dbi.cfg.notrack {
-            "null"
-        } else {
-            "p.query"
-        };
+    fn select_query(&self, cfg: &instance::PGConfig) -> String {
+        let query_column = if cfg.notrack { "null" } else { "p.query" };
 
-        if self.dbi.cfg.pg_version < POSTGRES_V13 {
-            if self.dbi.cfg.pg_collect_topq > 0 {
+        if cfg.pg_version < POSTGRES_V13 {
+            if cfg.pg_collect_topq > 0 {
                 format!(
                     statements_query12_topk!(),
-                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                    query_column, cfg.pg_stat_statements_schema
                 )
             } else {
                 format!(
                     statements_query12!(),
-                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                    query_column, cfg.pg_stat_statements_schema
                 )
             }
-        } else if self.dbi.cfg.pg_version > POSTGRES_V12 && self.dbi.cfg.pg_version < POSTGRES_V17 {
-            if self.dbi.cfg.pg_collect_topq > 0 {
+        } else if cfg.pg_version > POSTGRES_V12 && cfg.pg_version < POSTGRES_V17 {
+            if cfg.pg_collect_topq > 0 {
                 format!(
                     statements_query16_topk!(),
-                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                    query_column, cfg.pg_stat_statements_schema
                 )
             } else {
                 format!(
                     statements_query16!(),
-                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                    query_column, cfg.pg_stat_statements_schema
                 )
             }
-        } else if self.dbi.cfg.pg_version > POSTGRES_V16 && self.dbi.cfg.pg_version < POSTGRES_V18 {
-            if self.dbi.cfg.pg_collect_topq > 0 {
+        } else if cfg.pg_version > POSTGRES_V16 && cfg.pg_version < POSTGRES_V18 {
+            if cfg.pg_collect_topq > 0 {
                 format!(
                     statements_query17_topk!(),
-                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                    query_column, cfg.pg_stat_statements_schema
                 )
             } else {
                 format!(
                     statements_query17!(),
-                    query_column, self.dbi.cfg.pg_stat_statements_schema
+                    query_column, cfg.pg_stat_statements_schema
                 )
             }
-        } else if self.dbi.cfg.pg_collect_topq > 0 {
+        } else if cfg.pg_collect_topq > 0 {
             format!(
                 statements_query_latest_topk!(),
-                query_column, self.dbi.cfg.pg_stat_statements_schema
+                query_column, cfg.pg_stat_statements_schema
             )
         } else {
             format!(
                 statements_query_latest!(),
-                query_column, self.dbi.cfg.pg_stat_statements_schema
+                query_column, cfg.pg_stat_statements_schema
             )
         }
     }
@@ -589,7 +585,11 @@ impl PGStatementsCollector {
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
     // Collecting since Postgres 12.
-    if dbi.cfg.pg_version >= POSTGRES_V12 && dbi.cfg.pg_stat_statements {
+    if dbi
+        .current_cfg()
+        .map(|c| c.pg_version >= POSTGRES_V12 && c.pg_stat_statements)
+        .unwrap_or(true)
+    {
         match PGStatementsCollector::new(dbi) {
             Ok(result) => Some(result),
             Err(e) => {
@@ -608,7 +608,11 @@ impl Collector for PGStatementsCollector {
     }
 
     fn collect(&self) -> Vec<proto::MetricFamily> {
-        if !self.dbi.cfg.pg_stat_statements {
+        let cfg = match self.dbi.current_cfg() {
+            Some(c) => c,
+            None => return Vec::new(),
+        };
+        if !cfg.pg_stat_statements {
             return Vec::new();
         }
         // collect MetricFamilies.
@@ -637,7 +641,7 @@ impl Collector for PGStatementsCollector {
             }
             .as_str();
 
-            let query = if self.dbi.cfg.notrack {
+            let query = if cfg.notrack {
                 "/* query text hidden, no-track mode enabled */"
             } else {
                 q
@@ -649,7 +653,7 @@ impl Collector for PGStatementsCollector {
                     error!(
                         "pg statements collect: get user: {:?}",
                         anyhow!("user is empty")
-                            .context(format!("pg_ver: {}", self.dbi.cfg.pg_version))
+                            .context(format!("pg_ver: {}", cfg.pg_version))
                     );
                     // return empty mfs
                     return mfs;
@@ -663,7 +667,7 @@ impl Collector for PGStatementsCollector {
                     error!(
                         "pg statements collect: get database: {:?}",
                         anyhow!("database is empty")
-                            .context(format!("pg_ver: {}", self.dbi.cfg.pg_version))
+                            .context(format!("pg_ver: {}", cfg.pg_version))
                     );
                     // return empty mfs
                     return mfs;
@@ -748,7 +752,7 @@ impl Collector for PGStatementsCollector {
                     .set(shared_blks_hit);
             }
 
-            let block_size = self.dbi.cfg.pg_block_size;
+            let block_size = cfg.pg_block_size;
 
             let shared_blks_read = row
                 .shared_blks_read
@@ -882,7 +886,7 @@ impl Collector for PGStatementsCollector {
                     .with_label_values(&[user, database, query_id.as_str()])
                     .set((wal_fpi * block_size) + wal_bytes);
 
-                if self.dbi.cfg.pg_version >= POSTGRES_V18 {
+                if cfg.pg_version >= POSTGRES_V18 {
                     // WAL buffers
                     let wal_buffers = row
                         .wal_buffers
@@ -921,14 +925,15 @@ impl Collector for PGStatementsCollector {
 #[async_trait]
 impl PG for PGStatementsCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        if !self.dbi.cfg.pg_stat_statements {
+        let cfg = self.dbi.ensure_ready().await?;
+        if !cfg.pg_stat_statements {
             return Ok(());
         }
 
-        let query = self.select_query();
+        let query = self.select_query(&cfg);
 
         let mut pg_statemnts_rows = sqlx::query_as::<_, PGStatementsStat>(&query)
-            .bind(self.dbi.cfg.pg_collect_topq)
+            .bind(cfg.pg_collect_topq)
             .fetch_all(&self.dbi.db)
             .await?;
 

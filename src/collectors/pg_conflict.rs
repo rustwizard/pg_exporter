@@ -118,7 +118,8 @@ impl Collector for PGConflictCollector {
 #[async_trait]
 impl PG for PGConflictCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let maybe_conflict_stats = if self.dbi.cfg.pg_version < POSTGRES_V16 {
+        let cfg = self.dbi.ensure_ready().await?;
+        let maybe_conflict_stats = if cfg.pg_version < POSTGRES_V16 {
             sqlx::query_as::<_, PGConflictStats>(POSTGRES_DATABASE_CONFLICT15)
                 .fetch_optional(&self.dbi.db)
                 .await?
