@@ -106,7 +106,7 @@ pub struct PGStatIOCollector {
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
     // Collecting pg_stat_io since Postgres 16.
-    if dbi.cfg.pg_version >= POSTGRES_V16 {
+    if dbi.current_cfg().map(|c| c.pg_version).unwrap_or(POSTGRES_V16) >= POSTGRES_V16 {
         match PGStatIOCollector::new(dbi) {
             Ok(result) => Some(result),
             Err(e) => {
@@ -427,7 +427,8 @@ impl Collector for PGStatIOCollector {
 #[async_trait]
 impl PG for PGStatIOCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let mut pg_statio_stats_rows = if self.dbi.cfg.pg_version < POSTGRES_V18 {
+        let cfg = self.dbi.ensure_ready().await?;
+        let mut pg_statio_stats_rows = if cfg.pg_version < POSTGRES_V18 {
             sqlx::query_as::<_, PGStatIOStats>(POSTGRES_STAT_IO_QUERY17)
                 .fetch_all(&self.dbi.db)
                 .await?

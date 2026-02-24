@@ -832,9 +832,10 @@ impl Collector for PGTableCollector {
 #[async_trait]
 impl PG for PGTableCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let mut pg_tables_stat_rows = if self.dbi.cfg.pg_collect_top_table > 0 {
+        let cfg = self.dbi.ensure_ready().await?;
+        let mut pg_tables_stat_rows = if cfg.pg_collect_top_table > 0 {
             sqlx::query_as::<_, PGTablesStats>(POSTGRES_USERS_TABLE_TOPK)
-                .bind(self.dbi.cfg.pg_collect_topidx)
+                .bind(cfg.pg_collect_topidx)
                 .fetch_all(&self.dbi.db)
                 .await?
         } else {

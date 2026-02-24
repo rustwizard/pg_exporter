@@ -252,9 +252,10 @@ impl Collector for PGIndexesCollector {
 #[async_trait]
 impl PG for PGIndexesCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let mut pg_idx_stats_rows = if self.dbi.cfg.pg_collect_topidx > 0 {
+        let cfg = self.dbi.ensure_ready().await?;
+        let mut pg_idx_stats_rows = if cfg.pg_collect_topidx > 0 {
             sqlx::query_as::<_, PGIndexesStats>(USER_INDEXES_QUERY_TOPK)
-                .bind(self.dbi.cfg.pg_collect_topidx)
+                .bind(cfg.pg_collect_topidx)
                 .fetch_all(&self.dbi.db)
                 .await?
         } else {

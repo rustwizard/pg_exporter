@@ -165,7 +165,7 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
             for (instance, config) in ec.config.instances.unwrap_or_default() {
                 info!("starting connection for instance: {instance}");
 
-                let pgi = instance::new(&instance::Config {
+                let pgi = match instance::new(&instance::Config {
                     dsn: config.dsn,
                     exclude_db_names: config.exclude_db_names.clone(),
                     const_labels: config.const_labels.clone(),
@@ -174,7 +174,14 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                     collect_top_table: config.collect_top_table,
                     no_track_mode: config.no_track_mode,
                 })
-                .await?;
+                .await
+                {
+                    Ok(p) => p,
+                    Err(e) => {
+                        error!("failed to initialize instance {instance}: {e}");
+                        continue;
+                    }
+                };
 
                 let arc_pgi = Arc::new(pgi);
 
