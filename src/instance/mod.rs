@@ -101,6 +101,15 @@ impl PostgresDB {
             .ok_or_else(|| anyhow::anyhow!("pg_exporter: cfg not initialized after init_cfg"))
     }
 
+    /// Clears the cached config so that the next `ensure_ready()` call re-fetches it from the
+    /// database. Intended for testing lazy-reconnect behavior.
+    #[allow(dead_code)]
+    pub fn reset_cfg(&self) {
+        if let Ok(mut lock) = self.cfg.write() {
+            *lock = None;
+        }
+    }
+
     async fn init_cfg(&self) -> anyhow::Result<()> {
         let cfg = fetch_cfg(&self.db, &self.source_cfg).await?;
         let mut lock = self

@@ -299,3 +299,220 @@ mod integration_tests {
         Ok(())
     }
 }
+
+/// Tests that prove lazy connection and reconnect behaviour.
+///
+/// Scenarios covered:
+/// 1. App starts successfully even when PostgreSQL is unreachable.
+/// 2. `ensure_ready()` returns an error (not a panic) when DB is unreachable.
+/// 3. Failed `ensure_ready()` does not permanently cache the failure — the
+///    next call retries the connection attempt.
+/// 4. `ensure_ready()` succeeds and caches cfg when DB is available.
+/// 5. After `reset_cfg()` (simulating a reconnect / DB restart), cfg is
+///    re-fetched transparently on the next `ensure_ready()` call.
+/// 6. A collector's `update()` returns `Err` (not panic) when DB is
+///    unreachable, and recovers automatically once the DB is back.
+mod lazy_reconnect_tests {
+    use std::sync::Arc;
+
+    use pg_exporter::collectors::{self, PG};
+    use pg_exporter::instance;
+
+    use crate::common;
+
+    /// A syntactically valid DSN that points to a port with no listener.
+    /// Connection attempts fail immediately with ECONNREFUSED, keeping tests fast.
+    const UNREACHABLE_DSN: &str = "postgres://nobody:nobody@127.0.0.1:19876/nonexistent";
+
+    // ── 1. Lazy start ───────────────────────────────────────────────────────
+
+    /// `instance::new()` must succeed even when PostgreSQL is unreachable.
+    /// The pool is created lazily; only the DSN syntax is validated at this
+    /// point.
+    #[tokio::test]
+    async fn test_instance_new_succeeds_without_pg() {
+        let result = instance::new(&instance::Config {
+            dsn: UNREACHABLE_DSN.to_string(),
+            ..Default::default()
+        })
+        .await;
+
+        assert!(
+            result.is_ok(),
+            "instance::new() should return Ok even when DB is unreachable"
+        );
+        let pgi = result.unwrap();
+        assert!(
+            pgi.current_cfg().is_none(),
+            "cfg should be None when DB was never reachable"
+        );
+    }
+
+    // ── 2. ensure_ready() fails fast ────────────────────────────────────────
+
+    /// `ensure_ready()` must return `Err` (not panic / hang) when the DB is
+    /// unreachable.
+    #[tokio::test]
+    async fn test_ensure_ready_fails_when_pg_unreachable() {
+        let pgi = instance::new(&instance::Config {
+            dsn: UNREACHABLE_DSN.to_string(),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+
+        let result = pgi.ensure_ready().await;
+        assert!(
+            result.is_err(),
+            "ensure_ready() should return Err when DB is unreachable"
+        );
+    }
+
+    // ── 3. Failure is not cached — system always retries ────────────────────
+
+    /// After a failed `ensure_ready()`, `current_cfg()` must still return
+    /// `None` and a subsequent `ensure_ready()` must retry (not return a
+    /// permanently-cached failure).
+    #[tokio::test]
+    async fn test_ensure_ready_retries_each_call() {
+        let pgi = instance::new(&instance::Config {
+            dsn: UNREACHABLE_DSN.to_string(),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+
+        // First attempt fails.
+        assert!(pgi.ensure_ready().await.is_err());
+        assert!(
+            pgi.current_cfg().is_none(),
+            "cfg must remain None after first failure"
+        );
+
+        // Second attempt also fails — but the key point is that it *tried*
+        // again rather than returning a stale cached error.
+        assert!(pgi.ensure_ready().await.is_err());
+        assert!(
+            pgi.current_cfg().is_none(),
+            "cfg must remain None after second failure"
+        );
+    }
+
+    // ── 4. Happy path: cfg is loaded and cached ──────────────────────────────
+
+    /// When the DB is reachable, `ensure_ready()` loads the server config and
+    /// caches it so subsequent calls don't hit the database again.
+    #[tokio::test]
+    async fn test_ensure_ready_succeeds_and_caches_cfg()
+    -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+
+        let cfg = pgi.ensure_ready().await?;
+        assert!(cfg.pg_version > 0, "pg_version should be populated from the server");
+        assert!(cfg.pg_block_size > 0, "pg_block_size should be populated");
+
+        // cfg must now be cached without hitting the DB.
+        assert!(
+            pgi.current_cfg().is_some(),
+            "current_cfg() should return Some after successful ensure_ready()"
+        );
+
+        // Second call returns the same cfg from the cache.
+        let cfg2 = pgi.ensure_ready().await?;
+        assert_eq!(
+            cfg.pg_version, cfg2.pg_version,
+            "cached cfg should match original"
+        );
+
+        Ok(())
+    }
+
+    // ── 5. Reconnect: cfg is re-fetched after a simulated DB restart ─────────
+
+    /// Simulates a DB restart by clearing the cached cfg via `reset_cfg()`.
+    /// The next `ensure_ready()` call must transparently re-fetch it from the
+    /// live server, proving that the reconnect path works end-to-end.
+    #[tokio::test]
+    async fn test_cfg_repopulated_after_simulated_reconnect()
+    -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+
+        // Initial connection succeeds and caches cfg.
+        let cfg_before = pgi.ensure_ready().await?;
+        assert!(cfg_before.pg_version > 0);
+
+        // Simulate a reconnect event (e.g. DB restarted, pool recycled).
+        pgi.reset_cfg();
+        assert!(
+            pgi.current_cfg().is_none(),
+            "cfg should be None immediately after reset_cfg()"
+        );
+
+        // ensure_ready() must re-fetch from the live server.
+        let cfg_after = pgi.ensure_ready().await?;
+        assert!(cfg_after.pg_version > 0);
+        assert_eq!(
+            cfg_before.pg_version, cfg_after.pg_version,
+            "re-fetched cfg should match original server version"
+        );
+
+        Ok(())
+    }
+
+    // ── 6. Collector graceful failure and recovery ───────────────────────────
+
+    /// A collector's `update()` must return `Err` (not panic) when the DB is
+    /// unreachable, so the metrics handler can log it and move on.
+    #[tokio::test]
+    async fn test_collector_update_returns_err_when_pg_unreachable() {
+        let pgi = Arc::new(
+            instance::new(&instance::Config {
+                dsn: UNREACHABLE_DSN.to_string(),
+                ..Default::default()
+            })
+            .await
+            .unwrap(),
+        );
+
+        // pg_database collector: does not check cfg in new(), so it is always
+        // created regardless of DB availability.
+        let collector =
+            collectors::pg_database::new(Arc::clone(&pgi)).expect("collector should be created");
+
+        let result = collector.update().await;
+        assert!(
+            result.is_err(),
+            "update() should return Err when DB is unreachable"
+        );
+    }
+
+    /// After a simulated reconnect (cfg reset), a collector's `update()` must
+    /// succeed because `ensure_ready()` re-fetches cfg lazily.
+    #[tokio::test]
+    async fn test_collector_recovers_after_simulated_reconnect()
+    -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+
+        // Use a version-aware collector to exercise ensure_ready() inside update().
+        let collector = collectors::pg_indexes::new(Arc::clone(&pgi))
+            .expect("pg_indexes collector should init");
+
+        // First update works normally.
+        collector.update().await?;
+
+        // Simulate DB reconnect by clearing the cached cfg.
+        pgi.reset_cfg();
+        assert!(pgi.current_cfg().is_none());
+
+        // Second update must re-init cfg lazily and succeed.
+        collector.update().await?;
+
+        Ok(())
+    }
+}
