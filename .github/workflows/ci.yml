@@ -70,6 +70,8 @@ jobs:
     needs: [fmt, clippy, test]
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare config
+        run: cp pg_exporter.yml.dist pg_exporter.yml
       - uses: docker/setup-buildx-action@v3
       - name: Build image
         uses: docker/build-push-action@v6
