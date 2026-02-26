@@ -106,7 +106,12 @@ pub struct PGStatIOCollector {
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
     // Collecting pg_stat_io since Postgres 16.
-    if dbi.current_cfg().map(|c| c.pg_version).unwrap_or(POSTGRES_V16) >= POSTGRES_V16 {
+    if dbi
+        .current_cfg()
+        .map(|c| c.pg_version)
+        .unwrap_or(POSTGRES_V16)
+        >= POSTGRES_V16
+    {
         match PGStatIOCollector::new(dbi) {
             Ok(result) => Some(result),
             Err(e) => {

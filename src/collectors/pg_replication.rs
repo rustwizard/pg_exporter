@@ -76,7 +76,12 @@ pub struct PGReplicationCollector {
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGReplicationCollector> {
     // Collecting pg_replication since Postgres 9.6.
-    if dbi.current_cfg().map(|c| c.pg_version).unwrap_or(POSTGRES_V96) >= POSTGRES_V96 {
+    if dbi
+        .current_cfg()
+        .map(|c| c.pg_version)
+        .unwrap_or(POSTGRES_V96)
+        >= POSTGRES_V96
+    {
         match PGReplicationCollector::new(dbi) {
             Ok(result) => Some(result),
             Err(e) => {
