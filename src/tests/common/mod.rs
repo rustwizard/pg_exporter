@@ -54,11 +54,9 @@ pub async fn create_second_database(
         .max_connections(1)
         .connect(&new_db_dsn)
         .await?;
-    sqlx::query(
-        "CREATE TABLE test_data (id SERIAL PRIMARY KEY, payload TEXT NOT NULL)",
-    )
-    .execute(&new_pool)
-    .await?;
+    sqlx::query("CREATE TABLE test_data (id SERIAL PRIMARY KEY, payload TEXT NOT NULL)")
+        .execute(&new_pool)
+        .await?;
     sqlx::query(
         "INSERT INTO test_data (payload) \
          SELECT repeat('x', 1000) FROM generate_series(1, 1000)",

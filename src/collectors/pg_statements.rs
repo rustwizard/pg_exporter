@@ -652,8 +652,7 @@ impl Collector for PGStatementsCollector {
                 None => {
                     error!(
                         "pg statements collect: get user: {:?}",
-                        anyhow!("user is empty")
-                            .context(format!("pg_ver: {}", cfg.pg_version))
+                        anyhow!("user is empty").context(format!("pg_ver: {}", cfg.pg_version))
                     );
                     // return empty mfs
                     return mfs;
@@ -666,8 +665,7 @@ impl Collector for PGStatementsCollector {
                 None => {
                     error!(
                         "pg statements collect: get database: {:?}",
-                        anyhow!("database is empty")
-                            .context(format!("pg_ver: {}", cfg.pg_version))
+                        anyhow!("database is empty").context(format!("pg_ver: {}", cfg.pg_version))
                     );
                     // return empty mfs
                     return mfs;

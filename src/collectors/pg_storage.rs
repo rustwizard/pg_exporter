@@ -54,7 +54,12 @@ pub struct PGStorageCollector {
 
 pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStorageCollector> {
     // Collecting pg_storage since Postgres 10.
-    if dbi.current_cfg().map(|c| c.pg_version).unwrap_or(POSTGRES_V10) >= POSTGRES_V10 {
+    if dbi
+        .current_cfg()
+        .map(|c| c.pg_version)
+        .unwrap_or(POSTGRES_V10)
+        >= POSTGRES_V10
+    {
         match PGStorageCollector::new(dbi) {
             Ok(result) => Some(result),
             Err(e) => {

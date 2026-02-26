@@ -11,8 +11,7 @@ use crate::instance;
 
 use super::PG;
 
-const PG_DATABASE_QUERY: &str =
-    "SELECT datname AS name, pg_database_size(datname) AS size_bytes \
+const PG_DATABASE_QUERY: &str = "SELECT datname AS name, pg_database_size(datname) AS size_bytes \
      FROM pg_database WHERE datname != ALL($1) AND datname != ''";
 
 const DATABASE_SUBSYSTEM: &str = "database";
@@ -100,10 +99,9 @@ impl PG for PGDatabaseCollector {
         let new_sizes: HashMap<String, i64> =
             rows.into_iter().map(|r| (r.name, r.size_bytes)).collect();
 
-        let mut data_lock = self
-            .data
-            .write()
-            .map_err(|e| anyhow::anyhow!("pg database collector: can't acquire write lock. {}", e))?;
+        let mut data_lock = self.data.write().map_err(|e| {
+            anyhow::anyhow!("pg database collector: can't acquire write lock. {}", e)
+        })?;
         data_lock.size_bytes = new_sizes;
 
         Ok(())

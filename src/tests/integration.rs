@@ -403,14 +403,16 @@ mod lazy_reconnect_tests {
     /// When the DB is reachable, `ensure_ready()` loads the server config and
     /// caches it so subsequent calls don't hit the database again.
     #[tokio::test]
-    async fn test_ensure_ready_succeeds_and_caches_cfg()
-    -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_ensure_ready_succeeds_and_caches_cfg() -> Result<(), Box<dyn std::error::Error>> {
         common::setup_tracing();
 
         let (_container, pgi) = common::create_test_instance().await?;
 
         let cfg = pgi.ensure_ready().await?;
-        assert!(cfg.pg_version > 0, "pg_version should be populated from the server");
+        assert!(
+            cfg.pg_version > 0,
+            "pg_version should be populated from the server"
+        );
         assert!(cfg.pg_block_size > 0, "pg_block_size should be populated");
 
         // cfg must now be cached without hitting the DB.
