@@ -337,43 +337,25 @@ impl Collector for PGStatIOCollector {
             ];
 
             self.reads.with_label_values(&vals).set(row.reads);
-            self.read_time
-                .with_label_values(&vals)
-                .set(row.read_time);
-            self.writes
-                .with_label_values(&vals)
-                .set(row.writes);
-            self.write_time
-                .with_label_values(&vals)
-                .set(row.write_time);
+            self.read_time.with_label_values(&vals).set(row.read_time);
+            self.writes.with_label_values(&vals).set(row.writes);
+            self.write_time.with_label_values(&vals).set(row.write_time);
             self.write_backs
                 .with_label_values(&vals)
                 .set(row.write_backs);
             self.writeback_time
                 .with_label_values(&vals)
                 .set(row.writeback_time);
-            self.extends
-                .with_label_values(&vals)
-                .set(row.extends);
+            self.extends.with_label_values(&vals).set(row.extends);
             self.extend_time
                 .with_label_values(&vals)
                 .set(row.extend_time);
             self.hits.with_label_values(&vals).set(row.hits);
-            self.evictions
-                .with_label_values(&vals)
-                .set(row.evictions);
-            self.reuses
-                .with_label_values(&vals)
-                .set(row.reuses);
-            self.fsyncs
-                .with_label_values(&vals)
-                .set(row.fsyncs);
-            self.fsync_time
-                .with_label_values(&vals)
-                .set(row.fsync_time);
-            self.read_bytes
-                .with_label_values(&vals)
-                .set(row.read_bytes);
+            self.evictions.with_label_values(&vals).set(row.evictions);
+            self.reuses.with_label_values(&vals).set(row.reuses);
+            self.fsyncs.with_label_values(&vals).set(row.fsyncs);
+            self.fsync_time.with_label_values(&vals).set(row.fsync_time);
+            self.read_bytes.with_label_values(&vals).set(row.read_bytes);
             self.write_bytes
                 .with_label_values(&vals)
                 .set(row.write_bytes);
