@@ -16,9 +16,9 @@ const POSTGRES_STAT_IO_QUERY17: &str = "SELECT backend_type, object, context, CO
 		COALESCE(writeback_time, 0) AS writeback_time, COALESCE(extends, 0) AS extends, COALESCE(extend_time, 0) AS extend_time,
 		COALESCE(hits, 0) AS hits, COALESCE(evictions, 0) AS evictions, COALESCE(reuses, 0) AS reuses,
 		COALESCE(fsyncs, 0) AS fsyncs, COALESCE(fsync_time, 0) AS fsync_time,
-		COALESCE(reads, 0) * COALESCE(op_bytes, 0) AS read_bytes,
-		COALESCE(writes, 0) * COALESCE(op_bytes, 0) AS write_bytes,
-		COALESCE(extends, 0) * COALESCE(op_bytes, 0) AS extend_bytes
+		(COALESCE(reads, 0) * COALESCE(op_bytes, 0))::bigint AS read_bytes,
+		(COALESCE(writes, 0) * COALESCE(op_bytes, 0))::bigint AS write_bytes,
+		(COALESCE(extends, 0) * COALESCE(op_bytes, 0))::bigint AS extend_bytes
 		FROM pg_stat_io";
 
 const POSTGRES_STAT_IO_LATEST: &str = "SELECT backend_type, object, context, COALESCE(reads, 0) AS reads, COALESCE(read_time, 0) AS read_time,
@@ -26,10 +26,10 @@ const POSTGRES_STAT_IO_LATEST: &str = "SELECT backend_type, object, context, COA
 		COALESCE(writeback_time, 0) AS writeback_time, COALESCE(extends, 0) AS extends, COALESCE(extend_time, 0) AS extend_time,
 		COALESCE(hits, 0) AS hits, COALESCE(evictions, 0) AS evictions, COALESCE(reuses, 0) AS reuses,
 		COALESCE(fsyncs, 0) AS fsyncs, COALESCE(fsync_time, 0) AS fsync_time,
-		COALESCE(read_bytes, 0) AS read_bytes, COALESCE(write_bytes, 0) AS write_bytes, COALESCE(extend_bytes, 0) AS extend_bytes
+		COALESCE(read_bytes, 0)::bigint AS read_bytes, COALESCE(write_bytes, 0)::bigint AS write_bytes, COALESCE(extend_bytes, 0)::bigint AS extend_bytes
 		FROM pg_stat_io";
 
-#[derive(sqlx::FromRow, Debug)]
+#[derive(sqlx::FromRow, Debug, Default)]
 pub struct PGStatIOStats {
     backend_type: String, // a backend type like "autovacuum worker"
     #[sqlx(rename = "object")]
@@ -53,32 +53,6 @@ pub struct PGStatIOStats {
     read_bytes: i64,
     write_bytes: i64,
     extend_bytes: i64,
-}
-
-impl PGStatIOStats {
-    fn new() -> Self {
-        PGStatIOStats {
-            backend_type: String::new(),
-            io_object: String::new(),
-            io_context: String::new(),
-            reads: 0,
-            read_time: 0.0,
-            writes: 0,
-            write_time: 0.0,
-            write_backs: 0,
-            writeback_time: 0.0,
-            extends: 0,
-            extend_time: 0.0,
-            hits: 0,
-            evictions: 0,
-            reuses: 0,
-            fsyncs: 0,
-            fsync_time: 0.0,
-            read_bytes: 0,
-            write_bytes: 0,
-            extend_bytes: 0,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -127,7 +101,7 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
 impl PGStatIOCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGStatIOCollector> {
         let mut descs = Vec::new();
-        let data = Arc::new(RwLock::new(vec![PGStatIOStats::new()]));
+        let data = Arc::new(RwLock::new(Vec::<PGStatIOStats>::new()));
 
         let var_labels = vec!["backend_type", "object", "context"];
 
@@ -339,10 +313,10 @@ impl PGStatIOCollector {
 }
 
 impl Collector for PGStatIOCollector {
-    fn desc(&self) -> std::vec::Vec<&Desc> {
+    fn desc(&self) -> Vec<&Desc> {
         self.descs.iter().collect()
     }
-    fn collect(&self) -> std::vec::Vec<MetricFamily> {
+    fn collect(&self) -> Vec<MetricFamily> {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(16);
 
@@ -362,49 +336,31 @@ impl Collector for PGStatIOCollector {
                 row.io_context.as_str(),
             ];
 
-            self.reads.with_label_values(vals.as_slice()).set(row.reads);
-            self.read_time
-                .with_label_values(vals.as_slice())
-                .set(row.read_time);
-            self.writes
-                .with_label_values(vals.as_slice())
-                .set(row.writes);
-            self.write_time
-                .with_label_values(vals.as_slice())
-                .set(row.write_time);
+            self.reads.with_label_values(&vals).set(row.reads);
+            self.read_time.with_label_values(&vals).set(row.read_time);
+            self.writes.with_label_values(&vals).set(row.writes);
+            self.write_time.with_label_values(&vals).set(row.write_time);
             self.write_backs
-                .with_label_values(vals.as_slice())
+                .with_label_values(&vals)
                 .set(row.write_backs);
             self.writeback_time
-                .with_label_values(vals.as_slice())
+                .with_label_values(&vals)
                 .set(row.writeback_time);
-            self.extends
-                .with_label_values(vals.as_slice())
-                .set(row.extends);
+            self.extends.with_label_values(&vals).set(row.extends);
             self.extend_time
-                .with_label_values(vals.as_slice())
+                .with_label_values(&vals)
                 .set(row.extend_time);
-            self.hits.with_label_values(vals.as_slice()).set(row.hits);
-            self.evictions
-                .with_label_values(vals.as_slice())
-                .set(row.evictions);
-            self.reuses
-                .with_label_values(vals.as_slice())
-                .set(row.reuses);
-            self.fsyncs
-                .with_label_values(vals.as_slice())
-                .set(row.fsyncs);
-            self.fsync_time
-                .with_label_values(vals.as_slice())
-                .set(row.fsync_time);
-            self.read_bytes
-                .with_label_values(vals.as_slice())
-                .set(row.read_bytes);
+            self.hits.with_label_values(&vals).set(row.hits);
+            self.evictions.with_label_values(&vals).set(row.evictions);
+            self.reuses.with_label_values(&vals).set(row.reuses);
+            self.fsyncs.with_label_values(&vals).set(row.fsyncs);
+            self.fsync_time.with_label_values(&vals).set(row.fsync_time);
+            self.read_bytes.with_label_values(&vals).set(row.read_bytes);
             self.write_bytes
-                .with_label_values(vals.as_slice())
+                .with_label_values(&vals)
                 .set(row.write_bytes);
             self.extend_bytes
-                .with_label_values(vals.as_slice())
+                .with_label_values(&vals)
                 .set(row.extend_bytes);
         }
 
@@ -433,7 +389,7 @@ impl Collector for PGStatIOCollector {
 impl PG for PGStatIOCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
         let cfg = self.dbi.ensure_ready().await?;
-        let mut pg_statio_stats_rows = if cfg.pg_version < POSTGRES_V18 {
+        let pg_statio_stats_rows = if cfg.pg_version < POSTGRES_V18 {
             sqlx::query_as::<_, PGStatIOStats>(POSTGRES_STAT_IO_QUERY17)
                 .fetch_all(&self.dbi.db)
                 .await?
@@ -448,9 +404,7 @@ impl PG for PGStatIOCollector {
             Err(e) => bail!("pg statio collector: can't acquire write lock. {}", e),
         };
 
-        data_lock.clear();
-
-        data_lock.append(&mut pg_statio_stats_rows);
+        *data_lock = pg_statio_stats_rows;
 
         Ok(())
     }

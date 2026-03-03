@@ -298,6 +298,73 @@ mod integration_tests {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_pg_stat_io_collector() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+
+        let registry = Registry::new();
+
+        // pg_stat_io requires PostgreSQL ≥ 16; testcontainers "latest" satisfies this.
+        let pc_stat_io =
+            collectors::pg_stat_io::new(pgi).expect("pg_stat_io collector should init on PG16+");
+        registry.register(Box::new(pc_stat_io.clone()))?;
+
+        pc_stat_io.update().await?;
+
+        let postgres_metrics = registry.gather();
+        let metric_names: Vec<&str> = postgres_metrics.iter().map(|mf| mf.name()).collect();
+
+        assert!(metric_names.contains(&"pg_stat_io_reads"));
+        assert!(metric_names.contains(&"pg_stat_io_read_time"));
+        assert!(metric_names.contains(&"pg_stat_io_writes"));
+        assert!(metric_names.contains(&"pg_stat_io_write_time"));
+        assert!(metric_names.contains(&"pg_stat_io_writebacks"));
+        assert!(metric_names.contains(&"pg_stat_io_writeback_time"));
+        assert!(metric_names.contains(&"pg_stat_io_extends"));
+        assert!(metric_names.contains(&"pg_stat_io_extend_time"));
+        assert!(metric_names.contains(&"pg_stat_io_hits"));
+        assert!(metric_names.contains(&"pg_stat_io_evictions"));
+        assert!(metric_names.contains(&"pg_stat_io_reuses"));
+        assert!(metric_names.contains(&"pg_stat_io_fsyncs"));
+        assert!(metric_names.contains(&"pg_stat_io_fsync_time"));
+        assert!(metric_names.contains(&"pg_stat_io_read_bytes"));
+        assert!(metric_names.contains(&"pg_stat_io_write_bytes"));
+        assert!(metric_names.contains(&"pg_stat_io_extend_bytes"));
+
+        // pg_stat_io always has rows on a live instance (one per backend_type/object/context
+        // combination), so every metric family must contain at least one measurement.
+        for mf in &postgres_metrics {
+            assert!(
+                !mf.get_metric().is_empty(),
+                "metric '{}' should have at least one measurement after update()",
+                mf.name()
+            );
+        }
+
+        // All counters are cumulative and must be non-negative.
+        for mf in &postgres_metrics {
+            for m in mf.get_metric() {
+                assert!(
+                    m.get_gauge().value() >= 0.0,
+                    "metric '{}' has a negative value: {}",
+                    mf.name(),
+                    m.get_gauge().value()
+                );
+            }
+        }
+
+        let mut buffer = Vec::new();
+        let encoder = prometheus::TextEncoder::new();
+        encoder.encode(&postgres_metrics, &mut buffer)?;
+        let response = String::from_utf8(buffer)?;
+
+        assert!(!response.is_empty());
+
+        Ok(())
+    }
 }
 
 /// Tests that prove lazy connection and reconnect behaviour.
