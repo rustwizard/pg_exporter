@@ -110,6 +110,7 @@ cargo build --release
 | `pg_postmaster` | server start time | — |
 | `pg_wal` | WAL generation rate, LSN position | — |
 | `pg_stat_io` | reads/writes/fsyncs by backend type | PG 16+ |
+| `pg_stat_slru` | SLRU cache block hits/reads/writes/flushes by cache name | PG 13+ |
 | `pg_archiver` | archived/failed WAL segment counts, archiving lag | — |
 | `pg_conflict` | recovery conflicts by type (tablespace, lock, snapshot, bufferpin, deadlock, logical slot) | Standby only |
 | `pg_indexes` | index size, scans, tuples fetched | — |
