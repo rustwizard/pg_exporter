@@ -196,6 +196,11 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_bgwirter::new)?;
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_wal::new)?;
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_stat_io::new)?;
+                register_collector(
+                    &mut app,
+                    Arc::clone(&arc_pgi),
+                    collectors::pg_stat_slru::new,
+                )?;
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_archiver::new)?;
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_conflict::new)?;
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_indexes::new)?;

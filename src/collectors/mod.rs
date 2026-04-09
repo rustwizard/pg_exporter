@@ -9,6 +9,7 @@ pub mod pg_postmaster;
 pub mod pg_replication;
 pub mod pg_replication_slots;
 pub mod pg_stat_io;
+pub mod pg_stat_slru;
 pub mod pg_statements;
 pub mod pg_storage;
 pub mod pg_tables;
