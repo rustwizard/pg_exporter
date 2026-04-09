@@ -300,6 +300,64 @@ mod integration_tests {
     }
 
     #[tokio::test]
+    async fn test_pg_stat_slru_collector() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+
+        let registry = Registry::new();
+
+        // pg_stat_slru requires PostgreSQL >= 13; testcontainers "latest" satisfies this.
+        let pc_stat_slru = collectors::pg_stat_slru::new(pgi)
+            .expect("pg_stat_slru collector should init on PG13+");
+        registry.register(Box::new(pc_stat_slru.clone()))?;
+
+        pc_stat_slru.update().await?;
+
+        let postgres_metrics = registry.gather();
+        let metric_names: Vec<&str> = postgres_metrics.iter().map(|mf| mf.name()).collect();
+
+        assert!(metric_names.contains(&"pg_stat_slru_blks_zeroed"));
+        assert!(metric_names.contains(&"pg_stat_slru_blks_hit"));
+        assert!(metric_names.contains(&"pg_stat_slru_blks_read"));
+        assert!(metric_names.contains(&"pg_stat_slru_blks_written"));
+        assert!(metric_names.contains(&"pg_stat_slru_blks_exists"));
+        assert!(metric_names.contains(&"pg_stat_slru_flushes"));
+        assert!(metric_names.contains(&"pg_stat_slru_truncates"));
+
+        // pg_stat_slru always has rows on a live instance, so every metric
+        // family must contain at least one measurement.
+        for mf in &postgres_metrics {
+            assert!(
+                !mf.get_metric().is_empty(),
+                "metric '{}' should have at least one measurement after update()",
+                mf.name()
+            );
+        }
+
+        // All counters must be non-negative.
+        for mf in &postgres_metrics {
+            for m in mf.get_metric() {
+                assert!(
+                    m.get_gauge().value() >= 0.0,
+                    "metric '{}' has a negative value: {}",
+                    mf.name(),
+                    m.get_gauge().value()
+                );
+            }
+        }
+
+        let mut buffer = Vec::new();
+        let encoder = prometheus::TextEncoder::new();
+        encoder.encode(&postgres_metrics, &mut buffer)?;
+        let response = String::from_utf8(buffer)?;
+
+        assert!(!response.is_empty());
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_pg_stat_io_collector() -> Result<(), Box<dyn std::error::Error>> {
         common::setup_tracing();
 
