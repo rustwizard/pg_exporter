@@ -24,7 +24,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -106,14 +106,14 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_database_size_bytes",
+          "expr": "pg_database_size_bytes{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{__name__}}/{{cluster}}/{{project}}/{{datname}}",
+          "legendFormat": "{{datname}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -125,7 +125,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -207,16 +207,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_activity_connections_in_flight",
+          "expr": "pg_activity_connections_in_flight{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "{{database}}/{{state}}",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -224,16 +224,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_activity_prepared_transactions_in_flight",
+          "expr": "pg_activity_prepared_transactions_in_flight{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "prepared txs",
           "range": true,
           "refId": "D",
           "useBackend": false
@@ -245,7 +245,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -298,7 +298,7 @@
               }
             ]
           },
-          "unit": "s"
+          "unit": "dtdurations"
         },
         "overrides": []
       },
@@ -327,26 +327,26 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_postmaster_start_time_seconds",
+          "expr": "time() - pg_postmaster_start_time_seconds{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "__auto",
+          "legendFormat": "uptime",
           "range": true,
           "refId": "A",
           "useBackend": false
         }
       ],
-      "title": "Postmaster Start time since Unix epoch",
+      "title": "PostgreSQL Uptime",
       "type": "timeseries"
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -427,14 +427,14 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_activity_wait_events_in_flight",
+          "expr": "pg_activity_wait_events_in_flight{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "__auto",
+          "legendFormat": "{{type}}/{{event}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -446,7 +446,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -528,14 +528,14 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_access_exclusive_lock",
+          "expr": "pg_locks_access_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "__auto",
+          "legendFormat": "AccessExclusive",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -543,16 +543,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_access_share_lock",
+          "expr": "pg_locks_access_share_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "AccessShare",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -560,16 +560,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_exclusive_lock",
+          "expr": "pg_locks_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "Exclusive",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -577,16 +577,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_not_granted",
+          "expr": "pg_locks_not_granted{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "not granted",
           "range": true,
           "refId": "D",
           "useBackend": false
@@ -594,16 +594,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_row_exclusive_lock",
+          "expr": "pg_locks_row_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "RowExclusive",
           "range": true,
           "refId": "E",
           "useBackend": false
@@ -611,16 +611,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_row_share_lock",
+          "expr": "pg_locks_row_share_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "RowShare",
           "range": true,
           "refId": "F",
           "useBackend": false
@@ -628,16 +628,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_share_lock",
+          "expr": "pg_locks_share_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "Share",
           "range": true,
           "refId": "G",
           "useBackend": false
@@ -645,16 +645,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_share_row_exclusive_lock",
+          "expr": "pg_locks_share_row_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "ShareRowExclusive",
           "range": true,
           "refId": "H",
           "useBackend": false
@@ -662,16 +662,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_share_update_exclusive_lock",
+          "expr": "pg_locks_share_update_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "ShareUpdateExclusive",
           "range": true,
           "refId": "I",
           "useBackend": false
@@ -679,16 +679,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_total",
+          "expr": "pg_locks_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "total",
           "range": true,
           "refId": "J",
           "useBackend": false
@@ -700,7 +700,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -754,32 +754,7 @@
             ]
           }
         },
-        "overrides": [
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "{__name__=\"pg_activity_connections_all_in_flight\", cluster=\"test_cluster17\", instance=\"pg_exporter:61488\", job=\"pg_exporter\", project=\"test_project17\"}"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -806,14 +781,14 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_activity_connections_all_in_flight",
+          "expr": "pg_activity_connections_all_in_flight{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "__auto",
+          "legendFormat": "all connections",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -825,7 +800,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -906,14 +881,14 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_activity_queries_in_flight",
+          "expr": "pg_activity_queries_in_flight{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "__auto",
+          "legendFormat": "{{type}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -925,7 +900,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1007,14 +982,14 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_backends_allocated_bytes_total",
+          "expr": "pg_backends_allocated_bytes_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "__auto",
+          "legendFormat": "allocated bytes",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1022,28 +997,28 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_backends_fsync_total",
+          "expr": "pg_backends_fsync_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "fsync",
           "range": true,
           "refId": "B",
           "useBackend": false
         }
       ],
-      "title": "PG  Backend Allcoated/Fsync total bytes",
+      "title": "PG Backend Allocated/Fsync total bytes",
       "type": "timeseries"
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1125,16 +1100,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_bgwriter_stats_age_seconds_total",
+          "expr": "pg_bgwriter_stats_age_seconds_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "{{process}}",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -1142,16 +1117,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_seconds_total",
+          "expr": "pg_checkpoints_seconds_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "checkpoint {{stage}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1159,50 +1134,28 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_seconds_all_total",
+          "expr": "pg_checkpoints_seconds_all_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "checkpoint all",
           "range": true,
           "refId": "C",
           "useBackend": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "",
-          "hide": false,
-          "instant": false,
-          "range": true,
-          "refId": "D"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "",
-          "hide": false,
-          "instant": false,
-          "range": true,
-          "refId": "E"
         }
       ],
-      "title": "PG  BGWriter/Checkpoints seconds total",
+      "title": "PG BGWriter/Checkpoints seconds total",
       "type": "timeseries"
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -1283,16 +1236,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_all_total",
+          "expr": "pg_checkpoints_all_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "all",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1300,16 +1253,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_restartpoints_req",
+          "expr": "pg_checkpoints_restartpoints_req{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "req",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -1317,16 +1270,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_restartpoints_timed",
+          "expr": "pg_checkpoints_restartpoints_timed{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "timed",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -1334,16 +1287,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_restartpoints_done",
+          "expr": "pg_checkpoints_restartpoints_done{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "done",
           "range": true,
           "refId": "D",
           "useBackend": false
@@ -1358,7 +1311,77 @@
   "schemaVersion": 41,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(up, job)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Job",
+        "multi": false,
+        "name": "job",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(up, job)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(up{job=\"$job\"}, instance)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Instance",
+        "multi": false,
+        "name": "instance",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(up{job=\"$job\"}, instance)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(pg_postmaster_start_time_seconds{job=\"$job\", instance=\"$instance\"}, cluster)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Cluster",
+        "multi": false,
+        "name": "cluster",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(pg_postmaster_start_time_seconds{job=\"$job\", instance=\"$instance\"}, cluster)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-5m",
@@ -1366,7 +1389,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "PosgreSQL",
+  "title": "PostgreSQL",
   "uid": "begwiryjys0lcb",
   "version": 16
 }

@@ -24,7 +24,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "degwhurvdjvnke"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -106,14 +106,14 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "process_cpu_seconds_total{instance=\"pg_exporter:61488\", job=\"pg_exporter\"}",
+          "expr": "rate(process_cpu_seconds_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{__name__}}",
+          "legendFormat": "CPU usage",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -121,16 +121,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "process_open_fds",
+          "expr": "process_open_fds{job=\"$job\", instance=\"$instance\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{__name__}}",
+          "legendFormat": "open FDs",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -138,16 +138,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "process_threads",
+          "expr": "process_threads{job=\"$job\", instance=\"$instance\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{__name__}}",
+          "legendFormat": "threads",
           "range": true,
           "refId": "F",
           "useBackend": false
@@ -159,7 +159,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "degwhurvdjvnke"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -241,16 +241,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "degwhurvdjvnke"
+            "uid": "prometheus"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "process_resident_memory_bytes{instance=\"pg_exporter:61488\", job=\"pg_exporter\"}",
+          "expr": "process_resident_memory_bytes{job=\"$job\", instance=\"$instance\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{__name__}}",
+          "legendFormat": "RSS memory",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -265,7 +265,54 @@
   "schemaVersion": 41,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(up, job)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Job",
+        "multi": false,
+        "name": "job",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(up, job)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(up{job=\"$job\"}, instance)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Instance",
+        "multi": false,
+        "name": "instance",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(up{job=\"$job\"}, instance)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-5m",
