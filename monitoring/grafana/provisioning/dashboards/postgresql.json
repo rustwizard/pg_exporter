@@ -298,7 +298,7 @@
               }
             ]
           },
-          "unit": "s"
+          "unit": "dtdurations"
         },
         "overrides": []
       },
@@ -331,16 +331,16 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_postmaster_start_time_seconds{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "time() - pg_postmaster_start_time_seconds{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "postmaster start",
+          "legendFormat": "uptime",
           "range": true,
           "refId": "A",
           "useBackend": false
         }
       ],
-      "title": "Postmaster Start time since Unix epoch",
+      "title": "PostgreSQL Uptime",
       "type": "timeseries"
     },
     {
