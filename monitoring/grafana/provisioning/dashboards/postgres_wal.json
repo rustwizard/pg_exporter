@@ -110,7 +110,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_buffers_full_total[5m])",
+          "expr": "rate(pg_wal_buffers_full_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
@@ -211,7 +211,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_bytes_total[5m])",
+          "expr": "rate(pg_wal_bytes_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
@@ -312,7 +312,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_fpi_total[5m])",
+          "expr": "rate(pg_wal_fpi_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
@@ -413,7 +413,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_records_total[5m])",
+          "expr": "rate(pg_wal_records_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
@@ -514,7 +514,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_seconds_all_total[5m])",
+          "expr": "rate(pg_wal_seconds_all_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
@@ -529,7 +529,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_seconds_total[5m])",
+          "expr": "rate(pg_wal_seconds_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -632,7 +632,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_sync_total[5m])",
+          "expr": "rate(pg_wal_sync_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -651,7 +651,54 @@
   "schemaVersion": 41,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(up, job)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Job",
+        "multi": false,
+        "name": "job",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(up, job)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(up{job=\"$job\"}, instance)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Instance",
+        "multi": false,
+        "name": "instance",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(up{job=\"$job\"}, instance)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-6h",
