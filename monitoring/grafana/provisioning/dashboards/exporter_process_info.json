@@ -113,7 +113,7 @@
           "expr": "rate(process_cpu_seconds_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{__name__}}",
+          "legendFormat": "CPU usage",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -130,7 +130,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{__name__}}",
+          "legendFormat": "open FDs",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -147,7 +147,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{__name__}}",
+          "legendFormat": "threads",
           "range": true,
           "refId": "F",
           "useBackend": false
@@ -250,7 +250,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{__name__}}",
+          "legendFormat": "RSS memory",
           "range": true,
           "refId": "C",
           "useBackend": false

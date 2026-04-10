@@ -113,7 +113,7 @@
           "expr": "rate(pg_wal_buffers_full_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "__auto",
+          "legendFormat": "buffers full/s",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -214,7 +214,7 @@
           "expr": "rate(pg_wal_bytes_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "__auto",
+          "legendFormat": "bytes/s",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -315,7 +315,7 @@
           "expr": "rate(pg_wal_fpi_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "__auto",
+          "legendFormat": "FPI/s",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -416,7 +416,7 @@
           "expr": "rate(pg_wal_records_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "__auto",
+          "legendFormat": "records/s",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -517,7 +517,7 @@
           "expr": "rate(pg_wal_seconds_all_total{job=\"$job\", instance=\"$instance\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "__auto",
+          "legendFormat": "{{op}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -534,7 +534,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "{{op}}",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -637,7 +637,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "syncs/s",
           "range": true,
           "refId": "A",
           "useBackend": false
