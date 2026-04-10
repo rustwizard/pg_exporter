@@ -1037,7 +1037,7 @@
           "useBackend": false
         }
       ],
-      "title": "PG  Backend Allcoated/Fsync total bytes",
+      "title": "PG Backend Allocated/Fsync total bytes",
       "type": "timeseries"
     },
     {
@@ -1366,7 +1366,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "PosgreSQL",
+  "title": "PostgreSQL",
   "uid": "begwiryjys0lcb",
   "version": 16
 }

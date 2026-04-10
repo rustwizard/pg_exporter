@@ -220,7 +220,7 @@
           "useBackend": false
         }
       ],
-      "title": "PostgreSQL WAL  Bytes Total",
+      "title": "PostgreSQL WAL Bytes Total",
       "type": "timeseries"
     },
     {
@@ -321,7 +321,7 @@
           "useBackend": false
         }
       ],
-      "title": "PostgreSQL WAL  FPI Total",
+      "title": "PostgreSQL WAL FPI Total",
       "type": "timeseries"
     },
     {
@@ -421,7 +421,7 @@
           "useBackend": false
         }
       ],
-      "title": "PostgreSQL WAL  Records Total",
+      "title": "PostgreSQL WAL Records Total",
       "type": "timeseries"
     },
     {
@@ -538,7 +538,7 @@
           "useBackend": false
         }
       ],
-      "title": "PostgreSQL WAL  Seconds Total",
+      "title": "PostgreSQL WAL Seconds Total",
       "type": "timeseries"
     },
     {
@@ -641,7 +641,7 @@
           "useBackend": false
         }
       ],
-      "title": "PostgreSQL WAL  Sync Total",
+      "title": "PostgreSQL WAL Sync Total",
       "type": "timeseries"
     }
   ],
