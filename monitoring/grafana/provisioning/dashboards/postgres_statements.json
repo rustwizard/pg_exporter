@@ -109,7 +109,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_statements_calls_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{user}}/{{database}} queryid={{queryid}}",
+          "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}}",
           "range": true,
           "refId": "A"
         }
@@ -206,7 +206,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_statements_time_seconds_all_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{user}}/{{database}} queryid={{queryid}}",
+          "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}}",
           "range": true,
           "refId": "A"
         },
@@ -217,7 +217,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_statements_time_seconds_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{user}}/{{database}} queryid={{queryid}} {{mode}}",
+          "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}} {{mode}}",
           "range": true,
           "refId": "B"
         }
@@ -314,7 +314,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_statements_rows_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{user}}/{{database}} queryid={{queryid}}",
+          "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}}",
           "range": true,
           "refId": "A"
         }
@@ -411,7 +411,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_statements_shared_buffers_hit_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{user}}/{{database}} queryid={{queryid}} hit",
+          "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}} hit",
           "range": true,
           "refId": "A"
         },
@@ -422,7 +422,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_statements_shared_buffers_read_bytes_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{user}}/{{database}} queryid={{queryid}} read",
+          "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}} read",
           "range": true,
           "refId": "B"
         },
@@ -433,7 +433,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_statements_shared_buffers_dirtied_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{user}}/{{database}} queryid={{queryid}} dirtied",
+          "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}} dirtied",
           "range": true,
           "refId": "C"
         }
@@ -530,7 +530,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_statements_temp_read_bytes_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{user}}/{{database}} queryid={{queryid}} read",
+          "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}} read",
           "range": true,
           "refId": "A"
         },
@@ -541,7 +541,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_statements_temp_written_bytes_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{user}}/{{database}} queryid={{queryid}} written",
+          "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}} written",
           "range": true,
           "refId": "B"
         }
@@ -638,7 +638,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_statements_wal_bytes_all_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{user}}/{{database}} queryid={{queryid}}",
+          "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}}",
           "range": true,
           "refId": "A"
         }
@@ -732,5 +732,5 @@
   "timezone": "browser",
   "title": "PostgreSQL Statements",
   "uid": "pg-statements-dashboard",
-  "version": 2
+  "version": 3
 }

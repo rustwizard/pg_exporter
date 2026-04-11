@@ -109,7 +109,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_table_tuples_inserted_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{database}}.{{schema}}.{{table}} inserts",
+          "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} inserts",
           "range": true,
           "refId": "A"
         },
@@ -120,7 +120,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_table_tuples_updated_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{database}}.{{schema}}.{{table}} updates",
+          "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} updates",
           "range": true,
           "refId": "B"
         },
@@ -131,7 +131,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_table_tuples_deleted_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{database}}.{{schema}}.{{table}} deletes",
+          "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} deletes",
           "range": true,
           "refId": "C"
         }
@@ -228,7 +228,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_table_seq_scan_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{database}}.{{schema}}.{{table}} seq",
+          "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} seq",
           "range": true,
           "refId": "A"
         },
@@ -239,7 +239,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_table_idx_scan_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{database}}.{{schema}}.{{table}} idx",
+          "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} idx",
           "range": true,
           "refId": "B"
         }
@@ -336,7 +336,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, pg_table_size_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"})",
-          "legendFormat": "{{database}}.{{schema}}.{{table}}",
+          "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}}",
           "range": true,
           "refId": "A"
         }
@@ -433,7 +433,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, pg_table_tuples_live_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"})",
-          "legendFormat": "{{database}}.{{schema}}.{{table}} live",
+          "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} live",
           "range": true,
           "refId": "A"
         },
@@ -444,7 +444,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, pg_table_tuples_dead_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"})",
-          "legendFormat": "{{database}}.{{schema}}.{{table}} dead",
+          "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} dead",
           "range": true,
           "refId": "B"
         }
@@ -541,7 +541,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, pg_table_maintenance_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"})",
-          "legendFormat": "{{database}}.{{schema}}.{{table}} {{type}}",
+          "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} {{type}}",
           "range": true,
           "refId": "A"
         }
@@ -638,7 +638,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_table_blocks_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{database}}.{{schema}}.{{table}} {{access}}",
+          "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} {{access}}",
           "range": true,
           "refId": "A"
         }
@@ -735,7 +735,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, rate(pg_index_scans_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{database}}.{{schema}}.{{table}}.{{index}}",
+          "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}}.{{index}}",
           "range": true,
           "refId": "A"
         }
@@ -832,7 +832,7 @@
           },
           "editorMode": "builder",
           "expr": "topk(10, pg_index_size_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"})",
-          "legendFormat": "{{database}}.{{schema}}.{{table}}.{{index}}",
+          "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}}.{{index}}",
           "range": true,
           "refId": "A"
         }
@@ -926,5 +926,5 @@
   "timezone": "browser",
   "title": "PostgreSQL Tables & Indexes",
   "uid": "pg-tables-indexes-dashboard",
-  "version": 2
+  "version": 3
 }

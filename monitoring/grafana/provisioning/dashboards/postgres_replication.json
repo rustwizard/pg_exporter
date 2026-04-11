@@ -112,7 +112,7 @@
           "expr": "pg_replication_lag_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{application_name}} {{lag}}",
+          "legendFormat": "{{cluster}} {{application_name}} {{lag}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -213,7 +213,7 @@
           "expr": "pg_replication_lag_seconds{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{application_name}} {{lag}}",
+          "legendFormat": "{{cluster}} {{application_name}} {{lag}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -314,7 +314,7 @@
           "expr": "pg_replication_lag_all_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{application_name}}",
+          "legendFormat": "{{cluster}} {{application_name}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -415,7 +415,7 @@
           "expr": "pg_replication_lag_all_seconds{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{application_name}}",
+          "legendFormat": "{{cluster}} {{application_name}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -516,7 +516,7 @@
           "expr": "pg_replication_slot_retained_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{slot_name}} ({{slot_type}}) active={{active}}",
+          "legendFormat": "{{cluster}} {{slot_name}} ({{slot_type}}) active={{active}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -617,7 +617,7 @@
           "expr": "rate(pg_recovery_conflicts_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{database}} {{conflict}}",
+          "legendFormat": "{{cluster}} {{database}} {{conflict}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -712,5 +712,5 @@
   "timezone": "browser",
   "title": "PostgreSQL Replication",
   "uid": "pg-replication-dashboard",
-  "version": 2
+  "version": 3
 }

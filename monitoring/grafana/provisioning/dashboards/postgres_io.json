@@ -109,7 +109,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_io_reads{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{backend_type}}/{{object}}/{{context}} reads",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} reads",
           "range": true,
           "refId": "A"
         },
@@ -120,7 +120,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_io_writes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{backend_type}}/{{object}}/{{context}} writes",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} writes",
           "range": true,
           "refId": "B"
         }
@@ -217,7 +217,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_io_read_time{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{backend_type}}/{{object}}/{{context}} read",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} read",
           "range": true,
           "refId": "A"
         },
@@ -228,7 +228,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_io_write_time{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{backend_type}}/{{object}}/{{context}} write",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} write",
           "range": true,
           "refId": "B"
         },
@@ -239,7 +239,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_io_fsync_time{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{backend_type}}/{{object}}/{{context}} fsync",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} fsync",
           "range": true,
           "refId": "C"
         }
@@ -336,7 +336,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_io_read_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{backend_type}}/{{object}}/{{context}} read",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} read",
           "range": true,
           "refId": "A"
         },
@@ -347,7 +347,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_io_write_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{backend_type}}/{{object}}/{{context}} write",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} write",
           "range": true,
           "refId": "B"
         }
@@ -444,7 +444,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_io_hits{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{backend_type}}/{{object}}/{{context}} hits",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} hits",
           "range": true,
           "refId": "A"
         },
@@ -455,7 +455,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_io_evictions{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{backend_type}}/{{object}}/{{context}} evictions",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} evictions",
           "range": true,
           "refId": "B"
         },
@@ -466,7 +466,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_io_reuses{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{backend_type}}/{{object}}/{{context}} reuses",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} reuses",
           "range": true,
           "refId": "C"
         }
@@ -563,7 +563,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_slru_blks_hit{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{name}} hit",
+          "legendFormat": "{{cluster}} {{name}} hit",
           "range": true,
           "refId": "A"
         },
@@ -574,7 +574,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_slru_blks_read{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{name}} read",
+          "legendFormat": "{{cluster}} {{name}} read",
           "range": true,
           "refId": "B"
         },
@@ -585,7 +585,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_slru_blks_written{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{name}} written",
+          "legendFormat": "{{cluster}} {{name}} written",
           "range": true,
           "refId": "C"
         }
@@ -682,7 +682,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_slru_flushes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{name}} flushes",
+          "legendFormat": "{{cluster}} {{name}} flushes",
           "range": true,
           "refId": "A"
         },
@@ -693,7 +693,7 @@
           },
           "editorMode": "builder",
           "expr": "rate(pg_stat_slru_truncates{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "legendFormat": "{{name}} truncates",
+          "legendFormat": "{{cluster}} {{name}} truncates",
           "range": true,
           "refId": "B"
         }
@@ -787,5 +787,5 @@
   "timezone": "browser",
   "title": "PostgreSQL I/O",
   "uid": "pg-io-dashboard",
-  "version": 2
+  "version": 3
 }

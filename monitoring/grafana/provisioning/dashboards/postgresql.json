@@ -113,7 +113,7 @@
           "expr": "pg_database_size_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{datname}}",
+          "legendFormat": "{{cluster}} {{datname}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -216,7 +216,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{database}}/{{state}}",
+          "legendFormat": "{{cluster}} {{database}}/{{state}}",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -233,7 +233,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "prepared txs",
+          "legendFormat": "{{cluster}} prepared txs",
           "range": true,
           "refId": "D",
           "useBackend": false
@@ -334,7 +334,7 @@
           "expr": "time() - pg_postmaster_start_time_seconds{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "uptime",
+          "legendFormat": "{{cluster}} uptime",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -434,7 +434,7 @@
           "expr": "pg_activity_wait_events_in_flight{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{type}}/{{event}}",
+          "legendFormat": "{{cluster}} {{type}}/{{event}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -535,7 +535,7 @@
           "expr": "pg_locks_access_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "AccessExclusive",
+          "legendFormat": "{{cluster}} AccessExclusive",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -552,7 +552,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "AccessShare",
+          "legendFormat": "{{cluster}} AccessShare",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -569,7 +569,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Exclusive",
+          "legendFormat": "{{cluster}} Exclusive",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -586,7 +586,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "not granted",
+          "legendFormat": "{{cluster}} not granted",
           "range": true,
           "refId": "D",
           "useBackend": false
@@ -603,7 +603,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "RowExclusive",
+          "legendFormat": "{{cluster}} RowExclusive",
           "range": true,
           "refId": "E",
           "useBackend": false
@@ -620,7 +620,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "RowShare",
+          "legendFormat": "{{cluster}} RowShare",
           "range": true,
           "refId": "F",
           "useBackend": false
@@ -637,7 +637,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Share",
+          "legendFormat": "{{cluster}} Share",
           "range": true,
           "refId": "G",
           "useBackend": false
@@ -654,7 +654,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "ShareRowExclusive",
+          "legendFormat": "{{cluster}} ShareRowExclusive",
           "range": true,
           "refId": "H",
           "useBackend": false
@@ -671,7 +671,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "ShareUpdateExclusive",
+          "legendFormat": "{{cluster}} ShareUpdateExclusive",
           "range": true,
           "refId": "I",
           "useBackend": false
@@ -688,7 +688,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "total",
+          "legendFormat": "{{cluster}} total",
           "range": true,
           "refId": "J",
           "useBackend": false
@@ -788,7 +788,7 @@
           "expr": "pg_activity_connections_all_in_flight{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "all connections",
+          "legendFormat": "{{cluster}} all connections",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -888,7 +888,7 @@
           "expr": "pg_activity_queries_in_flight{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{type}}",
+          "legendFormat": "{{cluster}} {{type}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -989,7 +989,7 @@
           "expr": "pg_backends_allocated_bytes_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "allocated bytes",
+          "legendFormat": "{{cluster}} allocated bytes",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1006,7 +1006,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "fsync",
+          "legendFormat": "{{cluster}} fsync",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -1109,7 +1109,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{process}}",
+          "legendFormat": "{{cluster}} {{process}}",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -1126,7 +1126,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "checkpoint {{stage}}",
+          "legendFormat": "{{cluster}} checkpoint {{stage}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1143,7 +1143,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "checkpoint all",
+          "legendFormat": "{{cluster}} checkpoint all",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -1245,7 +1245,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "all",
+          "legendFormat": "{{cluster}} all",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1262,7 +1262,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "req",
+          "legendFormat": "{{cluster}} req",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -1279,7 +1279,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "timed",
+          "legendFormat": "{{cluster}} timed",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -1296,7 +1296,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "done",
+          "legendFormat": "{{cluster}} done",
           "range": true,
           "refId": "D",
           "useBackend": false
@@ -1397,7 +1397,7 @@
           "expr": "pg_activity_vacuums_in_flight{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{type}}",
+          "legendFormat": "{{cluster}} {{type}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1498,7 +1498,7 @@
           "expr": "pg_activity_max_seconds{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{user}}/{{database}} {{state}} {{type}}",
+          "legendFormat": "{{cluster}} {{user}}/{{database}} {{state}} {{type}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1594,5 +1594,5 @@
   "timezone": "browser",
   "title": "PostgreSQL",
   "uid": "begwiryjys0lcb",
-  "version": 18
+  "version": 19
 }

@@ -109,7 +109,7 @@
           },
           "editorMode": "builder",
           "expr": "pg_temp_files_in_flight{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
-          "legendFormat": "{{tablespace}} temp files",
+          "legendFormat": "{{cluster}} {{tablespace}} temp files",
           "range": true,
           "refId": "A"
         }
@@ -206,7 +206,7 @@
           },
           "editorMode": "builder",
           "expr": "pg_temp_bytes_in_flight{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
-          "legendFormat": "{{tablespace}} temp bytes",
+          "legendFormat": "{{cluster}} {{tablespace}} temp bytes",
           "range": true,
           "refId": "A"
         }
@@ -303,7 +303,7 @@
           },
           "editorMode": "builder",
           "expr": "pg_temp_bytes_max_age_seconds{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
-          "legendFormat": "{{tablespace}} oldest temp file",
+          "legendFormat": "{{cluster}} {{tablespace}} oldest temp file",
           "range": true,
           "refId": "A"
         }
@@ -400,7 +400,7 @@
           },
           "editorMode": "builder",
           "expr": "pg_temp_files_all_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
-          "legendFormat": "{{mountpoint}} total temp dirs size",
+          "legendFormat": "{{cluster}} {{mountpoint}} total temp dirs size",
           "range": true,
           "refId": "A"
         }
@@ -497,7 +497,7 @@
           },
           "editorMode": "builder",
           "expr": "pg_wal_directory_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
-          "legendFormat": "{{mountpoint}} WAL dir size",
+          "legendFormat": "{{cluster}} {{mountpoint}} WAL dir size",
           "range": true,
           "refId": "A"
         }
@@ -594,7 +594,7 @@
           },
           "editorMode": "builder",
           "expr": "pg_wal_directory_files{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
-          "legendFormat": "{{mountpoint}} WAL files count",
+          "legendFormat": "{{cluster}} {{mountpoint}} WAL files count",
           "range": true,
           "refId": "A"
         }
@@ -688,5 +688,5 @@
   "timezone": "browser",
   "title": "PostgreSQL Storage",
   "uid": "pg-storage-dashboard",
-  "version": 2
+  "version": 3
 }
