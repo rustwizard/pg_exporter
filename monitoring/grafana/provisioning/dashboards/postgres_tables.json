@@ -18,7 +18,99 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "begwiryjys0lcb",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL WAL",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "6aac91ff-338d-4a04-b8e3-0c367fc15b9b",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Replication",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-replication-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Statements",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-statements-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL I/O",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-io-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Storage",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-storage-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Process",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "feh71oe7han0gf",
+      "url": ""
+    }
+  ],
   "panels": [
     {
       "datasource": {
@@ -108,7 +200,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_table_tuples_inserted_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_table_tuples_inserted_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} inserts",
           "range": true,
           "refId": "A"
@@ -119,7 +211,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_table_tuples_updated_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_table_tuples_updated_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} updates",
           "range": true,
           "refId": "B"
@@ -130,7 +222,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_table_tuples_deleted_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_table_tuples_deleted_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} deletes",
           "range": true,
           "refId": "C"
@@ -227,7 +319,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_table_seq_scan_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_table_seq_scan_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} seq",
           "range": true,
           "refId": "A"
@@ -238,7 +330,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_table_idx_scan_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_table_idx_scan_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} idx",
           "range": true,
           "refId": "B"
@@ -335,7 +427,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, pg_table_size_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"})",
+          "expr": "topk(10, pg_table_size_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"})",
           "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}}",
           "range": true,
           "refId": "A"
@@ -432,7 +524,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, pg_table_tuples_live_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"})",
+          "expr": "topk(10, pg_table_tuples_live_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"})",
           "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} live",
           "range": true,
           "refId": "A"
@@ -443,7 +535,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, pg_table_tuples_dead_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"})",
+          "expr": "topk(10, pg_table_tuples_dead_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"})",
           "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} dead",
           "range": true,
           "refId": "B"
@@ -540,7 +632,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, pg_table_maintenance_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"})",
+          "expr": "topk(10, pg_table_maintenance_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"})",
           "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} {{type}}",
           "range": true,
           "refId": "A"
@@ -637,7 +729,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_table_blocks_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_table_blocks_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}} {{access}}",
           "range": true,
           "refId": "A"
@@ -734,7 +826,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_index_scans_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_index_scans_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}}.{{index}}",
           "range": true,
           "refId": "A"
@@ -831,7 +923,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, pg_index_size_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"})",
+          "expr": "topk(10, pg_index_size_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"})",
           "legendFormat": "{{cluster}} {{database}}.{{schema}}.{{table}}.{{index}}",
           "range": true,
           "refId": "A"
@@ -915,6 +1007,30 @@
         "sort": 1,
         "type": "query",
         "allValue": ".+"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".+",
+        "label": "Database",
+        "name": "database",
+        "options": [],
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query",
+        "query": {
+          "qryType": 1,
+          "query": "label_values(pg_table_size_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}, database)",
+          "refId": "StandardVariableQuery"
+        },
+        "definition": "label_values(pg_table_size_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}, database)"
       }
     ]
   },
@@ -926,5 +1042,5 @@
   "timezone": "browser",
   "title": "PostgreSQL Tables & Indexes",
   "uid": "pg-tables-indexes-dashboard",
-  "version": 3
+  "version": 5
 }

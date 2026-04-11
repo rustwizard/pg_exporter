@@ -19,7 +19,99 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": 3,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "begwiryjys0lcb",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Replication",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-replication-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Tables & Indexes",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-tables-indexes-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Statements",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-statements-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL I/O",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-io-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Storage",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-storage-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Process",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "feh71oe7han0gf",
+      "url": ""
+    }
+  ],
   "panels": [
     {
       "datasource": {
@@ -1052,5 +1144,5 @@
   "timezone": "browser",
   "title": "PostgreSQL WAL",
   "uid": "6aac91ff-338d-4a04-b8e3-0c367fc15b9b",
-  "version": 10
+  "version": 11
 }

@@ -18,7 +18,99 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "begwiryjys0lcb",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL WAL",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "6aac91ff-338d-4a04-b8e3-0c367fc15b9b",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Replication",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-replication-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Tables & Indexes",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-tables-indexes-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL I/O",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-io-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Storage",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-storage-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Process",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "feh71oe7han0gf",
+      "url": ""
+    }
+  ],
   "panels": [
     {
       "datasource": {
@@ -108,7 +200,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_statements_calls_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_statements_calls_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}}",
           "range": true,
           "refId": "A"
@@ -205,7 +297,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_statements_time_seconds_all_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_statements_time_seconds_all_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}}",
           "range": true,
           "refId": "A"
@@ -216,7 +308,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_statements_time_seconds_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_statements_time_seconds_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}} {{mode}}",
           "range": true,
           "refId": "B"
@@ -313,7 +405,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_statements_rows_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_statements_rows_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}}",
           "range": true,
           "refId": "A"
@@ -410,7 +502,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_statements_shared_buffers_hit_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_statements_shared_buffers_hit_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}} hit",
           "range": true,
           "refId": "A"
@@ -421,7 +513,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_statements_shared_buffers_read_bytes_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_statements_shared_buffers_read_bytes_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}} read",
           "range": true,
           "refId": "B"
@@ -432,7 +524,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_statements_shared_buffers_dirtied_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_statements_shared_buffers_dirtied_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}} dirtied",
           "range": true,
           "refId": "C"
@@ -529,7 +621,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_statements_temp_read_bytes_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_statements_temp_read_bytes_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}} read",
           "range": true,
           "refId": "A"
@@ -540,7 +632,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_statements_temp_written_bytes_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_statements_temp_written_bytes_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}} written",
           "range": true,
           "refId": "B"
@@ -637,7 +729,7 @@
             "uid": "prometheus"
           },
           "editorMode": "builder",
-          "expr": "topk(10, rate(pg_statements_wal_bytes_all_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m]))",
+          "expr": "topk(10, rate(pg_statements_wal_bytes_all_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\", database=~\"$database\"}[5m]))",
           "legendFormat": "{{cluster}} {{user}}/{{database}} queryid={{queryid}}",
           "range": true,
           "refId": "A"
@@ -721,6 +813,30 @@
         "sort": 1,
         "type": "query",
         "allValue": ".+"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".+",
+        "label": "Database",
+        "name": "database",
+        "options": [],
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query",
+        "query": {
+          "qryType": 1,
+          "query": "label_values(pg_statements_calls_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}, database)",
+          "refId": "StandardVariableQuery"
+        },
+        "definition": "label_values(pg_statements_calls_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}, database)"
       }
     ]
   },
@@ -732,5 +848,5 @@
   "timezone": "browser",
   "title": "PostgreSQL Statements",
   "uid": "pg-statements-dashboard",
-  "version": 3
+  "version": 5
 }
