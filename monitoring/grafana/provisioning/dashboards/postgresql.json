@@ -19,7 +19,99 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": 1,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL WAL",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "6aac91ff-338d-4a04-b8e3-0c367fc15b9b",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Replication",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-replication-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Tables & Indexes",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-tables-indexes-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Statements",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-statements-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL I/O",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-io-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL Storage",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "pg-storage-dashboard",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Process",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "feh71oe7han0gf",
+      "url": ""
+    }
+  ],
   "panels": [
     {
       "datasource": {
@@ -110,10 +202,10 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_database_size_bytes{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_database_size_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{datname}}",
+          "legendFormat": "{{cluster}} {{datname}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -211,12 +303,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_activity_connections_in_flight{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_activity_connections_in_flight{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{database}}/{{state}}",
+          "legendFormat": "{{cluster}} {{database}}/{{state}}",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -228,12 +320,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_activity_prepared_transactions_in_flight{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_activity_prepared_transactions_in_flight{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "prepared txs",
+          "legendFormat": "{{cluster}} prepared txs",
           "range": true,
           "refId": "D",
           "useBackend": false
@@ -331,10 +423,10 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "time() - pg_postmaster_start_time_seconds{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "time() - pg_postmaster_start_time_seconds{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "uptime",
+          "legendFormat": "{{cluster}} uptime",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -431,10 +523,10 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_activity_wait_events_in_flight{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_activity_wait_events_in_flight{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{type}}/{{event}}",
+          "legendFormat": "{{cluster}} {{type}}/{{event}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -532,10 +624,10 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_access_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_locks_access_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "AccessExclusive",
+          "legendFormat": "{{cluster}} AccessExclusive",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -547,12 +639,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_access_share_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_locks_access_share_lock{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "AccessShare",
+          "legendFormat": "{{cluster}} AccessShare",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -564,12 +656,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_locks_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Exclusive",
+          "legendFormat": "{{cluster}} Exclusive",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -581,12 +673,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_not_granted{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_locks_not_granted{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "not granted",
+          "legendFormat": "{{cluster}} not granted",
           "range": true,
           "refId": "D",
           "useBackend": false
@@ -598,12 +690,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_row_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_locks_row_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "RowExclusive",
+          "legendFormat": "{{cluster}} RowExclusive",
           "range": true,
           "refId": "E",
           "useBackend": false
@@ -615,12 +707,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_row_share_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_locks_row_share_lock{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "RowShare",
+          "legendFormat": "{{cluster}} RowShare",
           "range": true,
           "refId": "F",
           "useBackend": false
@@ -632,12 +724,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_share_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_locks_share_lock{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Share",
+          "legendFormat": "{{cluster}} Share",
           "range": true,
           "refId": "G",
           "useBackend": false
@@ -649,12 +741,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_share_row_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_locks_share_row_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "ShareRowExclusive",
+          "legendFormat": "{{cluster}} ShareRowExclusive",
           "range": true,
           "refId": "H",
           "useBackend": false
@@ -666,12 +758,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_share_update_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_locks_share_update_exclusive_lock{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "ShareUpdateExclusive",
+          "legendFormat": "{{cluster}} ShareUpdateExclusive",
           "range": true,
           "refId": "I",
           "useBackend": false
@@ -683,12 +775,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_locks_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_locks_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "total",
+          "legendFormat": "{{cluster}} total",
           "range": true,
           "refId": "J",
           "useBackend": false
@@ -785,10 +877,10 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_activity_connections_all_in_flight{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_activity_connections_all_in_flight{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "all connections",
+          "legendFormat": "{{cluster}} all connections",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -885,10 +977,10 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_activity_queries_in_flight{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_activity_queries_in_flight{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "{{type}}",
+          "legendFormat": "{{cluster}} {{type}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -986,10 +1078,10 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_backends_allocated_bytes_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_backends_allocated_bytes_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "allocated bytes",
+          "legendFormat": "{{cluster}} allocated bytes",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1001,12 +1093,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_backends_fsync_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_backends_fsync_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "fsync",
+          "legendFormat": "{{cluster}} fsync",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -1104,12 +1196,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_bgwriter_stats_age_seconds_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_bgwriter_stats_age_seconds_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{process}}",
+          "legendFormat": "{{cluster}} {{process}}",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -1121,12 +1213,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_seconds_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_checkpoints_seconds_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "checkpoint {{stage}}",
+          "legendFormat": "{{cluster}} checkpoint {{stage}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1138,12 +1230,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_seconds_all_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_checkpoints_seconds_all_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "checkpoint all",
+          "legendFormat": "{{cluster}} checkpoint all",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -1240,12 +1332,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_all_total{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_checkpoints_all_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "all",
+          "legendFormat": "{{cluster}} all",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1257,12 +1349,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_restartpoints_req{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_checkpoints_restartpoints_req{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "req",
+          "legendFormat": "{{cluster}} req",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -1274,12 +1366,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_restartpoints_timed{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_checkpoints_restartpoints_timed{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "timed",
+          "legendFormat": "{{cluster}} timed",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -1291,18 +1383,220 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "pg_checkpoints_restartpoints_done{job=\"$job\", instance=\"$instance\", cluster=\"$cluster\"}",
+          "expr": "pg_checkpoints_restartpoints_done{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "done",
+          "legendFormat": "{{cluster}} done",
           "range": true,
           "refId": "D",
           "useBackend": false
         }
       ],
       "title": "PG  Checkpoints total",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "pg_activity_vacuums_in_flight{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{cluster}} {{type}}",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "PG Vacuums in Flight",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "pg_activity_max_seconds{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{cluster}} {{user}}/{{database}} {{state}} {{type}}",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "PG Activity: Longest Running (seconds)",
       "type": "timeseries"
     }
   ],
@@ -1366,9 +1660,9 @@
         },
         "definition": "label_values(pg_postmaster_start_time_seconds{job=\"$job\", instance=\"$instance\"}, cluster)",
         "hide": 0,
-        "includeAll": false,
+        "includeAll": true,
         "label": "Cluster",
-        "multi": false,
+        "multi": true,
         "name": "cluster",
         "options": [],
         "query": {
@@ -1379,7 +1673,8 @@
         "refresh": 2,
         "regex": "",
         "sort": 1,
-        "type": "query"
+        "type": "query",
+        "allValue": ".+"
       }
     ]
   },
@@ -1391,5 +1686,5 @@
   "timezone": "browser",
   "title": "PostgreSQL",
   "uid": "begwiryjys0lcb",
-  "version": 16
+  "version": 20
 }

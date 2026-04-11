@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 3,
   "links": [
     {
       "asDropdown": false,
@@ -31,6 +30,19 @@
       "tooltip": "",
       "type": "dashboard",
       "uid": "begwiryjys0lcb",
+      "url": ""
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "PostgreSQL WAL",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "6aac91ff-338d-4a04-b8e3-0c367fc15b9b",
       "url": ""
     },
     {
@@ -70,19 +82,6 @@
       "tooltip": "",
       "type": "dashboard",
       "uid": "pg-statements-dashboard",
-      "url": ""
-    },
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": true,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
-      "title": "PostgreSQL I/O",
-      "tooltip": "",
-      "type": "dashboard",
-      "uid": "pg-io-dashboard",
       "url": ""
     },
     {
@@ -169,7 +168,7 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "iops"
         },
         "overrides": []
       },
@@ -200,18 +199,144 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_buffers_full_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "legendFormat": "{{cluster}} buffers full/s",
+          "expr": "rate(pg_stat_io_reads{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} reads",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "builder",
+          "expr": "rate(pg_stat_io_writes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} writes",
+          "range": true,
+          "refId": "B"
         }
       ],
-      "title": "PostgreSQL WAL Buffers Total",
+      "title": "I/O Operations Rate (reads/writes)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "builder",
+          "expr": "rate(pg_stat_io_read_time{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} read",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "builder",
+          "expr": "rate(pg_stat_io_write_time{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} write",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "builder",
+          "expr": "rate(pg_stat_io_fsync_time{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} fsync",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "I/O Time (ms/s)",
       "type": "timeseries"
     },
     {
@@ -277,107 +402,6 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.0.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "rate(pg_wal_bytes_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "legendFormat": "{{cluster}} bytes/s",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "PostgreSQL WAL Bytes Total",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
         "y": 8
       },
@@ -402,18 +426,25 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_fpi_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "legendFormat": "{{cluster}} FPI/s",
+          "expr": "rate(pg_stat_io_read_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} read",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "builder",
+          "expr": "rate(pg_stat_io_write_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} write",
+          "range": true,
+          "refId": "B"
         }
       ],
-      "title": "PostgreSQL WAL FPI Total",
+      "title": "I/O Throughput (bytes/s)",
       "type": "timeseries"
     },
     {
@@ -472,7 +503,7 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -503,18 +534,36 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_records_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "legendFormat": "{{cluster}} records/s",
+          "expr": "rate(pg_stat_io_hits{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} hits",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "builder",
+          "expr": "rate(pg_stat_io_evictions{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} evictions",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "builder",
+          "expr": "rate(pg_stat_io_reuses{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{backend_type}}/{{object}}/{{context}} reuses",
+          "range": true,
+          "refId": "C"
         }
       ],
-      "title": "PostgreSQL WAL Records Total",
+      "title": "Buffer Cache: Hits / Evictions / Reuses",
       "type": "timeseries"
     },
     {
@@ -573,7 +622,7 @@
               }
             ]
           },
-          "unit": "s"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -604,35 +653,36 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_seconds_all_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "legendFormat": "{{cluster}} all",
+          "expr": "rate(pg_stat_slru_blks_hit{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{name}} hit",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_seconds_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "fullMetaSearch": false,
-          "hide": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{cluster}} {{op}}",
+          "expr": "rate(pg_stat_slru_blks_read{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{name}} read",
           "range": true,
-          "refId": "B",
-          "useBackend": false
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "builder",
+          "expr": "rate(pg_stat_slru_blks_written{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{name}} written",
+          "range": true,
+          "refId": "C"
         }
       ],
-      "title": "PostgreSQL WAL Seconds Total",
+      "title": "SLRU Cache: Blocks Hit / Read / Written",
       "type": "timeseries"
     },
     {
@@ -722,340 +772,25 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_wal_sync_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "fullMetaSearch": false,
-          "hide": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{cluster}} syncs/s",
+          "expr": "rate(pg_stat_slru_flushes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{name}} flushes",
           "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "PostgreSQL WAL Sync Total",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 24
-      },
-      "id": 7,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.0.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "rate(pg_archiver_archived_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "legendFormat": "{{cluster}} archived/s",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(pg_archiver_failed_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
-          "fullMetaSearch": false,
-          "hide": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{cluster}} failed/s",
+          "expr": "rate(pg_stat_slru_truncates{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{cluster}} {{name}} truncates",
           "range": true,
-          "refId": "B",
-          "useBackend": false
+          "refId": "B"
         }
       ],
-      "title": "WAL Archiver: Archived / Failed Rate",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 24
-      },
-      "id": 8,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.0.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "pg_archiver_since_last_archive_seconds{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "legendFormat": "{{cluster}} since last archive",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "WAL Archiver: Since Last Archive",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 32
-      },
-      "id": 9,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.0.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "pg_archiver_lag_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "legendFormat": "{{cluster}} segments ready to archive",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "WAL Archiver: Segments Ready to Archive (Lag)",
+      "title": "SLRU: Flushes / Truncates",
       "type": "timeseries"
     }
   ],
@@ -1142,7 +877,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "PostgreSQL WAL",
-  "uid": "6aac91ff-338d-4a04-b8e3-0c367fc15b9b",
-  "version": 11
+  "title": "PostgreSQL I/O",
+  "uid": "pg-io-dashboard",
+  "version": 4
 }
