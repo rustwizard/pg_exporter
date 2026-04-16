@@ -6,13 +6,34 @@ use prometheus::{GaugeVec, IntGaugeVec, proto};
 use regex::Regex;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::instance;
 
 use super::PG;
 
-const ACTIVITY_QUERY: &str = "SELECT
+const ACTIVITY_QUERY_95: &str = "SELECT
+    COALESCE(usename, 'system') AS user, datname AS database, state, waiting,
+    COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - xact_start), 0)::FLOAT8 AS active_seconds,
+    CASE WHEN waiting = 't' THEN EXTRACT(EPOCH FROM clock_timestamp() - state_change) ELSE 0 END::FLOAT8 AS waiting_seconds,
+    LEFT(query, 32) AS query
+    FROM pg_stat_activity";
+
+const ACTIVITY_QUERY_96: &str = "SELECT
+    COALESCE(usename, 'system') AS user, datname AS database, state, wait_event_type, wait_event,
+    COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - xact_start), 0)::FLOAT8 AS active_seconds,
+    CASE WHEN wait_event_type = 'Lock' THEN EXTRACT(EPOCH FROM clock_timestamp() - state_change) ELSE 0 END::FLOAT8 AS waiting_seconds,
+    LEFT(query, 32) AS query
+    FROM pg_stat_activity";
+
+const ACTIVITY_QUERY_13: &str = "SELECT
+    COALESCE(usename, backend_type) AS user, datname AS database, state, wait_event_type, wait_event,
+    COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - xact_start), 0)::FLOAT8 AS active_seconds,
+    CASE WHEN wait_event_type = 'Lock' THEN EXTRACT(EPOCH FROM clock_timestamp() - state_change) ELSE 0 END::FLOAT8 AS waiting_seconds,
+    LEFT(query, 32) AS query
+    FROM pg_stat_activity";
+
+const ACTIVITY_QUERY_LATEST: &str = "SELECT
     COALESCE(usename, backend_type) AS user, datname AS database, state, wait_event_type, wait_event,
     COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - xact_start), 0)::FLOAT8 AS active_seconds,
     CASE WHEN wait_event_type = 'Lock'
@@ -24,6 +45,15 @@ const ACTIVITY_QUERY: &str = "SELECT
 const PREPARED_XACT_QUERY: &str = "SELECT count(*) AS total FROM pg_prepared_xacts";
 
 const START_TIME_QUERY: &str = "SELECT EXTRACT(EPOCH FROM pg_postmaster_start_time())::FLOAT8";
+
+fn select_activity_query(version: i64) -> &'static str {
+    match version {
+        v if v < super::POSTGRES_V96 => ACTIVITY_QUERY_95,
+        v if v < super::POSTGRES_V10 => ACTIVITY_QUERY_96,
+        v if v < super::POSTGRES_V14 => ACTIVITY_QUERY_13,
+        _ => ACTIVITY_QUERY_LATEST,
+    }
+}
 
 const ACTIVITY_SUBSYSTEM: &str = "activity";
 
@@ -78,7 +108,11 @@ impl Default for QueryRegexp {
 
 impl PGActivityStats {
     pub fn new() -> PGActivityStats {
-        Self::default()
+        let mut s = Self::default();
+        s.vacuum_ops.insert("wraparound".to_string(), 0);
+        s.vacuum_ops.insert("regular".to_string(), 0);
+        s.vacuum_ops.insert("user".to_string(), 0);
+        s
     }
 
     pub fn update_state(&mut self, usename: &str, datname: &str, state: &str) {
@@ -166,23 +200,23 @@ impl PGActivityStats {
         );
 
         if self.re.vacanl.is_match(&query) {
-            let v = self.max_idle_maint.get(&key);
-            if let Some(v) = v
-                && value > *v
-            {
-                self.max_idle_maint.insert(key, value);
-            } else {
-                self.max_idle_maint.insert(key, value);
-            }
+            self.max_idle_maint
+                .entry(key)
+                .and_modify(|val| {
+                    if *val < value {
+                        *val = value
+                    }
+                })
+                .or_insert(value);
         } else {
-            let v = self.max_idle_user.get(&key);
-            if let Some(v) = v
-                && value > *v
-            {
-                self.max_idle_user.insert(key, value);
-            } else {
-                self.max_idle_user.insert(key, value);
-            }
+            self.max_idle_user
+                .entry(key)
+                .and_modify(|val| {
+                    if *val < value {
+                        *val = value
+                    }
+                })
+                .or_insert(value);
         }
     }
 
@@ -269,13 +303,9 @@ impl PGActivityStats {
 
         let key = format!(
             "{}{}{}",
-            usename
-                .clone()
-                .expect("pg activity collector: usename shouldn't be empty"),
+            usename.clone().unwrap_or_default(),
             "/",
-            datname
-                .clone()
-                .expect("pg activity collector: datname shouldn't be empty")
+            datname.clone().unwrap_or_default()
         );
 
         if self.re.vacanl.is_match(&query) {
@@ -549,8 +579,12 @@ pub struct PGActivity {
     user: Option<String>,
     database: Option<String>,
     state: Option<String>,
+    #[sqlx(default)]
     wait_event_type: Option<String>,
+    #[sqlx(default)]
     wait_event: Option<String>,
+    #[sqlx(default)]
+    waiting: Option<bool>,
     active_seconds: Option<f64>,
     waiting_seconds: Option<f64>,
     query: Option<String>,
@@ -559,16 +593,26 @@ pub struct PGActivity {
 #[async_trait]
 impl PG for PGActivityCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        //get pg_prepared_xacts stats
+        let cfg = self.dbi.ensure_ready().await?;
+
         let prepared = sqlx::query_scalar::<_, i64>(PREPARED_XACT_QUERY)
             .fetch_one(&self.dbi.db)
-            .await?;
+            .await
+            .unwrap_or_else(|e| {
+                warn!("query pg_prepared_xacts failed: {e}; skip");
+                0
+            });
 
         let start_time: f64 = sqlx::query_scalar(START_TIME_QUERY)
             .fetch_one(&self.dbi.db)
-            .await?;
+            .await
+            .unwrap_or_else(|e| {
+                warn!("query postmaster start time failed: {e}; skip");
+                0.0
+            });
 
-        let pg_activity_rows: Vec<PGActivity> = sqlx::query_as(ACTIVITY_QUERY)
+        let query = select_activity_query(cfg.pg_version);
+        let pg_activity_rows: Vec<PGActivity> = sqlx::query_as(query)
             .fetch_all(&self.dbi.db)
             .await?;
 
@@ -591,13 +635,26 @@ impl PG for PGActivityCollector {
         data_lock.query_maint = 0;
         data_lock.query_other = 0;
         data_lock.query_with = 0;
+        data_lock.vacuum_ops.insert("wraparound".to_string(), 0);
+        data_lock.vacuum_ops.insert("regular".to_string(), 0);
+        data_lock.vacuum_ops.insert("user".to_string(), 0);
 
         for activity in &pg_activity_rows {
+            let is_waiting = activity.wait_event_type.as_deref() == Some(WE_LOCK)
+                || activity.waiting == Some(true);
+
+            // Count backend state.
+            // Waiting backends are accounted separately and should NOT be counted
+            // in their real state (active, idle, etc.).
             if let Some(u) = &activity.user
                 && let Some(d) = &activity.database
                 && let Some(s) = &activity.state
             {
-                data_lock.update_state(u.as_str(), d.as_str(), s.as_str());
+                if is_waiting {
+                    data_lock.update_state(u.as_str(), d.as_str(), ST_WAITING);
+                } else {
+                    data_lock.update_state(u.as_str(), d.as_str(), s.as_str());
+                }
             }
 
             if let Some(asec) = &activity.active_seconds {
@@ -619,67 +676,27 @@ impl PG for PGActivityCollector {
             }
 
             if let Some(wait) = &activity.waiting_seconds {
+                let waiting_indicator = if activity.wait_event_type.as_deref() == Some(WE_LOCK) {
+                    Some(WE_LOCK.to_string())
+                } else if activity.waiting == Some(true) {
+                    Some("t".to_string())
+                } else {
+                    None
+                };
                 data_lock.update_max_waitime_duration(
                     *wait,
                     &activity.user,
                     &activity.database,
-                    &activity.wait_event_type,
+                    &waiting_indicator,
                     &activity.query,
                 );
             }
 
-            if let Some(we) = &activity.wait_event_type {
-                // Count waiting activity only if waiting = 't' or wait_event_type = 'Lock'.
-                if we == WE_LOCK || we == "t" {
-                    data_lock.update_state(
-                        &activity
-                            .user
-                            .clone()
-                            .expect("pg activity collector: user shouldn't be null"),
-                        &activity
-                            .database
-                            .clone()
-                            .expect("pg activity collector: database shouldn't be null"),
-                        "waiting",
-                    );
-                }
-
-                data_lock.update_wait_events(
-                    we,
-                    &activity
-                        .wait_event
-                        .clone()
-                        .expect("pg activity collector: wait_event shouldn't be null"),
-                );
+            if let (Some(we), Some(waitev)) = (&activity.wait_event_type, &activity.wait_event) {
+                data_lock.update_wait_events(we, waitev);
             }
 
             data_lock.update_query_stat(&activity.query, &activity.state);
-        }
-
-        let states: HashMap<&str, &HashMap<String, i64>> = HashMap::from([
-            ("active", &data_lock.active),
-            ("idle", &data_lock.idle),
-            ("idlexact", &data_lock.idlexact),
-            ("other", &data_lock.other),
-            ("waiting", &data_lock.waiting),
-        ]);
-
-        // connection states
-        let mut total: i64 = 0;
-        for (tag, values) in states {
-            for (k, v) in values {
-                let names: Vec<&str> = k.split("/").collect();
-                if names.len() >= 2 {
-                    // totals shouldn't include waiting state, because it's already included in 'active' state.
-                    if tag != "waiting" {
-                        total += v
-                    }
-                } else {
-                    error!(
-                        "create state '{tag}' activity failed: insufficient number of fields in key '{k}'; skip"
-                    );
-                }
-            }
         }
 
         data_lock.prepared = prepared;
