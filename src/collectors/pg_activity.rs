@@ -612,9 +612,8 @@ impl PG for PGActivityCollector {
             });
 
         let query = select_activity_query(cfg.pg_version);
-        let pg_activity_rows: Vec<PGActivity> = sqlx::query_as(query)
-            .fetch_all(&self.dbi.db)
-            .await?;
+        let pg_activity_rows: Vec<PGActivity> =
+            sqlx::query_as(query).fetch_all(&self.dbi.db).await?;
 
         let mut data_lock = match self.data.write() {
             Ok(data_lock) => data_lock,
