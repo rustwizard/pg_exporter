@@ -431,8 +431,8 @@ mod integration_tests {
     /// Without `pg_stat_statements` in `shared_preload_libraries`, `new()` must
     /// return `None` so the collector is simply omitted from the registry.
     #[tokio::test]
-    async fn test_pg_statements_returns_none_without_extension(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_pg_statements_returns_none_without_extension()
+    -> Result<(), Box<dyn std::error::Error>> {
         common::setup_tracing();
 
         let (_container, pgi) = common::create_test_instance().await?;
@@ -452,11 +452,12 @@ mod integration_tests {
     async fn test_pg_statements_collector_basic() -> Result<(), Box<dyn std::error::Error>> {
         common::setup_tracing();
 
-        let (_container, pgi) =
-            common::create_test_instance_with_pg_stat_statements().await?;
+        let (_container, pgi) = common::create_test_instance_with_pg_stat_statements().await?;
 
         sqlx::query("SELECT 1 + 1").execute(&pgi.db).await?;
-        sqlx::query("SELECT current_timestamp").execute(&pgi.db).await?;
+        sqlx::query("SELECT current_timestamp")
+            .execute(&pgi.db)
+            .await?;
 
         let collector = collectors::pg_statements::new(Arc::clone(&pgi))
             .expect("pg_statements collector should init when extension is loaded");
@@ -503,8 +504,7 @@ mod integration_tests {
     {
         common::setup_tracing();
 
-        let (_container, pgi) =
-            common::create_test_instance_with_pg_stat_statements().await?;
+        let (_container, pgi) = common::create_test_instance_with_pg_stat_statements().await?;
 
         sqlx::query("SELECT pg_sleep(1.1)").execute(&pgi.db).await?;
 
@@ -544,8 +544,8 @@ mod integration_tests {
     /// With `no_track_mode = true`, every `query` label in `query_info` must be
     /// the placeholder string regardless of the actual SQL executed.
     #[tokio::test]
-    async fn test_pg_statements_notrack_hides_query_text(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_pg_statements_notrack_hides_query_text() -> Result<(), Box<dyn std::error::Error>>
+    {
         common::setup_tracing();
 
         let (_container, pgi) =
@@ -575,8 +575,7 @@ mod integration_tests {
                 .map(|l| l.value())
                 .unwrap_or("");
             assert_eq!(
-                query_label,
-                "/* query text hidden, no-track mode enabled */",
+                query_label, "/* query text hidden, no-track mode enabled */",
                 "query text should be hidden in notrack mode, got: {query_label:?}"
             );
         }
@@ -591,8 +590,7 @@ mod integration_tests {
     async fn test_pg_statements_wal_bytes_by_type() -> Result<(), Box<dyn std::error::Error>> {
         common::setup_tracing();
 
-        let (_container, pgi) =
-            common::create_test_instance_with_pg_stat_statements().await?;
+        let (_container, pgi) = common::create_test_instance_with_pg_stat_statements().await?;
 
         sqlx::query("CREATE TABLE stmts_wal_test (id serial, val text)")
             .execute(&pgi.db)
