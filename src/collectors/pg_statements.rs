@@ -15,7 +15,7 @@ use rust_decimal::prelude::ToPrimitive;
 macro_rules! statements_query12 {
 () =>  {
 	"SELECT d.datname AS database, pg_get_userbyid(p.userid) AS \"user\", p.queryid,
-		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numeric, p.total_time, p.blk_read_time, p.blk_write_time,
+		COALESCE({}, '') AS query, p.calls::numeric, p.rows::numeric, p.total_time AS total_exec_time, p.blk_read_time, p.blk_write_time,
 		NULLIF(p.shared_blks_hit, 0)::numeric AS shared_blks_hit, NULLIF(p.shared_blks_read, 0)::numeric AS shared_blks_read,
 		NULLIF(p.shared_blks_dirtied, 0)::numeric AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0)::numeric AS shared_blks_written,
 		NULLIF(p.local_blks_hit, 0)::numeric AS local_blks_hit, NULLIF(p.local_blks_read, 0)::numeric AS local_blks_read,
@@ -27,7 +27,7 @@ macro_rules! statements_query12 {
 
 macro_rules! statements_query12_topk {
     () => { "WITH stat AS (SELECT d.datname AS DATABASE, pg_get_userbyid(p.userid) AS \"user\", p.queryid,
-		COALESCE({}, '') AS query, p.calls, p.rows, p.total_time, p.blk_read_time, p.blk_write_time,
+		COALESCE({}, '') AS query, p.calls, p.rows, p.total_time AS total_exec_time, p.blk_read_time, p.blk_write_time,
 		NULLIF(p.shared_blks_hit, 0) AS shared_blks_hit, NULLIF(p.shared_blks_read, 0) AS shared_blks_read,
 		NULLIF(p.shared_blks_dirtied, 0) AS shared_blks_dirtied, NULLIF(p.shared_blks_written, 0) AS shared_blks_written,
 		NULLIF(p.local_blks_hit, 0) AS local_blks_hit, NULLIF(p.local_blks_read, 0) AS local_blks_read,
@@ -42,10 +42,10 @@ macro_rules! statements_query12_topk {
 		(ROW_NUMBER() OVER ( ORDER BY p.local_blks_dirtied DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.local_blks_written DESC NULLS LAST) < $1) OR
 		(ROW_NUMBER() OVER ( ORDER BY p.temp_blks_read DESC NULLS LAST) < $1) OR (ROW_NUMBER() OVER ( ORDER BY p.temp_blks_written DESC NULLS LAST) < $1) AS visible
 		FROM {}.pg_stat_statements p JOIN pg_database d ON d.oid = p.dbid)
-		SELECT DATABASE, \"user\", queryid, query, calls, rows, total_time, blk_read_time, blk_write_time, shared_blks_hit,
+		SELECT DATABASE, \"user\", queryid, query, calls, rows, total_exec_time, blk_read_time, blk_write_time, shared_blks_hit,
 		shared_blks_read, shared_blks_dirtied, shared_blks_written, local_blks_hit, local_blks_read, local_blks_dirtied, local_blks_written,
 		temp_blks_read, temp_blks_written FROM stat WHERE visible UNION ALL SELECT DATABASE, 'all_users', NULL,
-		'all_queries', NULLIF(SUM(COALESCE(calls, 0)), 0), NULLIF(SUM(COALESCE(ROWS, 0)), 0), NULLIF(SUM(COALESCE(total_time, 0)), 0),
+		'all_queries', NULLIF(SUM(COALESCE(calls, 0)), 0), NULLIF(SUM(COALESCE(ROWS, 0)), 0), NULLIF(SUM(COALESCE(total_exec_time, 0)), 0),
 		NULLIF(SUM(COALESCE(blk_read_time, 0)), 0), NULLIF(SUM(COALESCE(blk_write_time, 0)), 0),
 		NULLIF(SUM(COALESCE(shared_blks_hit, 0)), 0), NULLIF(SUM(COALESCE(shared_blks_read, 0)), 0), NULLIF(SUM(COALESCE(shared_blks_dirtied, 0)), 0),
 		NULLIF(SUM(COALESCE(shared_blks_written, 0)), 0), NULLIF(SUM(COALESCE(local_blks_hit, 0)), 0), NULLIF(SUM(COALESCE(local_blks_read, 0)), 0),
@@ -208,6 +208,7 @@ pub struct PGStatementsStat {
     calls: Option<Decimal>,
     rows: Option<Decimal>,
     total_exec_time: Option<f64>,
+    #[sqlx(default)]
     total_plan_time: Option<f64>,
     blk_read_time: Option<f64>,
     blk_write_time: Option<f64>,
@@ -221,8 +222,11 @@ pub struct PGStatementsStat {
     local_blks_written: Option<Decimal>,
     temp_blks_read: Option<Decimal>,
     temp_blks_written: Option<Decimal>,
+    #[sqlx(default)]
     wal_records: Option<Decimal>,
+    #[sqlx(default)]
     wal_fpi: Option<Decimal>,
+    #[sqlx(default)]
     wal_bytes: Option<Decimal>,
     #[sqlx(default)]
     wal_buffers: Option<Decimal>,
@@ -688,33 +692,18 @@ impl Collector for PGStatementsCollector {
                 .set(row.rows.unwrap_or_default().to_i64().unwrap_or_default());
 
             // total = planning + execution; execution already includes io time.
-            let total_plan_time = row
-                .total_plan_time
-                .unwrap_or_default()
-                .to_i64()
-                .unwrap_or_default();
+            // pg_stat_statements stores times in milliseconds; divide by 1000 to get seconds.
+            let total_plan_time = (row.total_plan_time.unwrap_or_default() / 1000.0) as i64;
 
-            let total_exec_time = row
-                .total_exec_time
-                .unwrap_or_default()
-                .to_i64()
-                .unwrap_or_default();
+            let total_exec_time = (row.total_exec_time.unwrap_or_default() / 1000.0) as i64;
 
             self.all_times
                 .with_label_values(&[user, database, query_id.as_str()])
                 .set(total_plan_time + total_exec_time);
 
-            let blk_read_time = row
-                .blk_read_time
-                .unwrap_or_default()
-                .to_i64()
-                .unwrap_or_default();
+            let blk_read_time = (row.blk_read_time.unwrap_or_default() / 1000.0) as i64;
 
-            let blk_write_time = row
-                .blk_write_time
-                .unwrap_or_default()
-                .to_i64()
-                .unwrap_or_default();
+            let blk_write_time = (row.blk_write_time.unwrap_or_default() / 1000.0) as i64;
 
             self.times
                 .with_label_values(&[user, database, query_id.as_str(), "planning"])
@@ -916,6 +905,7 @@ impl Collector for PGStatementsCollector {
         mfs.extend(self.temp_written.collect());
         mfs.extend(self.wal_buffers.collect());
         mfs.extend(self.wal_records.collect());
+        mfs.extend(self.wal_all_bytes.collect());
 
         mfs
     }
