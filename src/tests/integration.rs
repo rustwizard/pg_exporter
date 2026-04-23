@@ -1,6 +1,8 @@
 mod common;
 
 mod integration_tests {
+    use std::sync::Arc;
+
     use pg_exporter::collectors::{self, PG};
     use prometheus::{Encoder, Registry};
 
@@ -420,6 +422,218 @@ mod integration_tests {
         let response = String::from_utf8(buffer)?;
 
         assert!(!response.is_empty());
+
+        Ok(())
+    }
+
+    // ── pg_statements collector tests ────────────────────────────────────────
+
+    /// Without `pg_stat_statements` in `shared_preload_libraries`, `new()` must
+    /// return `None` so the collector is simply omitted from the registry.
+    #[tokio::test]
+    async fn test_pg_statements_returns_none_without_extension(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+
+        let collector = collectors::pg_statements::new(pgi);
+        assert!(
+            collector.is_none(),
+            "collector should be None when pg_stat_statements is not loaded"
+        );
+
+        Ok(())
+    }
+
+    /// Basic smoke test: all expected metric families appear and every value is
+    /// non-negative after running a couple of queries.
+    #[tokio::test]
+    async fn test_pg_statements_collector_basic() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) =
+            common::create_test_instance_with_pg_stat_statements().await?;
+
+        sqlx::query("SELECT 1 + 1").execute(&pgi.db).await?;
+        sqlx::query("SELECT current_timestamp").execute(&pgi.db).await?;
+
+        let collector = collectors::pg_statements::new(Arc::clone(&pgi))
+            .expect("pg_statements collector should init when extension is loaded");
+
+        let registry = Registry::new();
+        registry.register(Box::new(collector.clone()))?;
+
+        collector.update().await?;
+
+        let metrics = registry.gather();
+        let names: Vec<&str> = metrics.iter().map(|mf| mf.name()).collect();
+
+        assert!(names.contains(&"pg_statements_query_info"));
+        assert!(names.contains(&"pg_statements_calls_total"));
+        assert!(names.contains(&"pg_statements_rows_total"));
+        assert!(names.contains(&"pg_statements_time_seconds_total"));
+        assert!(names.contains(&"pg_statements_time_seconds_all_total"));
+        assert!(names.contains(&"pg_statements_shared_buffers_hit_total"));
+        assert!(names.contains(&"pg_statements_shared_buffers_read_bytes_total"));
+        assert!(names.contains(&"pg_statements_wal_records_total"));
+        assert!(names.contains(&"pg_statements_wal_bytes_all_total"));
+        assert!(names.contains(&"pg_statements_wal_bytes_total"));
+
+        for mf in &metrics {
+            for m in mf.get_metric() {
+                assert!(
+                    m.get_gauge().value() >= 0.0,
+                    "metric '{}' has negative value {}",
+                    mf.name(),
+                    m.get_gauge().value()
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Verifies that time metrics are stored in seconds, not milliseconds.
+    /// `pg_sleep(1.1)` produces ~1100 ms of execution time.  After the
+    /// ms→s division the value must be 1 (integer truncation of 1.1 s).
+    /// A value ≥ 100 would indicate raw milliseconds are still being used.
+    #[tokio::test]
+    async fn test_pg_statements_time_metrics_in_seconds() -> Result<(), Box<dyn std::error::Error>>
+    {
+        common::setup_tracing();
+
+        let (_container, pgi) =
+            common::create_test_instance_with_pg_stat_statements().await?;
+
+        sqlx::query("SELECT pg_sleep(1.1)").execute(&pgi.db).await?;
+
+        let collector = collectors::pg_statements::new(Arc::clone(&pgi))
+            .expect("pg_statements collector should init");
+
+        collector.update().await?;
+
+        let registry = Registry::new();
+        registry.register(Box::new(collector.clone()))?;
+        let metrics = registry.gather();
+
+        let time_mf = metrics
+            .iter()
+            .find(|mf| mf.name() == "pg_statements_time_seconds_all_total")
+            .expect("time_seconds_all_total should be present");
+
+        let max_val = time_mf
+            .get_metric()
+            .iter()
+            .map(|m| m.get_gauge().value() as i64)
+            .max()
+            .unwrap_or(0);
+
+        assert!(
+            max_val >= 1,
+            "expected at least 1 second recorded for pg_sleep(1.1), got {max_val}"
+        );
+        assert!(
+            max_val < 100,
+            "value {max_val} looks like milliseconds rather than seconds"
+        );
+
+        Ok(())
+    }
+
+    /// With `no_track_mode = true`, every `query` label in `query_info` must be
+    /// the placeholder string regardless of the actual SQL executed.
+    #[tokio::test]
+    async fn test_pg_statements_notrack_hides_query_text(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) =
+            common::create_test_instance_with_pg_stat_statements_opts(None, Some(true)).await?;
+
+        sqlx::query("SELECT 42").execute(&pgi.db).await?;
+
+        let collector = collectors::pg_statements::new(Arc::clone(&pgi))
+            .expect("pg_statements collector should init");
+
+        collector.update().await?;
+
+        let registry = Registry::new();
+        registry.register(Box::new(collector.clone()))?;
+        let metrics = registry.gather();
+
+        let query_info_mf = metrics
+            .iter()
+            .find(|mf| mf.name() == "pg_statements_query_info")
+            .expect("query_info metric should exist");
+
+        for m in query_info_mf.get_metric() {
+            let query_label = m
+                .get_label()
+                .iter()
+                .find(|l| l.name() == "query")
+                .map(|l| l.value())
+                .unwrap_or("");
+            assert_eq!(
+                query_label,
+                "/* query text hidden, no-track mode enabled */",
+                "query text should be hidden in notrack mode, got: {query_label:?}"
+            );
+        }
+
+        Ok(())
+    }
+
+    /// INSERTs into a fresh table generate both regular and full-page-write WAL.
+    /// `wal_bytes_total` must expose separate series for `wal="fpi"` and
+    /// `wal="regular"` when WAL activity is present.
+    #[tokio::test]
+    async fn test_pg_statements_wal_bytes_by_type() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) =
+            common::create_test_instance_with_pg_stat_statements().await?;
+
+        sqlx::query("CREATE TABLE stmts_wal_test (id serial, val text)")
+            .execute(&pgi.db)
+            .await?;
+        sqlx::query(
+            "INSERT INTO stmts_wal_test (val) \
+             SELECT md5(i::text) FROM generate_series(1, 500) i",
+        )
+        .execute(&pgi.db)
+        .await?;
+
+        let collector = collectors::pg_statements::new(Arc::clone(&pgi))
+            .expect("pg_statements collector should init");
+
+        collector.update().await?;
+
+        let registry = Registry::new();
+        registry.register(Box::new(collector.clone()))?;
+        let metrics = registry.gather();
+
+        let wal_mf = metrics
+            .iter()
+            .find(|mf| mf.name() == "pg_statements_wal_bytes_total")
+            .expect("wal_bytes_total metric should be present");
+
+        let wal_types: Vec<&str> = wal_mf
+            .get_metric()
+            .iter()
+            .flat_map(|m| m.get_label().iter())
+            .filter(|l| l.name() == "wal")
+            .map(|l| l.value())
+            .collect();
+
+        assert!(
+            wal_types.contains(&"fpi"),
+            "wal_bytes_total should have 'fpi' series, got: {wal_types:?}"
+        );
+        assert!(
+            wal_types.contains(&"regular"),
+            "wal_bytes_total should have 'regular' series, got: {wal_types:?}"
+        );
 
         Ok(())
     }
