@@ -193,6 +193,8 @@ impl Collector for PGSettingsCollector {
             }
         };
 
+        self.settings_info.reset();
+
         for s in data_lock.iter() {
             let vals = [
                 s.name.as_str(),
