@@ -4,6 +4,8 @@ PostgreSQL exporter for Prometheus written in Rust.
 
 Monitors one or more PostgreSQL instances from a single process. Collectors are version-aware and automatically adjust queries for PostgreSQL 9.5 through 18.
 
+[Architecture (C4 model)](docs/architecture.md)
+
 ## Requirements
 
 - PostgreSQL >= 9.5
