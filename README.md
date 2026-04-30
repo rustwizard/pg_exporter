@@ -119,6 +119,7 @@ cargo build --release
 | `pg_storage` | data directory disk usage | — |
 | `pg_replication` | replication lag by slot | — |
 | `pg_replication_slots` | slot retained WAL bytes | — |
+| `pg_settings` | all GUC settings as labeled metrics (`name`, `setting`, `unit`, `vartype`); numeric value in base units (bytes/seconds) for `integer`/`real` types | — |
 
 ## Querying metrics
 
