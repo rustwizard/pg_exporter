@@ -138,7 +138,10 @@ fn parse_row(row: Row) -> Option<Setting> {
             let v: f64 = match row.setting.parse() {
                 Ok(v) => v,
                 Err(e) => {
-                    error!("parse setting '{}' value '{}': {}", row.name, row.setting, e);
+                    error!(
+                        "parse setting '{}' value '{}': {}",
+                        row.name, row.setting, e
+                    );
                     return None;
                 }
             };
@@ -152,7 +155,11 @@ fn parse_row(row: Row) -> Option<Setting> {
                 let s = format!("{:.5}", v);
                 let s = s.trim_end_matches('0');
                 let s = s.trim_end_matches('.');
-                if s.is_empty() { "0".to_string() } else { s.to_string() }
+                if s.is_empty() {
+                    "0".to_string()
+                } else {
+                    s.to_string()
+                }
             };
 
             Some(Setting {
