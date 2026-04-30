@@ -221,6 +221,11 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                     Arc::clone(&arc_pgi),
                     collectors::pg_replication_slots::new,
                 )?;
+                register_collector(
+                    &mut app,
+                    Arc::clone(&arc_pgi),
+                    collectors::pg_settings::new,
+                )?;
 
                 app.instances.push(arc_pgi);
             }
