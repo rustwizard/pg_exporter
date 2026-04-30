@@ -120,7 +120,7 @@ mod integration_tests {
         let registry = Registry::new();
 
         let pc_bgwriter =
-            collectors::pg_bgwirter::new(pgi).expect("pg_bgwriter collector should init");
+            collectors::pg_bgwriter::new(pgi).expect("pg_bgwriter collector should init");
         registry.register(Box::new(pc_bgwriter.clone()))?;
 
         pc_bgwriter.update().await?;
