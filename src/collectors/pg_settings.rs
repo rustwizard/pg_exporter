@@ -11,9 +11,8 @@ use tracing::error;
 use crate::collectors::PG;
 use crate::instance;
 
-const QUERY: &str = "SELECT name, COALESCE(setting, '') AS setting, \
-    COALESCE(unit, '') AS unit, vartype \
-    FROM pg_show_all_settings() \
+const QUERY: &str = "SELECT name, COALESCE(setting, '') AS setting, COALESCE(unit, '') AS unit, vartype
+    FROM pg_show_all_settings()
     WHERE source IN ('default','configuration file','override','environment variable','command line','global')";
 
 #[derive(sqlx::FromRow, Debug, Default)]
