@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
   "links": [
     {
       "asDropdown": false,
@@ -45,19 +44,6 @@
       "type": "dashboard",
       "uid": "6aac91ff-338d-4a04-b8e3-0c367fc15b9b",
       "url": "/d/6aac91ff-338d-4a04-b8e3-0c367fc15b9b/postgresql-wal"
-    },
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": true,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
-      "title": "PostgreSQL Replication",
-      "tooltip": "",
-      "type": "dashboard",
-      "uid": "pg-replication-dashboard",
-      "url": "/d/pg-replication-dashboard/postgresql-replication"
     },
     {
       "asDropdown": false,
@@ -110,6 +96,19 @@
       "type": "dashboard",
       "uid": "pg-storage-dashboard",
       "url": "/d/pg-storage-dashboard/postgresql-storage"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Process",
+      "tooltip": "",
+      "type": "dashboard",
+      "uid": "feh71oe7han0gf",
+      "url": "/d/feh71oe7han0gf/process"
     }
   ],
   "panels": [
@@ -169,7 +168,7 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "bytes"
         },
         "overrides": []
       },
@@ -202,35 +201,16 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "process_open_fds{job=\"$job\", instance=\"$instance\"}",
+          "expr": "pg_replication_lag_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
-          "hide": false,
           "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "open FDs",
+          "legendFormat": "{{cluster}} {{application_name}} {{lag}}",
           "range": true,
           "refId": "A",
           "useBackend": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "process_threads{job=\"$job\", instance=\"$instance\"}",
-          "fullMetaSearch": false,
-          "hide": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "threads",
-          "range": true,
-          "refId": "B",
-          "useBackend": false
         }
       ],
-      "title": "PG_exporter Open FDs & Threads",
+      "title": "Replication Lag by Phase (bytes)",
       "type": "timeseries"
     },
     {
@@ -252,7 +232,7 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 10,
+            "fillOpacity": 0,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -289,7 +269,7 @@
               }
             ]
           },
-          "unit": "percent"
+          "unit": "s"
         },
         "overrides": []
       },
@@ -299,13 +279,10 @@
         "x": 12,
         "y": 0
       },
-      "id": 3,
+      "id": 2,
       "options": {
         "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
+          "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -325,16 +302,16 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "rate(process_cpu_seconds_total{job=\"$job\", instance=\"$instance\"}[5m]) * 100",
+          "expr": "pg_replication_lag_seconds{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "CPU usage",
+          "legendFormat": "{{cluster}} {{application_name}} {{lag}}",
           "range": true,
           "refId": "A",
           "useBackend": false
         }
       ],
-      "title": "PG_exporter CPU Usage",
+      "title": "Replication Lag by Phase (seconds)",
       "type": "timeseries"
     },
     {
@@ -403,7 +380,7 @@
         "x": 0,
         "y": 8
       },
-      "id": 2,
+      "id": 3,
       "options": {
         "legend": {
           "calcs": [],
@@ -426,23 +403,323 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "process_resident_memory_bytes{job=\"$job\", instance=\"$instance\"}",
+          "expr": "pg_replication_lag_all_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
           "fullMetaSearch": false,
-          "hide": false,
           "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "RSS memory",
+          "legendFormat": "{{cluster}} {{application_name}}",
           "range": true,
-          "refId": "C",
+          "refId": "A",
           "useBackend": false
         }
       ],
-      "title": "PG_exporter Process Memory Resident Set Size",
+      "title": "Replication Total Lag (bytes)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "pg_replication_lag_all_seconds{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{cluster}} {{application_name}}",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Replication Total Lag (seconds)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "pg_replication_slot_retained_bytes{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{cluster}} {{slot_name}} ({{slot_type}}) active={{active}}",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Replication Slot Retained Bytes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "rate(pg_recovery_conflicts_total{job=\"$job\", instance=\"$instance\", cluster=~\"$cluster\"}[5m])",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "{{cluster}} {{database}} {{conflict}}",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Recovery Conflicts Rate",
       "type": "timeseries"
     }
   ],
   "preload": false,
-  "refresh": "5s",
   "schemaVersion": 41,
   "tags": [],
   "templating": {
@@ -492,16 +769,40 @@
         "regex": "",
         "sort": 1,
         "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(pg_postmaster_start_time_seconds{job=\"$job\", instance=\"$instance\"}, cluster)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Cluster",
+        "multi": true,
+        "name": "cluster",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(pg_postmaster_start_time_seconds{job=\"$job\", instance=\"$instance\"}, cluster)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query",
+        "allValue": ".+"
       }
     ]
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Process",
-  "uid": "feh71oe7han0gf",
-  "version": 10
+  "title": "PostgreSQL Replication",
+  "uid": "pg-replication-dashboard",
+  "version": 4
 }

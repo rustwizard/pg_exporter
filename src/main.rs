@@ -193,9 +193,14 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                 )?;
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_database::new)?;
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_activity::new)?;
-                register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_bgwirter::new)?;
+                register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_bgwriter::new)?;
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_wal::new)?;
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_stat_io::new)?;
+                register_collector(
+                    &mut app,
+                    Arc::clone(&arc_pgi),
+                    collectors::pg_stat_slru::new,
+                )?;
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_archiver::new)?;
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_conflict::new)?;
                 register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_indexes::new)?;
@@ -216,6 +221,7 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                     Arc::clone(&arc_pgi),
                     collectors::pg_replication_slots::new,
                 )?;
+                register_collector(&mut app, Arc::clone(&arc_pgi), collectors::pg_settings::new)?;
 
                 app.instances.push(arc_pgi);
             }

@@ -23,4 +23,3 @@ target/
 /monitoring/postgresql/data
 /monitoring/postgresql/data17
 /pg_exporter.yml
-
