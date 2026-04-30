@@ -31,7 +31,7 @@
       "tooltip": "",
       "type": "dashboard",
       "uid": "begwiryjys0lcb",
-      "url": ""
+      "url": "/d/begwiryjys0lcb/postgresql"
     },
     {
       "asDropdown": false,
@@ -44,7 +44,7 @@
       "tooltip": "",
       "type": "dashboard",
       "uid": "6aac91ff-338d-4a04-b8e3-0c367fc15b9b",
-      "url": ""
+      "url": "/d/6aac91ff-338d-4a04-b8e3-0c367fc15b9b/postgresql-wal"
     },
     {
       "asDropdown": false,
@@ -57,7 +57,7 @@
       "tooltip": "",
       "type": "dashboard",
       "uid": "pg-replication-dashboard",
-      "url": ""
+      "url": "/d/pg-replication-dashboard/postgresql-replication"
     },
     {
       "asDropdown": false,
@@ -70,7 +70,7 @@
       "tooltip": "",
       "type": "dashboard",
       "uid": "pg-tables-indexes-dashboard",
-      "url": ""
+      "url": "/d/pg-tables-indexes-dashboard/postgresql-tables-and-indexes"
     },
     {
       "asDropdown": false,
@@ -83,7 +83,7 @@
       "tooltip": "",
       "type": "dashboard",
       "uid": "pg-statements-dashboard",
-      "url": ""
+      "url": "/d/pg-statements-dashboard/postgresql-statements"
     },
     {
       "asDropdown": false,
@@ -96,7 +96,7 @@
       "tooltip": "",
       "type": "dashboard",
       "uid": "pg-io-dashboard",
-      "url": ""
+      "url": "/d/pg-io-dashboard/postgresql-i-o"
     },
     {
       "asDropdown": false,
@@ -109,7 +109,7 @@
       "tooltip": "",
       "type": "dashboard",
       "uid": "pg-storage-dashboard",
-      "url": ""
+      "url": "/d/pg-storage-dashboard/postgresql-storage"
     }
   ],
   "panels": [
@@ -302,7 +302,10 @@
       "id": 3,
       "options": {
         "legend": {
-          "calcs": ["mean", "max"],
+          "calcs": [
+            "mean",
+            "max"
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
