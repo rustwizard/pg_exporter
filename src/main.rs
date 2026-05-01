@@ -147,8 +147,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
     encoder.encode(&postgres_metrics, &mut buffer)?;
     encoder.encode(&process_metrics, &mut buffer)?;
 
-    let response = String::from_utf8(buffer.clone()).expect("Failed to convert bytes to string");
-    buffer.clear();
+    let response = String::from_utf8(buffer).map_err(anyhow::Error::from)?;
 
     let resp = HttpResponse::Ok()
         .insert_header(ContentType::plaintext())
