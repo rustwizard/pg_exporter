@@ -120,7 +120,7 @@ mod integration_tests {
         let registry = Registry::new();
 
         let pc_bgwriter =
-            collectors::pg_bgwirter::new(pgi).expect("pg_bgwriter collector should init");
+            collectors::pg_bgwriter::new(pgi).expect("pg_bgwriter collector should init");
         registry.register(Box::new(pc_bgwriter.clone()))?;
 
         pc_bgwriter.update().await?;
@@ -631,6 +631,61 @@ mod integration_tests {
         assert!(
             wal_types.contains(&"regular"),
             "wal_bytes_total should have 'regular' series, got: {wal_types:?}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pg_settings_collector() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+
+        let registry = Registry::new();
+
+        let collector =
+            collectors::pg_settings::new(pgi).expect("pg_settings collector should init");
+        registry.register(Box::new(collector.clone()))?;
+
+        collector.update().await?;
+
+        let metrics = registry.gather();
+        let metric_names: Vec<&str> = metrics.iter().map(|mf| mf.name()).collect();
+
+        assert!(metric_names.contains(&"pg_service_settings_info"));
+
+        let settings_mf = metrics
+            .iter()
+            .find(|mf| mf.name() == "pg_service_settings_info")
+            .expect("settings_info metric should be present");
+
+        assert!(
+            !settings_mf.get_metric().is_empty(),
+            "settings_info should have at least one metric series"
+        );
+
+        // Verify that a known boolean setting exists and has an expected value.
+        let fsync = settings_mf.get_metric().iter().find(|m| {
+            m.get_label()
+                .iter()
+                .any(|l| l.name() == "name" && l.value() == "fsync")
+        });
+        assert!(fsync.is_some(), "fsync setting should be present");
+
+        // Verify that a known integer setting exists and has a positive value.
+        let shared_buffers = settings_mf.get_metric().iter().find(|m| {
+            m.get_label()
+                .iter()
+                .any(|l| l.name() == "name" && l.value() == "shared_buffers")
+        });
+        assert!(
+            shared_buffers.is_some(),
+            "shared_buffers setting should be present"
+        );
+        assert!(
+            shared_buffers.unwrap().get_gauge().value() > 0.0,
+            "shared_buffers value should be positive"
         );
 
         Ok(())
