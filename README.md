@@ -49,6 +49,7 @@ instances:
 |---|---|---|
 | `listen_addr` | Host and port for the HTTP server | — |
 | `endpoint` | HTTP path that exposes Prometheus metrics | `/metrics` |
+| `scrape_timeout_ms` | Max time in ms to wait for all collectors on each scrape; partial metrics are returned on timeout | `30000` |
 | `instances.<name>.dsn` | PostgreSQL connection string | required |
 | `instances.<name>.const_labels` | Labels added to all metrics for this instance | `{}` |
 | `instances.<name>.exclude_db_names` | Databases to skip in per-DB collectors | `[]` |

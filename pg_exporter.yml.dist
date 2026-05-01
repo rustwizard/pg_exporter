@@ -1,4 +1,5 @@
 listen_addr: 0.0.0.0:61488
+# scrape_timeout_ms: 30000   # max time (ms) to wait for all collectors per scrape; default 30000
 
 instances:
   "pg15:5432":
