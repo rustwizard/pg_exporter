@@ -348,6 +348,9 @@ impl Collector for PGReplicationCollector {
         }
 
         mfs.extend(self.lag_bytes.collect());
+        mfs.extend(self.lag_seconds.collect());
+        mfs.extend(self.lag_total_bytes.collect());
+        mfs.extend(self.lag_total_seconds.collect());
 
         mfs
     }
@@ -359,7 +362,6 @@ impl PG for PGReplicationCollector {
         let cfg = self.dbi.ensure_ready().await?;
         let mut pg_replc_stat_rows = if cfg.pg_version < POSTGRES_V10 {
             sqlx::query_as::<_, PGReplicationStats>(POSTGRES_REPLICATION_QUERY96)
-                .bind(cfg.pg_collect_topidx)
                 .fetch_all(&self.dbi.db)
                 .await?
         } else {
