@@ -4,11 +4,25 @@ use prometheus::Registry;
 
 use crate::{collectors, instance};
 
-#[derive(Clone, Default)]
+pub const DEFAULT_SCRAPE_TIMEOUT_MS: u64 = 30_000;
+
+#[derive(Clone)]
 pub struct PGEApp {
     pub instances: Vec<Arc<instance::PostgresDB>>,
     pub collectors: Vec<Box<dyn collectors::PG>>,
     pub registry: Registry,
+    pub scrape_timeout_ms: u64,
+}
+
+impl Default for PGEApp {
+    fn default() -> Self {
+        Self {
+            instances: Vec::new(),
+            collectors: Vec::new(),
+            registry: Registry::default(),
+            scrape_timeout_ms: DEFAULT_SCRAPE_TIMEOUT_MS,
+        }
+    }
 }
 
 impl PGEApp {

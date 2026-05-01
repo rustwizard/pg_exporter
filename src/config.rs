@@ -19,6 +19,11 @@ pub struct ExporterConfig {
 pub struct PGEConfig {
     pub listen_addr: Option<String>,
     pub endpoint: Option<String>,
+    /// Timeout in milliseconds for a single /metrics scrape.
+    /// If all collectors do not finish within this window the request
+    /// returns whatever data was collected up to that point and logs a warning.
+    /// Default: 30 000 ms (30 s).
+    pub scrape_timeout_ms: Option<u64>,
     pub instances: Option<HashMap<String, instance::Config>>,
 }
 
@@ -243,6 +248,7 @@ instances:
         let mut cfg = PGEConfig {
             listen_addr: Some("0.0.0.0:9090".to_string()),
             endpoint: Some("/metrics".to_string()),
+            scrape_timeout_ms: None,
             instances: None,
         };
         cfg.overrides(Overrides {
@@ -259,6 +265,7 @@ instances:
         let mut cfg = PGEConfig {
             listen_addr: Some("0.0.0.0:9090".to_string()),
             endpoint: Some("/metrics".to_string()),
+            scrape_timeout_ms: None,
             instances: None,
         };
         cfg.overrides(Overrides {
@@ -275,6 +282,7 @@ instances:
         let mut cfg = PGEConfig {
             listen_addr: Some("0.0.0.0:9090".to_string()),
             endpoint: Some("/metrics".to_string()),
+            scrape_timeout_ms: None,
             instances: None,
         };
         cfg.overrides(Overrides::default());

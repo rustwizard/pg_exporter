@@ -14,6 +14,7 @@ use std::{io, process::exit};
 use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, Responder, get, http::header::ContentType, web,
 };
+use std::time::Duration;
 
 use prometheus::Encoder;
 use prometheus::core::Collector;
@@ -119,6 +120,8 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
             .unwrap_or("<unknown>")
     );
 
+    let timeout = Duration::from_millis(data.scrape_timeout_ms);
+
     let tasks: Vec<_> = data
         .collectors
         .clone()
@@ -134,8 +137,21 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
         })
         .collect();
 
-    for task in tasks {
-        task.await?;
+    match actix_web::rt::time::timeout(timeout, async {
+        for task in tasks {
+            task.await?;
+        }
+        Ok::<(), MetricsError>(())
+    })
+    .await
+    {
+        Ok(result) => result?,
+        Err(_elapsed) => {
+            tracing::warn!(
+                "scrape timeout ({} ms) exceeded, returning partial metrics",
+                data.scrape_timeout_ms
+            );
+        }
     }
 
     let process_metrics = prometheus::gather();
@@ -160,6 +176,10 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
     match command {
         None | Some(Commands::Run { .. }) => {
             let mut app = PGEApp::new();
+            app.scrape_timeout_ms = ec
+                .config
+                .scrape_timeout_ms
+                .unwrap_or(app::DEFAULT_SCRAPE_TIMEOUT_MS);
 
             for (instance, config) in ec.config.instances.unwrap_or_default() {
                 info!("starting connection for instance: {instance}");
