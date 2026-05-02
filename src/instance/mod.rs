@@ -32,7 +32,6 @@ pub struct PostgresDB {
     source_cfg: Config,
 }
 
-// TODO: make fields Optional
 #[derive(Debug, Default, Clone, serde_derive::Deserialize, PartialEq, Eq)]
 pub struct Config {
     pub dsn: String,
