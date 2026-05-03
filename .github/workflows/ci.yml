@@ -78,13 +78,17 @@ jobs:
       - name: Configure SSH key
         run: |
           install -d -m 700 ~/.ssh
-          printf '%s' "${{ secrets.GITVERSE_SSH_KEY }}" > ~/.ssh/gitverse_deploy
+          # printf '%s\n' ensures the file ends with a newline — required by libcrypto.
+          # Also strip Windows-style \r in case the secret was pasted from Windows.
+          printf '%s\n' "${{ secrets.GITVERSE_SSH_KEY }}" | tr -d '\r' > ~/.ssh/gitverse_deploy
           chmod 600 ~/.ssh/gitverse_deploy
           cat >> ~/.ssh/config <<'EOF'
           Host gitverse.ru
             IdentityFile ~/.ssh/gitverse_deploy
             StrictHostKeyChecking yes
           EOF
+          # Verify the key is valid before attempting to push
+          ssh-keygen -y -f ~/.ssh/gitverse_deploy > /dev/null
 
       - name: Add Gitverse host key
         # Key is pre-verified locally — avoids MITM risk of live ssh-keyscan.
