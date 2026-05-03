@@ -593,7 +593,13 @@ pub struct PGActivity {
 #[async_trait]
 impl PG for PGActivityCollector {
     async fn update(&self) -> Result<(), anyhow::Error> {
-        let cfg = self.dbi.ensure_ready().await?;
+        let cfg = match self.dbi.ensure_ready().await {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                self.up.set(0.0);
+                return Err(e);
+            }
+        };
 
         let prepared = sqlx::query_scalar::<_, i64>(PREPARED_XACT_QUERY)
             .fetch_one(&self.dbi.db)
@@ -700,6 +706,8 @@ impl PG for PGActivityCollector {
 
         data_lock.prepared = prepared;
         data_lock.start_time_seconds = start_time;
+
+        self.up.set(1.0);
 
         Ok(())
     }
@@ -828,8 +836,6 @@ impl Collector for PGActivityCollector {
             self.vacuums.with_label_values(&[k]).set(*v);
         }
 
-        // All activity metrics collected successfully, now we can collect up metric.
-        self.up.set(1.0);
         self.start_time.set(data_lock.start_time_seconds);
         self.prepared.set(data_lock.prepared);
         self.states_all.set(total);
