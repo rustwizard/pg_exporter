@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches: [master]
-    tags: ['v*']
+    tags: ["v*"]
   pull_request:
     branches: [master]
 
@@ -62,6 +62,46 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
       - name: Build release binary
         run: cargo build --release
+
+  mirror:
+    name: Mirror to Gitverse
+    runs-on: ubuntu-latest
+    # Run only on real pushes to master or version tags — not on pull_request events.
+    # PRs don't have access to secrets anyway, but this makes the intent explicit.
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history required for an accurate mirror
+
+      - name: Configure SSH key
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s' "${{ secrets.GITVERSE_SSH_KEY }}" > ~/.ssh/gitverse_deploy
+          chmod 600 ~/.ssh/gitverse_deploy
+          cat >> ~/.ssh/config <<'EOF'
+          Host gitverse.ru
+            IdentityFile ~/.ssh/gitverse_deploy
+            StrictHostKeyChecking yes
+          EOF
+
+      - name: Add Gitverse host key
+        # Key is pre-verified locally — avoids MITM risk of live ssh-keyscan.
+        run: |
+          cat >> ~/.ssh/known_hosts <<'EOF'
+          gitverse.ru ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCr4Mgh2eX+tkxoVcO4BQDDkC8HqJsUiKivWc0R6umR7eQM6kBsq/LgGgO7Xqts1oHl0/QhF307t7Icwf6S3pGRw5SkQC+VdIEzre/rDlDeVbU+Mzwc5GPCJB96OlOZMUVJ/xhHkw3vUowMMiShOZxpdBjKGpb/oD2hz5UY2aheDivjq1lCennAv0iN6CJfJFRHHWb6vgRMznxC8qoce3fVzcYzFd2gXA2iupdqI+6dUZsIuhDS76W3Yc/UrHOQey3NJZonsqXepfIh7GXjt4X0DQcw8fA2SMFoxmDyHMFVeTHLj1P/S1V+8NtOlqwT+ntCN4rNYtqXXbXNUw6OhThvuusmw21kgaCm9CjSSG54wf3lp+7bEn3Tkfu8Byb8hYRtqY4U+IRrSaDfdyUO8GKCNRFEnoC3c3AeTjPQF+jyx5bYbPZLPnVrPYWBNMwgA79OS/3BTOM4EuAOzLLTITew5nxjPnuwzMChr+j6+8aGaQAjNGWv7KbZxbCFxYkrwKo7Bb9wQsvGEUpzi5AGG00SrUkq1JjCf3Ep7YNqRA7HK6i8QukBOkwJ/LgI1csIG94AcWAhICoeal7XBRjZl/EiDrgbDJp/5TKtrvKzuMeRUiH6ATz6QDi2AcCFjcAv7I0HWlphwJvlN/Um0vg71h6zK/k053VhJucMxXODC6SCrw==
+          EOF
+
+      - name: Push to Gitverse
+        run: |
+          git remote add gitverse git@gitverse.ru:rustwizard/pg_exporter.git
+          git push gitverse refs/remotes/origin/master:refs/heads/master
+          git push gitverse --tags
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f ~/.ssh/gitverse_deploy
 
   docker:
     name: Docker build
