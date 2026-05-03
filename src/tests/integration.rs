@@ -709,6 +709,7 @@ mod lazy_reconnect_tests {
 
     use pg_exporter::collectors::{self, PG};
     use pg_exporter::instance;
+    use prometheus::core::Collector;
 
     use crate::common;
 
@@ -882,6 +883,34 @@ mod lazy_reconnect_tests {
             result.is_err(),
             "update() should return Err when DB is unreachable"
         );
+    }
+
+    /// `pg_up` must be 0 when the DB is unreachable and 1 when the DB is up.
+    #[tokio::test]
+    async fn test_pg_up_reflects_db_availability() {
+        // ── unreachable DB → pg_up should be 0 ──────────────────────────────
+        let pgi_down = Arc::new(
+            instance::new(&instance::Config {
+                dsn: UNREACHABLE_DSN.to_string(),
+                ..Default::default()
+            })
+            .await
+            .unwrap(),
+        );
+
+        let collector_down = collectors::pg_activity::new(Arc::clone(&pgi_down))
+            .expect("pg_activity collector should be created even when DB is down");
+
+        // update() should fail but must set pg_up = 0
+        let _ = collector_down.update().await;
+
+        let mfs_down = collector_down.collect();
+        let up_mf = mfs_down
+            .iter()
+            .find(|mf: &&prometheus::proto::MetricFamily| mf.name() == "pg_up")
+            .expect("pg_up metric must always be present");
+        let up_value = up_mf.get_metric()[0].get_gauge().value();
+        assert_eq!(up_value, 0.0, "pg_up must be 0 when DB is unreachable");
     }
 
     /// After a simulated reconnect (cfg reset), a collector's `update()` must
