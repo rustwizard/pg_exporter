@@ -709,7 +709,7 @@ mod exporter_self_metrics_tests {
 
         let (_container, pgi) = common::create_test_instance().await?;
 
-        let mut app = PGEApp::new();
+        let mut app = PGEApp::new()?;
 
         let collector = collectors::pg_locks::new(Arc::clone(&pgi)).expect("pg_locks should init");
         app.registry.register(Box::new(collector.clone()))?;
