@@ -758,7 +758,7 @@ mod exporter_self_metrics_tests {
             .unwrap(),
         );
 
-        let app = PGEApp::new();
+        let app = PGEApp::new()?;
 
         let collector =
             collectors::pg_locks::new(Arc::clone(&pgi)).expect("collector should be created");
