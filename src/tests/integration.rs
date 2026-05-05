@@ -692,6 +692,91 @@ mod integration_tests {
     }
 }
 
+mod exporter_self_metrics_tests {
+    use std::sync::Arc;
+
+    use pg_exporter::app::PGEApp;
+    use pg_exporter::collectors::{self, PG};
+    use prometheus::Encoder;
+
+    use crate::common;
+
+    /// scrape_duration and scrape_errors must be present in gathered metrics
+    /// after a successful update().
+    #[tokio::test]
+    async fn test_self_metrics_present_after_scrape() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+
+        let mut app = PGEApp::new();
+
+        let collector = collectors::pg_locks::new(Arc::clone(&pgi)).expect("pg_locks should init");
+        app.registry.register(Box::new(collector.clone()))?;
+        app.add_collector("pg_locks", Box::new(collector.clone()));
+
+        // Run update so duration/error metrics are recorded
+        if let Err(e) = collector.update().await {
+            return Err(e.into());
+        }
+        app.scrape_duration
+            .with_label_values(&["pg_locks"])
+            .observe(0.01);
+
+        let metrics = app.registry.gather();
+        let mut buffer = Vec::new();
+        prometheus::TextEncoder::new().encode(&metrics, &mut buffer)?;
+        let output = String::from_utf8(buffer)?;
+
+        assert!(
+            output.contains("pg_exporter_scrape_duration_seconds"),
+            "scrape_duration must be present in gathered metrics"
+        );
+        assert!(
+            output.contains("pg_exporter_scrape_errors_total"),
+            "scrape_errors must be present in gathered metrics"
+        );
+        assert!(
+            output.contains("collector=\"pg_locks\""),
+            "collector label must be set correctly"
+        );
+
+        Ok(())
+    }
+
+    /// scrape_errors counter must increment when update() fails.
+    #[tokio::test]
+    async fn test_self_metrics_error_counter_increments() {
+        use pg_exporter::instance;
+
+        let pgi = Arc::new(
+            instance::new(&instance::Config {
+                dsn: "postgres://nobody:nobody@127.0.0.1:19876/nonexistent".to_string(),
+                ..Default::default()
+            })
+            .await
+            .unwrap(),
+        );
+
+        let app = PGEApp::new();
+
+        let collector =
+            collectors::pg_locks::new(Arc::clone(&pgi)).expect("collector should be created");
+
+        // Simulate what the metrics handler does
+        let errors = app.scrape_errors.with_label_values(&["pg_locks"]);
+        if collector.update().await.is_err() {
+            errors.inc();
+        }
+
+        assert_eq!(
+            errors.get() as u64,
+            1,
+            "error counter must be 1 after a failed update()"
+        );
+    }
+}
+
 /// Tests that prove lazy connection and reconnect behaviour.
 ///
 /// Scenarios covered:

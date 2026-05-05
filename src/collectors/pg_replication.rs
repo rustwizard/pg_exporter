@@ -98,7 +98,11 @@ pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGReplicationCollector> {
 impl PGReplicationCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
         let mut descs = Vec::new();
-        let data = Arc::new(RwLock::new(vec![PGReplicationStats::default()]));
+        // Empty vec avoids calling with_label_values() on a default row before
+        // the first update(), which would trigger the cardinality panic.
+        let data = Arc::new(RwLock::new(vec![]));
+
+        // Per-phase metrics (pending/write/flush/replay) carry a "lag" label.
         let label_names = vec![
             "pid",
             "client_addr",
@@ -107,6 +111,16 @@ impl PGReplicationCollector {
             "application_name",
             "state",
             "lag",
+        ];
+
+        // Total metrics aggregate all phases — no "lag" label.
+        let total_label_names = vec![
+            "pid",
+            "client_addr",
+            "client_port",
+            "user",
+            "application_name",
+            "state",
         ];
 
         let lag_bytes = IntGaugeVec::new(
@@ -141,7 +155,7 @@ impl PGReplicationCollector {
             .namespace(super::NAMESPACE)
             .subsystem("replication")
             .const_labels(dbi.labels.clone()),
-            &label_names,
+            &total_label_names,
         )?;
         descs.extend(lag_total_bytes.desc().into_iter().cloned());
 
@@ -153,7 +167,7 @@ impl PGReplicationCollector {
             .namespace(super::NAMESPACE)
             .subsystem("replication")
             .const_labels(dbi.labels.clone()),
-            &label_names,
+            &total_label_names,
         )?;
         descs.extend(lag_total_seconds.desc().into_iter().cloned());
 
