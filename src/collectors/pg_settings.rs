@@ -177,6 +177,199 @@ fn parse_row(row: Row) -> Option<Setting> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── helpers ─────────────────────────────────────────────────────────────
+
+    fn row(name: &str, setting: &str, unit: &str, vartype: &str) -> Row {
+        Row {
+            name: name.to_string(),
+            setting: setting.to_string(),
+            unit: unit.to_string(),
+            vartype: vartype.to_string(),
+        }
+    }
+
+    // ── parse_unit ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_unit_empty() {
+        let (factor, unit) = parse_unit("");
+        assert_eq!(factor, 1.0);
+        assert_eq!(unit, "");
+    }
+
+    #[test]
+    fn parse_unit_bytes() {
+        assert_eq!(parse_unit("B"), (1.0, "bytes"));
+    }
+
+    #[test]
+    fn parse_unit_kilobytes() {
+        assert_eq!(parse_unit("kB"), (1024.0, "bytes"));
+    }
+
+    #[test]
+    fn parse_unit_8kb() {
+        let (factor, unit) = parse_unit("8kB");
+        assert_eq!(unit, "bytes");
+        assert_eq!(factor, 8.0 * 1024.0);
+    }
+
+    #[test]
+    fn parse_unit_megabytes() {
+        let (factor, unit) = parse_unit("MB");
+        assert_eq!(unit, "bytes");
+        assert_eq!(factor, 1024.0 * 1024.0);
+    }
+
+    #[test]
+    fn parse_unit_gigabytes() {
+        let (factor, unit) = parse_unit("GB");
+        assert_eq!(unit, "bytes");
+        assert_eq!(factor, 1024.0_f64.powi(3));
+    }
+
+    #[test]
+    fn parse_unit_terabytes() {
+        let (factor, unit) = parse_unit("TB");
+        assert_eq!(unit, "bytes");
+        assert_eq!(factor, 1024.0_f64.powi(4));
+    }
+
+    #[test]
+    fn parse_unit_milliseconds() {
+        let (factor, unit) = parse_unit("ms");
+        assert_eq!(unit, "seconds");
+        assert!((factor - 0.001).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn parse_unit_seconds() {
+        assert_eq!(parse_unit("s"), (1.0, "seconds"));
+    }
+
+    #[test]
+    fn parse_unit_minutes() {
+        assert_eq!(parse_unit("min"), (60.0, "seconds"));
+    }
+
+    #[test]
+    fn parse_unit_hours() {
+        assert_eq!(parse_unit("h"), (3600.0, "seconds"));
+    }
+
+    #[test]
+    fn parse_unit_days() {
+        assert_eq!(parse_unit("d"), (86400.0, "seconds"));
+    }
+
+    #[test]
+    fn parse_unit_unknown_suffix_returns_factor_1_empty_unit() {
+        let (factor, unit) = parse_unit("pages");
+        assert_eq!(factor, 1.0);
+        assert_eq!(unit, "");
+    }
+
+    // ── parse_row ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_row_enum_passthrough() {
+        let s = parse_row(row("wal_level", "replica", "", "enum")).unwrap();
+        assert_eq!(s.setting, "replica");
+        assert_eq!(s.value, 0.0);
+    }
+
+    #[test]
+    fn parse_row_string_passthrough() {
+        let s = parse_row(row("application_name", "psql", "", "string")).unwrap();
+        assert_eq!(s.setting, "psql");
+        assert_eq!(s.value, 0.0);
+    }
+
+    #[test]
+    fn parse_row_bool_on() {
+        let s = parse_row(row("fsync", "on", "", "bool")).unwrap();
+        assert_eq!(s.value, 1.0);
+    }
+
+    #[test]
+    fn parse_row_bool_off() {
+        let s = parse_row(row("fsync", "off", "", "bool")).unwrap();
+        assert_eq!(s.value, 0.0);
+    }
+
+    #[test]
+    fn parse_row_bool_invalid_returns_none() {
+        assert!(parse_row(row("fsync", "yes", "", "bool")).is_none());
+    }
+
+    #[test]
+    fn parse_row_integer_no_unit() {
+        let s = parse_row(row("max_connections", "100", "", "integer")).unwrap();
+        assert_eq!(s.value, 100.0);
+        assert_eq!(s.setting, "100");
+        assert_eq!(s.unit, "");
+    }
+
+    #[test]
+    fn parse_row_integer_with_kb_unit_converts_to_bytes() {
+        // shared_buffers = 128 * 8kB = 1 048 576 bytes
+        let s = parse_row(row("shared_buffers", "128", "8kB", "integer")).unwrap();
+        assert_eq!(s.unit, "bytes");
+        assert_eq!(s.value, 128.0 * 8.0 * 1024.0);
+        assert_eq!(s.setting, "1048576");
+    }
+
+    #[test]
+    fn parse_row_integer_with_ms_unit_converts_to_seconds() {
+        // deadlock_timeout = 1000 ms = 1 s
+        let s = parse_row(row("deadlock_timeout", "1000", "ms", "integer")).unwrap();
+        assert_eq!(s.unit, "seconds");
+        assert_eq!(s.value, 1.0);
+        assert_eq!(s.setting, "1");
+    }
+
+    #[test]
+    fn parse_row_integer_negative_value_kept_as_is() {
+        // old_snapshot_threshold = -1 means disabled
+        let s = parse_row(row("old_snapshot_threshold", "-1", "min", "integer")).unwrap();
+        assert_eq!(s.value, -1.0);
+    }
+
+    #[test]
+    fn parse_row_real_normalizes_trailing_zeros() {
+        let s = parse_row(row("checkpoint_completion_target", "1.500", "", "real")).unwrap();
+        assert_eq!(s.setting, "1.5");
+        assert_eq!(s.value, 1.5);
+    }
+
+    #[test]
+    fn parse_row_real_zero_normalizes_to_zero() {
+        let s = parse_row(row("seq_page_cost", "0.00000", "", "real")).unwrap();
+        assert_eq!(s.setting, "0");
+        assert_eq!(s.value, 0.0);
+    }
+
+    #[test]
+    fn parse_row_real_small_value() {
+        let s = parse_row(row("cpu_tuple_cost", "0.01", "", "real")).unwrap();
+        assert_eq!(s.setting, "0.01");
+    }
+
+    #[test]
+    fn parse_row_integer_invalid_value_returns_none() {
+        assert!(parse_row(row("max_connections", "notanumber", "", "integer")).is_none());
+    }
+
+    #[test]
+    fn parse_row_unknown_vartype_returns_none() {
+        assert!(parse_row(row("some_setting", "val", "", "unknown_type")).is_none());
+    }
+}
+
 impl Collector for PGSettingsCollector {
     fn desc(&self) -> Vec<&Desc> {
         self.descs.iter().collect()
