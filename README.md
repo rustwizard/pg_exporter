@@ -28,6 +28,7 @@ GRANT pg_monitor TO postgres_exporter;
 ```yaml
 listen_addr: 0.0.0.0:61488   # host:port for the HTTP server
 endpoint: /metrics            # path that Prometheus scrapes
+# scrape_timeout_ms: 30000   # max time per scrape; partial metrics returned on timeout
 
 instances:
   "pg15:5432":                # arbitrary label used in logs
@@ -94,6 +95,8 @@ docker-compose build && docker-compose up
 | PostgreSQL 17 | localhost:6432 |
 
 PostgreSQL containers start with `pg_stat_statements` preloaded and `track_io_timing = on`.
+
+Grafana comes with pre-provisioned dashboards including **pg_exporter — Self Monitoring** which shows per-collector scrape duration and error rates.
 
 ## Building from source
 
@@ -174,6 +177,27 @@ pg_activity_connections_all_in_flight{cluster="my_cluster",project="my_project"}
 # HELP pg_recovery_conflicts_total Total number of recovery conflicts occurred by each conflict type.
 # TYPE pg_recovery_conflicts_total counter
 pg_recovery_conflicts_total{cluster="my_cluster",conflict="deadlock",database="mydb",project="my_project"} 0
+```
+
+## Self-monitoring metrics
+
+The exporter exposes its own health metrics so you can monitor the exporter itself:
+
+| Metric | Type | Description |
+|---|---|---|
+| `pg_exporter_scrape_duration_seconds{collector}` | Histogram | Duration of each collector's `update()` call. Buckets: 10 ms … 30 s |
+| `pg_exporter_scrape_errors_total{collector}` | Counter | Number of failed `update()` calls per collector |
+
+Both metrics are pre-initialized to zero for every registered collector so they appear in `/metrics` output from the very first scrape, even before any error occurs.
+
+Useful PromQL queries:
+
+```bash
+# Collectors with errors in the last 5 minutes
+count(increase(pg_exporter_scrape_errors_total[5m]) > 0)
+
+# p99 scrape duration per collector
+histogram_quantile(0.99, sum by (le, collector) (rate(pg_exporter_scrape_duration_seconds_bucket[5m])))
 ```
 
 ## Running integration tests
