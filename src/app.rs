@@ -23,8 +23,8 @@ pub struct PGEApp {
     pub scrape_errors: CounterVec,
 }
 
-impl Default for PGEApp {
-    fn default() -> Self {
+impl PGEApp {
+    pub fn new() -> anyhow::Result<Self> {
         let registry = Registry::default();
 
         let scrape_duration = HistogramVec::new(
@@ -34,11 +34,8 @@ impl Default for PGEApp {
             )
             .buckets(SCRAPE_DURATION_BUCKETS.to_vec()),
             &["collector"],
-        )
-        .expect("scrape_duration metric must be valid");
-        registry
-            .register(Box::new(scrape_duration.clone()))
-            .expect("scrape_duration must register");
+        )?;
+        registry.register(Box::new(scrape_duration.clone()))?;
 
         let scrape_errors = CounterVec::new(
             Opts::new(
@@ -46,26 +43,17 @@ impl Default for PGEApp {
                 "Total number of errors returned by each collector's update() call.",
             ),
             &["collector"],
-        )
-        .expect("scrape_errors metric must be valid");
-        registry
-            .register(Box::new(scrape_errors.clone()))
-            .expect("scrape_errors must register");
+        )?;
+        registry.register(Box::new(scrape_errors.clone()))?;
 
-        Self {
+        Ok(Self {
             instances: Vec::new(),
             collectors: Vec::new(),
             registry,
             scrape_timeout_ms: DEFAULT_SCRAPE_TIMEOUT_MS,
             scrape_duration,
             scrape_errors,
-        }
-    }
-}
-
-impl PGEApp {
-    pub fn new() -> Self {
-        PGEApp::default()
+        })
     }
 
     pub fn add_collector(&mut self, name: impl Into<String>, col: Box<dyn collectors::PG>) {

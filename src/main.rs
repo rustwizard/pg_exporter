@@ -179,7 +179,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
 async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Result<()> {
     match command {
         None | Some(Commands::Run { .. }) => {
-            let mut app = PGEApp::new();
+            let mut app = PGEApp::new()?;
             app.scrape_timeout_ms = ec
                 .config
                 .scrape_timeout_ms

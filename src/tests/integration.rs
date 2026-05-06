@@ -709,7 +709,7 @@ mod exporter_self_metrics_tests {
 
         let (_container, pgi) = common::create_test_instance().await?;
 
-        let mut app = PGEApp::new();
+        let mut app = PGEApp::new()?;
 
         let collector = collectors::pg_locks::new(Arc::clone(&pgi)).expect("pg_locks should init");
         app.registry.register(Box::new(collector.clone()))?;
@@ -746,7 +746,8 @@ mod exporter_self_metrics_tests {
 
     /// scrape_errors counter must increment when update() fails.
     #[tokio::test]
-    async fn test_self_metrics_error_counter_increments() {
+    async fn test_self_metrics_error_counter_increments() -> Result<(), Box<dyn std::error::Error>>
+    {
         use pg_exporter::instance;
 
         let pgi = Arc::new(
@@ -758,7 +759,7 @@ mod exporter_self_metrics_tests {
             .unwrap(),
         );
 
-        let app = PGEApp::new();
+        let app = PGEApp::new()?;
 
         let collector =
             collectors::pg_locks::new(Arc::clone(&pgi)).expect("collector should be created");
@@ -774,6 +775,8 @@ mod exporter_self_metrics_tests {
             1,
             "error counter must be 1 after a failed update()"
         );
+
+        Ok(())
     }
 }
 
