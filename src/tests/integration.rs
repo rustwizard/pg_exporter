@@ -746,7 +746,8 @@ mod exporter_self_metrics_tests {
 
     /// scrape_errors counter must increment when update() fails.
     #[tokio::test]
-    async fn test_self_metrics_error_counter_increments() {
+    async fn test_self_metrics_error_counter_increments() -> Result<(), Box<dyn std::error::Error>>
+    {
         use pg_exporter::instance;
 
         let pgi = Arc::new(
@@ -774,6 +775,8 @@ mod exporter_self_metrics_tests {
             1,
             "error counter must be 1 after a failed update()"
         );
+
+        Ok(())
     }
 }
 
