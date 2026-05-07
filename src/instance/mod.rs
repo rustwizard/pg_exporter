@@ -122,13 +122,25 @@ impl PostgresDB {
 }
 
 async fn fetch_cfg(pool: &Pool<Postgres>, instance_cfg: &Config) -> anyhow::Result<PGConfig> {
-    let version = sqlx::query_scalar::<_, String>(
-        "SELECT setting FROM pg_settings WHERE name = 'server_version_num'",
+    // Single round-trip for all required GUC settings.
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT name, setting FROM pg_settings \
+         WHERE name IN ('server_version_num', 'block_size', 'wal_segment_size', 'shared_preload_libraries')",
     )
-    .fetch_one(pool)
+    .fetch_all(pool)
     .await?;
 
-    let pg_version = version.parse()?;
+    let get = |key: &str| -> anyhow::Result<&str> {
+        rows.iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("pg_settings: '{}' not found", key))
+    };
+
+    let pg_version: i64 = get("server_version_num")?.parse()?;
+    let pg_block_size: i64 = get("block_size")?.parse()?;
+    let pg_wal_segment_size: i64 = get("wal_segment_size")?.parse()?;
+    let shared_preload = get("shared_preload_libraries")?;
 
     if pg_version < collectors::POSTGRES_VMIN_NUM {
         info!(
@@ -137,29 +149,7 @@ async fn fetch_cfg(pool: &Pool<Postgres>, instance_cfg: &Config) -> anyhow::Resu
         );
     }
 
-    let block_size = sqlx::query_scalar::<_, String>(
-        "SELECT setting FROM pg_settings WHERE name = 'block_size'",
-    )
-    .fetch_one(pool)
-    .await?;
-
-    let pg_block_size = block_size.parse()?;
-
-    let wal_segment_size = sqlx::query_scalar::<_, String>(
-        "SELECT setting FROM pg_settings WHERE name = 'wal_segment_size'",
-    )
-    .fetch_one(pool)
-    .await?;
-
-    let pg_wal_segment_size = wal_segment_size.parse()?;
-
-    let pg_stat_statements_raw = sqlx::query_scalar::<_, String>(
-        "SELECT setting FROM pg_settings WHERE name = 'shared_preload_libraries'",
-    )
-    .fetch_one(pool)
-    .await?;
-
-    let exist = pg_stat_statements_raw.contains("pg_stat_statements");
+    let exist = shared_preload.contains("pg_stat_statements");
 
     let stmnt_scheme = if exist {
         sqlx::query_scalar::<_, String>(
