@@ -65,6 +65,13 @@ Settings can also be overridden via environment variables with the `PGE_` prefix
 PGE_LISTEN_ADDR=0.0.0.0:9090 ./pg_exporter run
 ```
 
+Log level is controlled via the standard `RUST_LOG` environment variable (default: `info`):
+
+```bash
+RUST_LOG=debug ./pg_exporter run                          # all debug output
+RUST_LOG=pg_exporter=debug,sqlx=warn ./pg_exporter run   # fine-grained control
+```
+
 ## CLI
 
 ```

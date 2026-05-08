@@ -3,6 +3,8 @@ services:
     build: .
     ports:
       - "127.0.0.1:61488:61488"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
     depends_on:
       pge15:
         condition: service_healthy
