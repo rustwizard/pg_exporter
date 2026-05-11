@@ -172,6 +172,15 @@ curl http://127.0.0.1:61488/
 # This is a PgExporter for Prometheus written in Rust
 ```
 
+### Health check
+
+```bash
+curl http://127.0.0.1:61488/health
+# {"status":"ok"}
+```
+
+Returns `200 {"status":"ok"}` when all connection pools are open, `503 {"status":"degraded"}` otherwise.
+
 ### Sample output
 
 ```
@@ -205,6 +214,23 @@ count(increase(pg_exporter_scrape_errors_total[5m]) > 0)
 
 # p99 scrape duration per collector
 histogram_quantile(0.99, sum by (le, collector) (rate(pg_exporter_scrape_duration_seconds_bucket[5m])))
+```
+
+## Kubernetes probes
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 61488
+  initialDelaySeconds: 5
+  periodSeconds: 10
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 61488
+  initialDelaySeconds: 5
+  periodSeconds: 10
 ```
 
 ## Running integration tests
