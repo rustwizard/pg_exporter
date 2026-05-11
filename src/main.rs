@@ -112,6 +112,19 @@ async fn hello() -> impl Responder {
     HttpResponse::Ok().body("This is a PgExporter for Prometheus written in Rust")
 }
 
+async fn health(data: web::Data<PGEApp>) -> HttpResponse {
+    let all_up = data.instances.iter().all(|i| !i.db.is_closed());
+    if all_up {
+        HttpResponse::Ok()
+            .insert_header(ContentType::json())
+            .body(r#"{"status":"ok"}"#)
+    } else {
+        HttpResponse::ServiceUnavailable()
+            .insert_header(ContentType::json())
+            .body(r#"{"status":"degraded"}"#)
+    }
+}
+
 async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpResponse, MetricsError> {
     info!(
         "processing the request from {:?}",
@@ -318,6 +331,7 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                 App::new()
                     .app_data(web::Data::new(app.clone()))
                     .service(hello)
+                    .route("/health", web::get().to(health))
                     .route(
                         &ec.config.endpoint.clone().unwrap_or_default(),
                         web::get().to(metrics),
