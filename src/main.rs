@@ -112,6 +112,19 @@ async fn hello() -> impl Responder {
     HttpResponse::Ok().body("This is a PgExporter for Prometheus written in Rust")
 }
 
+async fn health(data: web::Data<PGEApp>) -> HttpResponse {
+    let all_up = data.instances.iter().all(|i| !i.db.is_closed());
+    if all_up {
+        HttpResponse::Ok()
+            .insert_header(ContentType::json())
+            .body(r#"{"status":"ok"}"#)
+    } else {
+        HttpResponse::ServiceUnavailable()
+            .insert_header(ContentType::json())
+            .body(r#"{"status":"degraded"}"#)
+    }
+}
+
 async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpResponse, MetricsError> {
     info!(
         "processing the request from {:?}",
@@ -318,6 +331,7 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                 App::new()
                     .app_data(web::Data::new(app.clone()))
                     .service(hello)
+                    .route("/health", web::get().to(health))
                     .route(
                         &ec.config.endpoint.clone().unwrap_or_default(),
                         web::get().to(metrics),
@@ -334,4 +348,66 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
     info!("🐘 PgExporter shutting down");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{dev::ServiceResponse, test};
+
+    macro_rules! health_app {
+        ($instances:expr) => {{
+            let mut app = PGEApp::new().expect("PGEApp::new failed");
+            app.instances = $instances;
+            test::init_service(
+                App::new()
+                    .app_data(web::Data::new(app))
+                    .route("/health", web::get().to(health)),
+            )
+            .await
+        }};
+    }
+
+    #[actix_web::test]
+    async fn test_health_ok_no_instances() {
+        let app = health_app!(vec![]);
+        let req = test::TestRequest::get().uri("/health").to_request();
+        let resp: ServiceResponse = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 200);
+        let body = test::read_body(resp).await;
+        assert_eq!(body, r#"{"status":"ok"}"#);
+    }
+
+    #[actix_web::test]
+    async fn test_health_ok_with_open_pool() {
+        let pgi = instance::new(&instance::Config {
+            dsn: "postgres://postgres:postgres@localhost:5432/postgres".to_string(),
+            ..Default::default()
+        })
+        .await
+        .expect("instance::new failed");
+        let app = health_app!(vec![Arc::new(pgi)]);
+        let req = test::TestRequest::get().uri("/health").to_request();
+        let resp: ServiceResponse = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 200);
+        let body = test::read_body(resp).await;
+        assert_eq!(body, r#"{"status":"ok"}"#);
+    }
+
+    #[actix_web::test]
+    async fn test_health_degraded_when_pool_closed() {
+        let pgi = instance::new(&instance::Config {
+            dsn: "postgres://postgres:postgres@localhost:5432/postgres".to_string(),
+            ..Default::default()
+        })
+        .await
+        .expect("instance::new failed");
+        pgi.db.close().await;
+        let app = health_app!(vec![Arc::new(pgi)]);
+        let req = test::TestRequest::get().uri("/health").to_request();
+        let resp: ServiceResponse = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 503);
+        let body = test::read_body(resp).await;
+        assert_eq!(body, r#"{"status":"degraded"}"#);
+    }
 }
