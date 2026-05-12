@@ -71,7 +71,9 @@ pub struct Overrides {
 impl PGEConfig {
     pub fn merge_pool_defaults(&self, mut cfg: instance::Config) -> instance::Config {
         cfg.pool_max_connections = cfg.pool_max_connections.or(self.pool_max_connections);
-        cfg.pool_acquire_timeout_secs = cfg.pool_acquire_timeout_secs.or(self.pool_acquire_timeout_secs);
+        cfg.pool_acquire_timeout_secs = cfg
+            .pool_acquire_timeout_secs
+            .or(self.pool_acquire_timeout_secs);
         cfg.pool_idle_timeout_secs = cfg.pool_idle_timeout_secs.or(self.pool_idle_timeout_secs);
         cfg.pool_max_lifetime_secs = cfg.pool_max_lifetime_secs.or(self.pool_max_lifetime_secs);
         cfg

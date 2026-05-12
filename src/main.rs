@@ -201,9 +201,7 @@ async fn pgexporter(command: Option<Commands>, mut ec: ExporterConfig) -> anyhow
             for (instance, config) in ec.config.instances.take().unwrap_or_default() {
                 info!("starting connection for instance: {instance}");
 
-                let pgi = match instance::new(&ec.config.merge_pool_defaults(config))
-                .await
-                {
+                let pgi = match instance::new(&ec.config.merge_pool_defaults(config)).await {
                     Ok(p) => p,
                     Err(e) => {
                         error!("failed to initialize instance {instance}: {e}");
