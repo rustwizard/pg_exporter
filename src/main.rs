@@ -189,7 +189,7 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
     Ok(resp)
 }
 
-async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Result<()> {
+async fn pgexporter(command: Option<Commands>, mut ec: ExporterConfig) -> anyhow::Result<()> {
     match command {
         None | Some(Commands::Run { .. }) => {
             let mut app = PGEApp::new()?;
@@ -198,30 +198,10 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                 .scrape_timeout_ms
                 .unwrap_or(app::DEFAULT_SCRAPE_TIMEOUT_MS);
 
-            for (instance, config) in ec.config.instances.unwrap_or_default() {
+            for (instance, config) in ec.config.instances.take().unwrap_or_default() {
                 info!("starting connection for instance: {instance}");
 
-                let pgi = match instance::new(&instance::Config {
-                    dsn: config.dsn,
-                    exclude_db_names: config.exclude_db_names.clone(),
-                    const_labels: config.const_labels.clone(),
-                    collect_top_query: config.collect_top_query,
-                    collect_top_index: config.collect_top_index,
-                    collect_top_table: config.collect_top_table,
-                    no_track_mode: config.no_track_mode,
-                    pool_max_connections: config
-                        .pool_max_connections
-                        .or(ec.config.pool_max_connections),
-                    pool_acquire_timeout_secs: config
-                        .pool_acquire_timeout_secs
-                        .or(ec.config.pool_acquire_timeout_secs),
-                    pool_idle_timeout_secs: config
-                        .pool_idle_timeout_secs
-                        .or(ec.config.pool_idle_timeout_secs),
-                    pool_max_lifetime_secs: config
-                        .pool_max_lifetime_secs
-                        .or(ec.config.pool_max_lifetime_secs),
-                })
+                let pgi = match instance::new(&ec.config.merge_pool_defaults(config))
                 .await
                 {
                     Ok(p) => p,
