@@ -11,6 +11,10 @@ instances:
     collect_top_query: 10
     collect_top_index: 10
     no_track_mode: true
+    # pool_max_connections: 10        # max open connections in the pool
+    # pool_acquire_timeout_secs: 5    # seconds to wait for a free connection
+    # pool_idle_timeout_secs: 300     # seconds before an idle connection is closed
+    # pool_max_lifetime_secs: 1800    # max lifetime of a connection
 
   "pg17:6432":
     dsn: "postgres://postgres_exporter:postgres_exporter@pge17:5432/db17"
@@ -21,3 +25,7 @@ instances:
     collect_top_query: 10
     collect_top_index: 10
     no_track_mode: true
+    # pool_max_connections: 10
+    # pool_acquire_timeout_secs: 5
+    # pool_idle_timeout_secs: 300
+    # pool_max_lifetime_secs: 1800
