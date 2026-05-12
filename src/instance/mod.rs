@@ -32,6 +32,11 @@ pub struct PostgresDB {
     source_cfg: Config,
 }
 
+pub const DEFAULT_POOL_MAX_CONNECTIONS: u32 = 10;
+pub const DEFAULT_POOL_ACQUIRE_TIMEOUT_SECS: u64 = 5;
+pub const DEFAULT_POOL_IDLE_TIMEOUT_SECS: u64 = 300;
+pub const DEFAULT_POOL_MAX_LIFETIME_SECS: u64 = 1800;
+
 #[derive(Debug, Default, Clone, serde_derive::Deserialize, PartialEq, Eq)]
 pub struct Config {
     pub dsn: String,
@@ -41,15 +46,35 @@ pub struct Config {
     pub collect_top_index: Option<i64>,
     pub collect_top_table: Option<i64>,
     pub no_track_mode: Option<bool>,
+    pub pool_max_connections: Option<u32>,
+    pub pool_acquire_timeout_secs: Option<u64>,
+    pub pool_idle_timeout_secs: Option<u64>,
+    pub pool_max_lifetime_secs: Option<u64>,
 }
 
 pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
     let pool = PgPoolOptions::new()
-        .max_connections(10)
+        .max_connections(
+            instance_cfg
+                .pool_max_connections
+                .unwrap_or(DEFAULT_POOL_MAX_CONNECTIONS),
+        )
         .test_before_acquire(true)
-        .acquire_timeout(Duration::from_secs(5))
-        .idle_timeout(Duration::from_secs(300))
-        .max_lifetime(Duration::from_secs(1800))
+        .acquire_timeout(Duration::from_secs(
+            instance_cfg
+                .pool_acquire_timeout_secs
+                .unwrap_or(DEFAULT_POOL_ACQUIRE_TIMEOUT_SECS),
+        ))
+        .idle_timeout(Duration::from_secs(
+            instance_cfg
+                .pool_idle_timeout_secs
+                .unwrap_or(DEFAULT_POOL_IDLE_TIMEOUT_SECS),
+        ))
+        .max_lifetime(Duration::from_secs(
+            instance_cfg
+                .pool_max_lifetime_secs
+                .unwrap_or(DEFAULT_POOL_MAX_LIFETIME_SECS),
+        ))
         .connect_lazy(&instance_cfg.dsn)?;
 
     let pgi = PostgresDB {
