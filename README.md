@@ -30,6 +30,12 @@ listen_addr: 0.0.0.0:61488   # host:port for the HTTP server
 endpoint: /metrics            # path that Prometheus scrapes
 # scrape_timeout_ms: 30000   # max time per scrape; partial metrics returned on timeout
 
+# Global pool defaults — applied to all instances unless overridden per-instance
+# pool_max_connections: 10
+# pool_acquire_timeout_secs: 5
+# pool_idle_timeout_secs: 300
+# pool_max_lifetime_secs: 1800
+
 instances:
   "pg15:5432":                # arbitrary label used in logs
     dsn: "postgres://postgres_exporter:password@host:5432/dbname"
@@ -44,10 +50,7 @@ instances:
     # collect_top_index: 10   # top-N indexes by usage
     # collect_top_table: 10   # top-N tables by size/activity
     # no_track_mode: true     # suppress query text in metrics (privacy mode)
-    # pool_max_connections: 10
-    # pool_acquire_timeout_secs: 5
-    # pool_idle_timeout_secs: 300
-    # pool_max_lifetime_secs: 1800
+    # pool_max_connections: 5 # override global default for this instance only
 ```
 
 | Field | Description | Default |
@@ -62,10 +65,14 @@ instances:
 | `instances.<name>.collect_top_index` | Top-N indexes by usage | `0` |
 | `instances.<name>.collect_top_table` | Top-N tables by size/activity | `0` |
 | `instances.<name>.no_track_mode` | Omit query text from metrics | `false` |
-| `instances.<name>.pool_max_connections` | Maximum pool connections per instance | `10` |
-| `instances.<name>.pool_acquire_timeout_secs` | Seconds to wait for a free connection | `5` |
-| `instances.<name>.pool_idle_timeout_secs` | Seconds before an idle connection is closed | `300` |
-| `instances.<name>.pool_max_lifetime_secs` | Maximum lifetime of a connection in seconds | `1800` |
+| `instances.<name>.pool_max_connections` | Max pool connections (overrides global) | `10` |
+| `instances.<name>.pool_acquire_timeout_secs` | Seconds to wait for a free connection (overrides global) | `5` |
+| `instances.<name>.pool_idle_timeout_secs` | Seconds before idle connection is closed (overrides global) | `300` |
+| `instances.<name>.pool_max_lifetime_secs` | Max lifetime of a connection in seconds (overrides global) | `1800` |
+| `pool_max_connections` | Global default max pool connections for all instances | `10` |
+| `pool_acquire_timeout_secs` | Global default acquire timeout in seconds | `5` |
+| `pool_idle_timeout_secs` | Global default idle timeout in seconds | `300` |
+| `pool_max_lifetime_secs` | Global default max connection lifetime in seconds | `1800` |
 
 Settings can also be overridden via environment variables with the `PGE_` prefix:
 
