@@ -209,10 +209,10 @@ async fn pgexporter(command: Option<Commands>, ec: ExporterConfig) -> anyhow::Re
                     collect_top_index: config.collect_top_index,
                     collect_top_table: config.collect_top_table,
                     no_track_mode: config.no_track_mode,
-                    pool_max_connections: config.pool_max_connections,
-                    pool_acquire_timeout_secs: config.pool_acquire_timeout_secs,
-                    pool_idle_timeout_secs: config.pool_idle_timeout_secs,
-                    pool_max_lifetime_secs: config.pool_max_lifetime_secs,
+                    pool_max_connections: config.pool_max_connections.or(ec.config.pool_max_connections),
+                    pool_acquire_timeout_secs: config.pool_acquire_timeout_secs.or(ec.config.pool_acquire_timeout_secs),
+                    pool_idle_timeout_secs: config.pool_idle_timeout_secs.or(ec.config.pool_idle_timeout_secs),
+                    pool_max_lifetime_secs: config.pool_max_lifetime_secs.or(ec.config.pool_max_lifetime_secs),
                 })
                 .await
                 {

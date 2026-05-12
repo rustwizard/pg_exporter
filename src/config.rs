@@ -24,6 +24,10 @@ pub struct PGEConfig {
     /// returns whatever data was collected up to that point and logs a warning.
     /// Default: 30 000 ms (30 s).
     pub scrape_timeout_ms: Option<u64>,
+    pub pool_max_connections: Option<u32>,
+    pub pool_acquire_timeout_secs: Option<u64>,
+    pub pool_idle_timeout_secs: Option<u64>,
+    pub pool_max_lifetime_secs: Option<u64>,
     pub instances: Option<HashMap<String, instance::Config>>,
 }
 
@@ -250,6 +254,7 @@ instances:
             endpoint: Some("/metrics".to_string()),
             scrape_timeout_ms: None,
             instances: None,
+            ..Default::default()
         };
         cfg.overrides(Overrides {
             listen_addr: Some("127.0.0.1:8080".to_string()),
@@ -267,6 +272,7 @@ instances:
             endpoint: Some("/metrics".to_string()),
             scrape_timeout_ms: None,
             instances: None,
+            ..Default::default()
         };
         cfg.overrides(Overrides {
             listen_addr: None,
@@ -284,6 +290,7 @@ instances:
             endpoint: Some("/metrics".to_string()),
             scrape_timeout_ms: None,
             instances: None,
+            ..Default::default()
         };
         cfg.overrides(Overrides::default());
 
