@@ -52,7 +52,14 @@ async fn main() -> std::io::Result<()> {
 
     match args.command {
         Some(Commands::Configcheck) => {
-            if let Err(e) = ExporterConfig::load(Path::new(&args.config)) {
+            let ec = match ExporterConfig::load(Path::new(&args.config)) {
+                Ok(ec) => ec,
+                Err(e) => {
+                    error!("{}", e);
+                    exit(1);
+                }
+            };
+            if let Err(e) = ec.config.validate() {
                 error!("{}", e);
                 exit(1);
             }
