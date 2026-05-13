@@ -44,6 +44,22 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
+      - name: Cache postgres Docker image
+        uses: actions/cache@v4
+        id: docker-cache
+        with:
+          path: /tmp/docker-images
+          # Bump the suffix (v1 → v2) to force a cache refresh
+          key: docker-postgres-17-v1
+      - name: Load postgres image from cache
+        if: steps.docker-cache.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/docker-images/postgres-17.tar
+      - name: Pull postgres image and save to cache
+        if: steps.docker-cache.outputs.cache-hit != 'true'
+        run: |
+          docker pull postgres:17
+          mkdir -p /tmp/docker-images
+          docker save postgres:17 -o /tmp/docker-images/postgres-17.tar
       - name: Run unit tests
         run: cargo test --lib
       - name: Run integration tests

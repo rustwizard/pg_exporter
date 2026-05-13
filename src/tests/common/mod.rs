@@ -82,7 +82,7 @@ pub async fn create_test_instance_with_pg_stat_statements_opts(
     no_track_mode: Option<bool>,
 ) -> Result<(ContainerAsync<Postgres>, Arc<instance::PostgresDB>), Box<dyn std::error::Error>> {
     let container = Postgres::default()
-        .with_tag("latest")
+        .with_tag("17")
         .with_cmd(["-c", "shared_preload_libraries=pg_stat_statements"])
         .start()
         .await?;
@@ -115,8 +115,7 @@ pub async fn create_test_instance_with_pg_stat_statements_opts(
 pub async fn create_test_instance_with_exclusions(
     excluded: &[String],
 ) -> Result<(ContainerAsync<Postgres>, Arc<instance::PostgresDB>), Box<dyn std::error::Error>> {
-    let container: ContainerAsync<Postgres> =
-        Postgres::default().with_tag("latest").start().await?;
+    let container: ContainerAsync<Postgres> = Postgres::default().with_tag("17").start().await?;
     let host_port = container.get_host_port_ipv4(5432).await?;
     let dsn = format!(
         "postgresql://postgres:postgres@localhost:{}/postgres",

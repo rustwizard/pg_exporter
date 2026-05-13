@@ -2,6 +2,7 @@ use ::config::{Config, Environment, File};
 use anyhow::bail;
 use std::{
     collections::HashMap,
+    net::SocketAddr,
     path::{Path, PathBuf},
 };
 
@@ -77,6 +78,49 @@ impl PGEConfig {
         cfg.pool_idle_timeout_secs = cfg.pool_idle_timeout_secs.or(self.pool_idle_timeout_secs);
         cfg.pool_max_lifetime_secs = cfg.pool_max_lifetime_secs.or(self.pool_max_lifetime_secs);
         cfg
+    }
+
+    pub fn validate(&self) -> anyhow::Result<()> {
+        // listen_addr must be present and parse as a valid SocketAddr
+        match &self.listen_addr {
+            None => bail!("config: 'listen_addr' is required"),
+            Some(addr) if addr.is_empty() => bail!("config: 'listen_addr' must not be empty"),
+            Some(addr) => {
+                addr.parse::<SocketAddr>()
+                    .map_err(|e| anyhow::anyhow!("config: 'listen_addr' is invalid: {e}"))?;
+            }
+        }
+
+        // endpoint must be present and start with '/'
+        match &self.endpoint {
+            None => bail!("config: 'endpoint' is required"),
+            Some(ep) if ep.is_empty() => bail!("config: 'endpoint' must not be empty"),
+            Some(ep) if !ep.starts_with('/') => {
+                bail!("config: 'endpoint' must start with '/' (got '{ep}')")
+            }
+            _ => {}
+        }
+
+        // at least one instance must be defined
+        let instances = match self.instances.as_ref() {
+            Some(m) if !m.is_empty() => m,
+            _ => bail!("config: no instances defined — add at least one entry under 'instances'"),
+        };
+
+        // each instance must have a non-empty DSN parseable as a postgres:// URL
+        for (name, inst) in instances {
+            if inst.dsn.is_empty() {
+                bail!("config: instance '{name}': 'dsn' must not be empty");
+            }
+            if !inst.dsn.starts_with("postgres://") && !inst.dsn.starts_with("postgresql://") {
+                bail!(
+                    "config: instance '{name}': 'dsn' must start with 'postgres://' or 'postgresql://' (got '{}')",
+                    inst.dsn
+                );
+            }
+        }
+
+        Ok(())
     }
 
     pub fn overrides(&mut self, overrides: Overrides) {
@@ -318,5 +362,109 @@ instances:
 
         assert_eq!(cfg.listen_addr.as_deref(), Some("0.0.0.0:9090"));
         assert_eq!(cfg.endpoint.as_deref(), Some("/metrics"));
+    }
+
+    // --- PGEConfig::validate ---
+
+    fn valid_cfg() -> PGEConfig {
+        let mut instances = HashMap::new();
+        instances.insert(
+            "pg:5432".to_string(),
+            instance::Config {
+                dsn: "postgres://u:p@localhost/db".to_string(),
+                ..Default::default()
+            },
+        );
+        PGEConfig {
+            listen_addr: Some("0.0.0.0:61488".to_string()),
+            endpoint: Some("/metrics".to_string()),
+            instances: Some(instances),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn validate_valid_config_ok() {
+        assert!(valid_cfg().validate().is_ok());
+    }
+
+    #[test]
+    fn validate_missing_listen_addr() {
+        let mut cfg = valid_cfg();
+        cfg.listen_addr = None;
+        assert!(cfg.validate().is_err());
+    }
+
+    #[test]
+    fn validate_invalid_listen_addr() {
+        let mut cfg = valid_cfg();
+        cfg.listen_addr = Some("not-an-addr".to_string());
+        assert!(cfg.validate().is_err());
+    }
+
+    #[test]
+    fn validate_missing_endpoint() {
+        let mut cfg = valid_cfg();
+        cfg.endpoint = None;
+        assert!(cfg.validate().is_err());
+    }
+
+    #[test]
+    fn validate_endpoint_without_slash() {
+        let mut cfg = valid_cfg();
+        cfg.endpoint = Some("metrics".to_string());
+        let err = cfg.validate().unwrap_err();
+        assert!(err.to_string().contains("must start with '/'"));
+    }
+
+    #[test]
+    fn validate_no_instances() {
+        let mut cfg = valid_cfg();
+        cfg.instances = None;
+        assert!(cfg.validate().is_err());
+    }
+
+    #[test]
+    fn validate_empty_instances_map() {
+        let mut cfg = valid_cfg();
+        cfg.instances = Some(HashMap::new());
+        assert!(cfg.validate().is_err());
+    }
+
+    #[test]
+    fn validate_empty_dsn() {
+        let mut cfg = valid_cfg();
+        cfg.instances
+            .as_mut()
+            .unwrap()
+            .get_mut("pg:5432")
+            .unwrap()
+            .dsn = String::new();
+        assert!(cfg.validate().is_err());
+    }
+
+    #[test]
+    fn validate_dsn_wrong_scheme() {
+        let mut cfg = valid_cfg();
+        cfg.instances
+            .as_mut()
+            .unwrap()
+            .get_mut("pg:5432")
+            .unwrap()
+            .dsn = "mysql://u:p@localhost/db".to_string();
+        let err = cfg.validate().unwrap_err();
+        assert!(err.to_string().contains("postgres://"));
+    }
+
+    #[test]
+    fn validate_postgresql_scheme_ok() {
+        let mut cfg = valid_cfg();
+        cfg.instances
+            .as_mut()
+            .unwrap()
+            .get_mut("pg:5432")
+            .unwrap()
+            .dsn = "postgresql://u:p@localhost/db".to_string();
+        assert!(cfg.validate().is_ok());
     }
 }
