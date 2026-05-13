@@ -324,6 +324,11 @@ async fn pgexporter(command: Option<Commands>, mut ec: ExporterConfig) -> anyhow
                 app.instances.push(arc_pgi);
             }
 
+            // Give in-flight scrapes time to finish on SIGTERM/SIGINT.
+            // We add 5 s on top of scrape_timeout_ms so the timeout handler
+            // inside metrics() always fires before the server kills workers.
+            let shutdown_timeout_secs = (app.scrape_timeout_ms / 1000) + 5;
+
             HttpServer::new(move || {
                 App::new()
                     .app_data(web::Data::new(app.clone()))
@@ -334,6 +339,7 @@ async fn pgexporter(command: Option<Commands>, mut ec: ExporterConfig) -> anyhow
                         web::get().to(metrics),
                     )
             })
+            .shutdown_timeout(shutdown_timeout_secs)
             .bind(ec.config.listen_addr.unwrap_or_default())?
             .run()
             .await?
