@@ -102,13 +102,13 @@ impl PGEConfig {
         }
 
         // at least one instance must be defined
-        let instances = self.instances.as_ref();
-        if instances.map(|m| m.is_empty()).unwrap_or(true) {
-            bail!("config: no instances defined — add at least one entry under 'instances'");
-        }
+        let instances = match self.instances.as_ref() {
+            Some(m) if !m.is_empty() => m,
+            _ => bail!("config: no instances defined — add at least one entry under 'instances'"),
+        };
 
         // each instance must have a non-empty DSN parseable as a postgres:// URL
-        for (name, inst) in instances.unwrap() {
+        for (name, inst) in instances {
             if inst.dsn.is_empty() {
                 bail!("config: instance '{name}': 'dsn' must not be empty");
             }
