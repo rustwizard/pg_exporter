@@ -25,6 +25,7 @@ pub struct PGConfig {
 
 #[derive(Debug, Clone)]
 pub struct PostgresDB {
+    pub name: String,
     pub db: Pool<Postgres>,
     pub excluded_db_names: Vec<String>,
     pub labels: HashMap<String, String>,
@@ -78,6 +79,7 @@ pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
         .connect_lazy(&instance_cfg.dsn)?;
 
     let pgi = PostgresDB {
+        name: String::new(),
         db: pool,
         excluded_db_names: instance_cfg.exclude_db_names.clone().unwrap_or_default(),
         labels: instance_cfg.const_labels.clone(),
