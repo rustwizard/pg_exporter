@@ -100,10 +100,37 @@ Options:
   -c, --config <PATH>   Path to config file [default: pg_exporter.yml]
 
 Commands:
-  run           Start the exporter
+  run               Start the exporter
     -l, --listen-addr <ADDR>   Override listen address from config
     -e, --endpoint <PATH>      Override metrics endpoint from config
-  configcheck   Validate the config file and exit with status 0 or 1
+  configcheck       Validate the config file and exit with status 0 or 1
+  list-collectors   Print all available collectors with their minimum PostgreSQL version
+```
+
+### list-collectors
+
+Use this command to discover collector names for use in `disable_collectors`:
+
+```
+$ pg_exporter list-collectors
+COLLECTOR                 MIN_PG_VERSION  NOTES
+pg_activity               9.5
+pg_archiver               9.5
+pg_bgwriter               9.5
+pg_conflict               9.5
+pg_database               9.5
+pg_indexes                9.5
+pg_locks                  9.5
+pg_postmaster             9.5
+pg_replication            9.6
+pg_replication_slots      9.6
+pg_settings               9.5
+pg_stat_io                16
+pg_stat_slru              13
+pg_statements             9.5             requires pg_stat_statements extension
+pg_storage                10
+pg_tables                 9.5
+pg_wal                    9.5
 ```
 
 ## Quick start with Docker Compose
