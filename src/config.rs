@@ -478,4 +478,69 @@ instances:
             .dsn = "postgresql://u:p@localhost/db".to_string();
         assert!(cfg.validate().is_ok());
     }
+
+    #[test]
+    fn validate_disable_collectors_known_names_ok() {
+        let mut cfg = valid_cfg();
+        cfg.instances
+            .as_mut()
+            .unwrap()
+            .get_mut("pg:5432")
+            .unwrap()
+            .disable_collectors = Some(vec![
+            "pg_statements".to_string(),
+            "pg_stat_io".to_string(),
+        ]);
+        assert!(cfg.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_disable_collectors_unknown_name_err() {
+        let mut cfg = valid_cfg();
+        cfg.instances
+            .as_mut()
+            .unwrap()
+            .get_mut("pg:5432")
+            .unwrap()
+            .disable_collectors = Some(vec!["pg_typo".to_string()]);
+        let err = cfg.validate().unwrap_err();
+        assert!(err.to_string().contains("unknown collector 'pg_typo'"));
+    }
+
+    #[test]
+    fn validate_disable_collectors_empty_list_ok() {
+        let mut cfg = valid_cfg();
+        cfg.instances
+            .as_mut()
+            .unwrap()
+            .get_mut("pg:5432")
+            .unwrap()
+            .disable_collectors = Some(vec![]);
+        assert!(cfg.validate().is_ok());
+    }
+
+    #[test]
+    fn load_config_with_disable_collectors() {
+        let yaml = r#"
+listen_addr: "0.0.0.0:9090"
+endpoint: /metrics
+instances:
+  "pg:5432":
+    dsn: "postgres://u:p@localhost/db"
+    const_labels: {}
+    disable_collectors:
+      - pg_statements
+      - pg_stat_io
+"#;
+        let path = write_tmp_config("pge_test_disable_collectors.yml", yaml);
+        let ec = ExporterConfig::load(&path).expect("should load");
+
+        let instances = ec.config.instances.expect("instances should be present");
+        let inst = instances.get("pg:5432").expect("instance should exist");
+        let disabled = inst
+            .disable_collectors
+            .as_ref()
+            .expect("disable_collectors should be present");
+        assert_eq!(disabled, &["pg_statements", "pg_stat_io"]);
+    }
 }
