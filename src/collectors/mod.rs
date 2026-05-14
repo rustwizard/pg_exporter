@@ -35,6 +35,32 @@ const POSTGRES_V18: i64 = 180000;
 // Minimal required version is 9.5
 pub const POSTGRES_VMIN_NUM: i64 = POSTGRES_V95;
 
+pub struct CollectorInfo {
+    pub name: &'static str,
+    pub min_pg_version: &'static str,
+    pub notes: &'static str,
+}
+
+pub const COLLECTOR_INFO: &[CollectorInfo] = &[
+    CollectorInfo { name: "pg_activity",          min_pg_version: "9.5",  notes: "" },
+    CollectorInfo { name: "pg_archiver",          min_pg_version: "9.5",  notes: "" },
+    CollectorInfo { name: "pg_bgwriter",          min_pg_version: "9.5",  notes: "" },
+    CollectorInfo { name: "pg_conflict",          min_pg_version: "9.5",  notes: "" },
+    CollectorInfo { name: "pg_database",          min_pg_version: "9.5",  notes: "" },
+    CollectorInfo { name: "pg_indexes",           min_pg_version: "9.5",  notes: "" },
+    CollectorInfo { name: "pg_locks",             min_pg_version: "9.5",  notes: "" },
+    CollectorInfo { name: "pg_postmaster",        min_pg_version: "9.5",  notes: "" },
+    CollectorInfo { name: "pg_replication",       min_pg_version: "9.6",  notes: "" },
+    CollectorInfo { name: "pg_replication_slots", min_pg_version: "9.6",  notes: "" },
+    CollectorInfo { name: "pg_settings",          min_pg_version: "9.5",  notes: "" },
+    CollectorInfo { name: "pg_stat_io",           min_pg_version: "16",   notes: "" },
+    CollectorInfo { name: "pg_stat_slru",         min_pg_version: "13",   notes: "" },
+    CollectorInfo { name: "pg_statements",        min_pg_version: "9.5",  notes: "requires pg_stat_statements extension" },
+    CollectorInfo { name: "pg_storage",           min_pg_version: "10",   notes: "" },
+    CollectorInfo { name: "pg_tables",            min_pg_version: "9.5",  notes: "" },
+    CollectorInfo { name: "pg_wal",               min_pg_version: "9.5",  notes: "" },
+];
+
 pub const COLLECTOR_NAMES: &[&str] = &[
     "pg_activity",
     "pg_archiver",

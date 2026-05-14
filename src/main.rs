@@ -54,6 +54,14 @@ async fn main() -> std::io::Result<()> {
     let mut overrides = Overrides::default();
 
     match args.command {
+        Some(Commands::ListCollectors) => {
+            println!("{:<25} {:<15} {}", "COLLECTOR", "MIN_PG_VERSION", "NOTES");
+            for info in collectors::COLLECTOR_INFO {
+                println!("{:<25} {:<15} {}", info.name, info.min_pg_version, info.notes);
+            }
+            exit(0);
+        }
+
         Some(Commands::Configcheck) => {
             let ec = match ExporterConfig::load(Path::new(&args.config)) {
                 Ok(ec) => ec,
