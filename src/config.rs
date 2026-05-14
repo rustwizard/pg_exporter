@@ -487,10 +487,7 @@ instances:
             .unwrap()
             .get_mut("pg:5432")
             .unwrap()
-            .disable_collectors = Some(vec![
-            "pg_statements".to_string(),
-            "pg_stat_io".to_string(),
-        ]);
+            .disable_collectors = Some(vec!["pg_statements".to_string(), "pg_stat_io".to_string()]);
         assert!(cfg.validate().is_ok());
     }
 

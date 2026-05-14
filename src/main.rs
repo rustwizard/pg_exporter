@@ -57,7 +57,10 @@ async fn main() -> std::io::Result<()> {
         Some(Commands::ListCollectors) => {
             println!("{:<25} {:<15} {}", "COLLECTOR", "MIN_PG_VERSION", "NOTES");
             for info in collectors::COLLECTOR_INFO {
-                println!("{:<25} {:<15} {}", info.name, info.min_pg_version, info.notes);
+                println!(
+                    "{:<25} {:<15} {}",
+                    info.name, info.min_pg_version, info.notes
+                );
             }
             exit(0);
         }
@@ -271,7 +274,10 @@ async fn pgexporter(command: Option<Commands>, mut ec: ExporterConfig) -> anyhow
                 reg!("pg_tables", collectors::pg_tables::new);
                 reg!("pg_storage", collectors::pg_storage::new);
                 reg!("pg_replication", collectors::pg_replication::new);
-                reg!("pg_replication_slots", collectors::pg_replication_slots::new);
+                reg!(
+                    "pg_replication_slots",
+                    collectors::pg_replication_slots::new
+                );
                 reg!("pg_settings", collectors::pg_settings::new);
 
                 app.instances.push(arc_pgi);
