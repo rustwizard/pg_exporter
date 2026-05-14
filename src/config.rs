@@ -119,6 +119,16 @@ impl PGEConfig {
                     inst.dsn
                 );
             }
+            if let Some(disabled) = &inst.disable_collectors {
+                for col in disabled {
+                    if !crate::collectors::COLLECTOR_NAMES.contains(&col.as_str()) {
+                        bail!(
+                            "config: instance '{name}': unknown collector '{col}' in disable_collectors (known: {})",
+                            crate::collectors::COLLECTOR_NAMES.join(", ")
+                        );
+                    }
+                }
+            }
         }
 
         Ok(())

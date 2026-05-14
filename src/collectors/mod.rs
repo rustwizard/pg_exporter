@@ -35,6 +35,26 @@ const POSTGRES_V18: i64 = 180000;
 // Minimal required version is 9.5
 pub const POSTGRES_VMIN_NUM: i64 = POSTGRES_V95;
 
+pub const COLLECTOR_NAMES: &[&str] = &[
+    "pg_activity",
+    "pg_archiver",
+    "pg_bgwriter",
+    "pg_conflict",
+    "pg_database",
+    "pg_indexes",
+    "pg_locks",
+    "pg_postmaster",
+    "pg_replication",
+    "pg_replication_slots",
+    "pg_settings",
+    "pg_stat_io",
+    "pg_stat_slru",
+    "pg_statements",
+    "pg_storage",
+    "pg_tables",
+    "pg_wal",
+];
+
 #[async_trait]
 pub trait PG: DynClone + Send + Sync {
     async fn update(&self) -> Result<(), anyhow::Error>;
