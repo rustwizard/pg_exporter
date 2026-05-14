@@ -141,6 +141,15 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
             .unwrap_or("<unknown>")
     );
 
+    for instance in &data.instances {
+        data.pool_size
+            .with_label_values(&[&instance.name])
+            .set(instance.db.size() as f64);
+        data.pool_idle
+            .with_label_values(&[&instance.name])
+            .set(instance.db.num_idle() as f64);
+    }
+
     let timeout = Duration::from_millis(data.scrape_timeout_ms);
 
     let tasks: Vec<_> = data
@@ -216,6 +225,8 @@ async fn pgexporter(command: Option<Commands>, mut ec: ExporterConfig) -> anyhow
                     }
                 };
 
+                let mut pgi = pgi;
+                pgi.name = instance.clone();
                 let arc_pgi = Arc::new(pgi);
 
                 register_collector(

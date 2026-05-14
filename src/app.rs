@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use prometheus::{CounterVec, HistogramOpts, HistogramVec, Opts, Registry};
+use prometheus::{CounterVec, GaugeVec, HistogramOpts, HistogramVec, Opts, Registry};
 
 use crate::{collectors, instance};
 
@@ -21,6 +21,10 @@ pub struct PGEApp {
     pub scrape_duration: HistogramVec,
     /// Number of times a collector's update() returned an error.
     pub scrape_errors: CounterVec,
+    /// Total connections in the pool (idle + in-use) per instance.
+    pub pool_size: GaugeVec,
+    /// Idle connections in the pool per instance.
+    pub pool_idle: GaugeVec,
 }
 
 impl PGEApp {
@@ -46,6 +50,24 @@ impl PGEApp {
         )?;
         registry.register(Box::new(scrape_errors.clone()))?;
 
+        let pool_size = GaugeVec::new(
+            Opts::new(
+                "pg_exporter_pool_size",
+                "Total number of connections in the pool (idle + in-use) per instance.",
+            ),
+            &["instance"],
+        )?;
+        registry.register(Box::new(pool_size.clone()))?;
+
+        let pool_idle = GaugeVec::new(
+            Opts::new(
+                "pg_exporter_pool_idle",
+                "Number of idle connections in the pool per instance.",
+            ),
+            &["instance"],
+        )?;
+        registry.register(Box::new(pool_idle.clone()))?;
+
         Ok(Self {
             instances: Vec::new(),
             collectors: Vec::new(),
@@ -53,6 +75,8 @@ impl PGEApp {
             scrape_timeout_ms: DEFAULT_SCRAPE_TIMEOUT_MS,
             scrape_duration,
             scrape_errors,
+            pool_size,
+            pool_idle,
         })
     }
 
