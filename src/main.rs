@@ -338,12 +338,19 @@ async fn pgexporter(command: Option<Commands>, mut ec: ExporterConfig) -> anyhow
                     .service(hello)
                     .route("/health", web::get().to(health))
                     .route(
-                        &ec.config.endpoint.clone().unwrap_or_default(),
+                        &ec.config
+                            .endpoint
+                            .clone()
+                            .unwrap_or_else(|| "/metrics".to_string()),
                         web::get().to(metrics),
                     )
             })
             .shutdown_timeout(shutdown_timeout_secs)
-            .bind(ec.config.listen_addr.unwrap_or_default())?
+            .bind(
+                ec.config
+                    .listen_addr
+                    .unwrap_or_else(|| "0.0.0.0:61488".to_string()),
+            )?
             .run()
             .await?
         }
