@@ -51,6 +51,7 @@ pub struct Config {
     pub pool_acquire_timeout_secs: Option<u64>,
     pub pool_idle_timeout_secs: Option<u64>,
     pub pool_max_lifetime_secs: Option<u64>,
+    pub disable_collectors: Option<Vec<String>>,
 }
 
 pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {

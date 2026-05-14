@@ -26,4 +26,6 @@ pub enum Commands {
     },
     /// Check configuration file for errors.
     Configcheck,
+    /// List available collectors with their minimum PostgreSQL version.
+    ListCollectors,
 }

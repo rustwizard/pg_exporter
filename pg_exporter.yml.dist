@@ -19,6 +19,9 @@ instances:
     collect_top_query: 10
     collect_top_index: 10
     no_track_mode: true
+    # disable_collectors:        # skip specific collectors for this instance
+    #   - pg_statements          # run 'pg_exporter list-collectors' to see all names and min PG versions
+    #   - pg_stat_io
     # pool_max_connections: 5   # override global default for this instance
 
   "pg17:6432":

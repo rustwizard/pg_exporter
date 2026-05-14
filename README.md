@@ -50,6 +50,9 @@ instances:
     # collect_top_index: 10   # top-N indexes by usage
     # collect_top_table: 10   # top-N tables by size/activity
     # no_track_mode: true     # suppress query text in metrics (privacy mode)
+    # disable_collectors:     # skip specific collectors for this instance
+    #   - pg_statements       # e.g. no pg_stat_statements on replica
+    #   - pg_stat_io          # e.g. PG 15, not supported
     # pool_max_connections: 5 # override global default for this instance only
 ```
 
@@ -65,6 +68,7 @@ instances:
 | `instances.<name>.collect_top_index` | Top-N indexes by usage | `0` |
 | `instances.<name>.collect_top_table` | Top-N tables by size/activity | `0` |
 | `instances.<name>.no_track_mode` | Omit query text from metrics | `false` |
+| `instances.<name>.disable_collectors` | List of collector names to skip for this instance | `[]` |
 | `instances.<name>.pool_max_connections` | Max pool connections (overrides global) | `10` |
 | `instances.<name>.pool_acquire_timeout_secs` | Seconds to wait for a free connection (overrides global) | `5` |
 | `instances.<name>.pool_idle_timeout_secs` | Seconds before idle connection is closed (overrides global) | `300` |
@@ -96,10 +100,37 @@ Options:
   -c, --config <PATH>   Path to config file [default: pg_exporter.yml]
 
 Commands:
-  run           Start the exporter
+  run               Start the exporter
     -l, --listen-addr <ADDR>   Override listen address from config
     -e, --endpoint <PATH>      Override metrics endpoint from config
-  configcheck   Validate the config file and exit with status 0 or 1
+  configcheck       Validate the config file and exit with status 0 or 1
+  list-collectors   Print all available collectors with their minimum PostgreSQL version
+```
+
+### list-collectors
+
+Use this command to discover collector names for use in `disable_collectors`:
+
+```
+$ pg_exporter list-collectors
+COLLECTOR                 MIN_PG_VERSION  NOTES
+pg_activity               9.5
+pg_archiver               9.5
+pg_bgwriter               9.5
+pg_conflict               9.5
+pg_database               9.5
+pg_indexes                9.5
+pg_locks                  9.5
+pg_postmaster             9.5
+pg_replication            9.6
+pg_replication_slots      9.6
+pg_settings               9.5
+pg_stat_io                16
+pg_stat_slru              13
+pg_statements             9.5             requires pg_stat_statements extension
+pg_storage                10
+pg_tables                 9.5
+pg_wal                    9.5
 ```
 
 ## Quick start with Docker Compose
