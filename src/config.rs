@@ -25,6 +25,7 @@ pub struct PGEConfig {
     /// returns whatever data was collected up to that point and logs a warning.
     /// Default: 30 000 ms (30 s).
     pub scrape_timeout_ms: Option<u64>,
+    pub log_level: Option<String>,
     pub pool_max_connections: Option<u32>,
     pub pool_acquire_timeout_secs: Option<u64>,
     pub pool_idle_timeout_secs: Option<u64>,

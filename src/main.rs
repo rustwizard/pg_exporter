@@ -46,7 +46,10 @@ where
 async fn main() -> std::io::Result<()> {
     let args = cli::Cli::parse();
 
-    pg_exporter::logger_init();
+    let log_level = ExporterConfig::load(Path::new(&args.config))
+        .ok()
+        .and_then(|c| c.config.log_level);
+    pg_exporter::logger_init(log_level.as_deref());
 
     let mut overrides = Overrides::default();
 
@@ -335,12 +338,19 @@ async fn pgexporter(command: Option<Commands>, mut ec: ExporterConfig) -> anyhow
                     .service(hello)
                     .route("/health", web::get().to(health))
                     .route(
-                        &ec.config.endpoint.clone().unwrap_or_default(),
+                        &ec.config
+                            .endpoint
+                            .clone()
+                            .unwrap_or_else(|| "/metrics".to_string()),
                         web::get().to(metrics),
                     )
             })
             .shutdown_timeout(shutdown_timeout_secs)
-            .bind(ec.config.listen_addr.unwrap_or_default())?
+            .bind(
+                ec.config
+                    .listen_addr
+                    .unwrap_or_else(|| "0.0.0.0:61488".to_string()),
+            )?
             .run()
             .await?
         }
