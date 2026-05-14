@@ -46,7 +46,10 @@ where
 async fn main() -> std::io::Result<()> {
     let args = cli::Cli::parse();
 
-    pg_exporter::logger_init();
+    let log_level = ExporterConfig::load(Path::new(&args.config))
+        .ok()
+        .and_then(|c| c.config.log_level);
+    pg_exporter::logger_init(log_level.as_deref());
 
     let mut overrides = Overrides::default();
 
