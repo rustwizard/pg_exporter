@@ -168,7 +168,6 @@ fn parse_row(row: Row) -> Option<Setting> {
     }
 }
 
-
 impl Collector for PGSettingsCollector {
     fn desc(&self) -> Vec<&Desc> {
         self.descs.iter().collect()
