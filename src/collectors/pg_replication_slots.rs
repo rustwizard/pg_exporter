@@ -2,15 +2,13 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
 use async_trait::async_trait;
 
 use crate::instance;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{IntGaugeVec, proto};
-use tracing::{error, info};
 
-use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V96};
+use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V96, RwLockExt};
 
 // Query for Postgres version 9.6 and older.
 const POSTGRES_REPLICATION_QUERY96: &str = "SELECT database, slot_name, slot_type, active,
@@ -41,26 +39,18 @@ pub struct PGReplicationSlotsCollector {
     retained_bytes: IntGaugeVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGReplicationSlotsCollector> {
-    // Collecting pg_replication since Postgres 9.6.
-    if dbi
-        .current_cfg()
-        .map(|c| c.pg_version)
-        .unwrap_or(POSTGRES_V96)
-        >= POSTGRES_V96
+crate::collector_new!(
+    dbi,
+    "pg replication slots",
+    PGReplicationSlotsCollector,
     {
-        match PGReplicationSlotsCollector::new(dbi) {
-            Ok(result) => Some(result),
-            Err(e) => {
-                error!("error when create pg replication slots collector: {}", e);
-                None
-            }
-        }
-    } else {
-        info!("some server-side functions are not available, required Postgres 9.6 or newer");
-        None
-    }
-}
+        dbi.current_cfg()
+            .map(|c| c.pg_version)
+            .unwrap_or(POSTGRES_V96)
+            >= POSTGRES_V96
+    },
+    "some server-side functions are not available, required Postgres 9.6 or newer"
+);
 
 impl PGReplicationSlotsCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
@@ -98,16 +88,8 @@ impl Collector for PGReplicationSlotsCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(1);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!(
-                    "pg replication slots collect: can't acquire read lock: {}",
-                    e
-                );
-                // return empty mfs
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg replication slots collect") else {
+            return mfs;
         };
 
         for row in data_lock.iter() {
@@ -151,13 +133,7 @@ impl PG for PGReplicationSlotsCollector {
                 .fetch_all(&self.dbi.db)
                 .await?
         };
-        let mut data_lock = match self.data.write() {
-            Ok(data_lock) => data_lock,
-            Err(e) => bail!(
-                "pg replication slots collector: can't acquire write lock. {}",
-                e
-            ),
-        };
+        let mut data_lock = self.data.write_or_bail("pg replication slots collector")?;
 
         data_lock.clear();
         data_lock.append(&mut pg_replc_slots_stat_rows);

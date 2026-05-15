@@ -1,25 +1,23 @@
-use anyhow::bail;
 use async_trait::async_trait;
 use prometheus::IntGauge;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
 use std::sync::{Arc, RwLock};
-use tracing::error;
 
-use crate::collectors::PG;
+use crate::collectors::{PG, RwLockExt};
 use crate::instance;
 
-const LOCKSQUERY: &str = "SELECT  
-		count(*) FILTER (WHERE mode = 'AccessShareLock') AS access_share_lock,  
-		count(*) FILTER (WHERE mode = 'RowShareLock') AS row_share_lock, 
-		count(*) FILTER (WHERE mode = 'RowExclusiveLock') AS row_exclusive_lock, 
-		count(*) FILTER (WHERE mode = 'ShareUpdateExclusiveLock') AS share_update_exclusive_lock, 
-		count(*) FILTER (WHERE mode = 'ShareLock') AS share_lock, 
-		count(*) FILTER (WHERE mode = 'ShareRowExclusiveLock') AS share_row_exclusive_lock, 
-		count(*) FILTER (WHERE mode = 'ExclusiveLock') AS exclusive_lock, 
-		count(*) FILTER (WHERE mode = 'AccessExclusiveLock') AS access_exclusive_lock, 
-		count(*) FILTER (WHERE not granted) AS not_granted, 
-		count(*) AS total 
+const LOCKSQUERY: &str = "SELECT
+		count(*) FILTER (WHERE mode = 'AccessShareLock') AS access_share_lock,
+		count(*) FILTER (WHERE mode = 'RowShareLock') AS row_share_lock,
+		count(*) FILTER (WHERE mode = 'RowExclusiveLock') AS row_exclusive_lock,
+		count(*) FILTER (WHERE mode = 'ShareUpdateExclusiveLock') AS share_update_exclusive_lock,
+		count(*) FILTER (WHERE mode = 'ShareLock') AS share_lock,
+		count(*) FILTER (WHERE mode = 'ShareRowExclusiveLock') AS share_row_exclusive_lock,
+		count(*) FILTER (WHERE mode = 'ExclusiveLock') AS exclusive_lock,
+		count(*) FILTER (WHERE mode = 'AccessExclusiveLock') AS access_exclusive_lock,
+		count(*) FILTER (WHERE not granted) AS not_granted,
+		count(*) AS total
 		FROM pg_locks";
 
 /// 10 metrics per PGLocksCollector.
@@ -63,15 +61,7 @@ impl LocksStat {
     }
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGLocksCollector> {
-    match PGLocksCollector::new(dbi) {
-        Ok(result) => Some(result),
-        Err(e) => {
-            error!("error when create pg locks collector: {}", e);
-            None
-        }
-    }
-}
+crate::collector_new!(dbi, "pg locks", PGLocksCollector);
 
 impl PGLocksCollector {
     pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGLocksCollector> {
@@ -189,13 +179,8 @@ impl Collector for PGLocksCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(LOCKS_METRICS_NUMBER);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg locks collect: can't acquire read lock: {}", e);
-                // return empty mfs
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg locks collect") else {
+            return mfs;
         };
 
         let access_share_lock = data_lock.access_share_lock.unwrap_or_default();
@@ -271,10 +256,7 @@ impl PG for PGLocksCollector {
             .await?;
 
         if let Some(locks_stats) = maybe_locks_stats {
-            let mut data_lock = match self.data.write() {
-                Ok(data_lock) => data_lock,
-                Err(e) => bail!("pg indexes collector: can't acquire write lock. {}", e),
-            };
+            let mut data_lock = self.data.write_or_bail("pg locks collector")?;
 
             data_lock.access_exclusive_lock = locks_stats.access_exclusive_lock;
             data_lock.access_share_lock = locks_stats.access_share_lock;

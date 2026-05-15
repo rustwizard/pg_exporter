@@ -1,14 +1,12 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
 use prometheus::{Gauge, IntCounter, IntGauge};
-use tracing::error;
 
-use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13};
+use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, RwLockExt};
 use crate::instance;
 
 const POSTGRES_WAL_ARCHIVING_QUERY: &str = "SELECT archived_count, failed_count,
@@ -48,25 +46,12 @@ pub struct PGArchiverCollector {
     lag_bytes: IntGauge,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGArchiverCollector> {
-    // some system functions are not available, required Postgres 12 or newer
-    if dbi
-        .current_cfg()
+crate::collector_new!(dbi, "pg archiver", PGArchiverCollector, {
+    dbi.current_cfg()
         .map(|c| c.pg_version)
         .unwrap_or(POSTGRES_V13)
         > POSTGRES_V12
-    {
-        match PGArchiverCollector::new(dbi) {
-            Ok(result) => Some(result),
-            Err(e) => {
-                error!("error when create pg archiver collector: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    }
-}
+});
 
 impl PGArchiverCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
@@ -137,13 +122,8 @@ impl Collector for PGArchiverCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg archiver collect: can't acquire read lock: {}", e);
-                // return empty mfs
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg archiver collect") else {
+            return mfs;
         };
 
         for row in data_lock.iter() {
@@ -176,10 +156,7 @@ impl PG for PGArchiverCollector {
                 .fetch_all(&self.dbi.db)
                 .await?;
 
-        let mut data_lock = match self.data.write() {
-            Ok(data_lock) => data_lock,
-            Err(e) => bail!("pg archiver: can't acquire write lock. {}", e),
-        };
+        let mut data_lock = self.data.write_or_bail("pg archiver collector")?;
 
         data_lock.clear();
 

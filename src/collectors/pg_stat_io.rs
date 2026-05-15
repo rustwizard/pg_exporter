@@ -1,14 +1,12 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
 use prometheus::{GaugeVec, IntGaugeVec};
-use tracing::error;
 
-use crate::collectors::{PG, POSTGRES_V16, POSTGRES_V18};
+use crate::collectors::{PG, POSTGRES_V16, POSTGRES_V18, RwLockExt};
 use crate::instance;
 
 const POSTGRES_STAT_IO_QUERY17: &str = "SELECT backend_type, object, context, COALESCE(reads, 0) AS reads, COALESCE(read_time, 0) AS read_time,
@@ -78,25 +76,12 @@ pub struct PGStatIOCollector {
     extend_bytes: IntGaugeVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatIOCollector> {
-    // Collecting pg_stat_io since Postgres 16.
-    if dbi
-        .current_cfg()
+crate::collector_new!(dbi, "pg statio", PGStatIOCollector, {
+    dbi.current_cfg()
         .map(|c| c.pg_version)
         .unwrap_or(POSTGRES_V16)
         >= POSTGRES_V16
-    {
-        match PGStatIOCollector::new(dbi) {
-            Ok(result) => Some(result),
-            Err(e) => {
-                error!("error when create pg statio collector: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    }
-}
+});
 
 impl PGStatIOCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGStatIOCollector> {
@@ -320,13 +305,8 @@ impl Collector for PGStatIOCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(16);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg statio collect: can't acquire read lock: {}", e);
-                // return empty mfs
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg statio collect") else {
+            return mfs;
         };
 
         for row in data_lock.iter() {
@@ -399,10 +379,7 @@ impl PG for PGStatIOCollector {
                 .await?
         };
 
-        let mut data_lock = match self.data.write() {
-            Ok(data_lock) => data_lock,
-            Err(e) => bail!("pg statio collector: can't acquire write lock. {}", e),
-        };
+        let mut data_lock = self.data.write_or_bail("pg statio collector")?;
 
         *data_lock = pg_statio_stats_rows;
 

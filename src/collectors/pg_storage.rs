@@ -8,9 +8,9 @@ use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{IntGaugeVec, proto};
-use tracing::{error, info};
+use tracing::error;
 
-use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V12};
+use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V12, RwLockExt};
 use crate::instance;
 
 use sqlx::Row;
@@ -52,26 +52,18 @@ pub struct PGStorageCollector {
     tmp_files_bytes: IntGaugeVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStorageCollector> {
-    // Collecting pg_storage since Postgres 10.
-    if dbi
-        .current_cfg()
-        .map(|c| c.pg_version)
-        .unwrap_or(POSTGRES_V10)
-        >= POSTGRES_V10
+crate::collector_new!(
+    dbi,
+    "pg storage",
+    PGStorageCollector,
     {
-        match PGStorageCollector::new(dbi) {
-            Ok(result) => Some(result),
-            Err(e) => {
-                error!("error when create pg storage collector: {}", e);
-                None
-            }
-        }
-    } else {
-        info!("some server-side functions are not available, required Postgres 10 or newer");
-        None
-    }
-}
+        dbi.current_cfg()
+            .map(|c| c.pg_version)
+            .unwrap_or(POSTGRES_V10)
+            >= POSTGRES_V10
+    },
+    "some server-side functions are not available, required Postgres 10 or newer"
+);
 
 impl PGStorageCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
@@ -176,13 +168,8 @@ impl Collector for PGStorageCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg storage collect: can't acquire read lock: {}", e);
-                // return empty mfs
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg storage collect") else {
+            return mfs;
         };
 
         let dirstat_lock = match self.data_dirstat.read() {
@@ -287,10 +274,7 @@ impl PG for PGStorageCollector {
         let tmpdir_bytes: Decimal = tmpdir_row.try_get("bytes")?;
         let tmpdir_count: i64 = tmpdir_row.try_get("count")?;
 
-        let mut data_lock = match self.data.write() {
-            Ok(data_lock) => data_lock,
-            Err(e) => bail!("pg storage collector: can't acquire write lock. {}", e),
-        };
+        let mut data_lock = self.data.write_or_bail("pg storage collector")?;
 
         data_lock.clear();
         data_lock.append(&mut pg_storage_stat_rows);

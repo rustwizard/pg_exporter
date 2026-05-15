@@ -5,11 +5,10 @@ use async_trait::async_trait;
 use prometheus::IntGaugeVec;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
-use tracing::error;
 
 use crate::instance;
 
-use super::PG;
+use super::{PG, RwLockExt};
 
 const PG_DATABASE_QUERY: &str = "SELECT datname AS name, pg_database_size(datname) AS size_bytes \
      FROM pg_database WHERE datname != ALL($1) AND datname != ''";
@@ -34,15 +33,7 @@ pub struct PGDatabaseCollector {
     size_bytes: IntGaugeVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGDatabaseCollector> {
-    match PGDatabaseCollector::new(dbi) {
-        Ok(result) => Some(result),
-        Err(e) => {
-            error!("error when create pg database collector: {}", e);
-            None
-        }
-    }
-}
+crate::collector_new!(dbi, "pg database", PGDatabaseCollector);
 
 impl PGDatabaseCollector {
     pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGDatabaseCollector> {
@@ -70,12 +61,8 @@ impl Collector for PGDatabaseCollector {
     fn collect(&self) -> Vec<proto::MetricFamily> {
         let mut mfs = Vec::with_capacity(1);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg database collect: can't acquire read lock: {}", e);
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg database collect") else {
+            return mfs;
         };
 
         data_lock
@@ -99,9 +86,7 @@ impl PG for PGDatabaseCollector {
         let new_sizes: HashMap<String, i64> =
             rows.into_iter().map(|r| (r.name, r.size_bytes)).collect();
 
-        let mut data_lock = self.data.write().map_err(|e| {
-            anyhow::anyhow!("pg database collector: can't acquire write lock. {}", e)
-        })?;
+        let mut data_lock = self.data.write_or_bail("pg database collector")?;
         data_lock.size_bytes = new_sizes;
 
         Ok(())

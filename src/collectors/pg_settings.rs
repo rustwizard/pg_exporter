@@ -1,6 +1,5 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::GaugeVec;
@@ -8,7 +7,7 @@ use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
 use tracing::error;
 
-use crate::collectors::PG;
+use crate::collectors::{PG, RwLockExt};
 use crate::instance;
 
 const QUERY: &str = "SELECT name, COALESCE(setting, '') AS setting, COALESCE(unit, '') AS unit, vartype
@@ -40,15 +39,7 @@ pub struct PGSettingsCollector {
     settings_info: GaugeVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGSettingsCollector> {
-    match PGSettingsCollector::new(dbi) {
-        Ok(result) => Some(result),
-        Err(e) => {
-            error!("error when create pg settings collector: {}", e);
-            None
-        }
-    }
-}
+crate::collector_new!(dbi, "pg settings", PGSettingsCollector);
 
 impl PGSettingsCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGSettingsCollector> {
@@ -177,6 +168,53 @@ fn parse_row(row: Row) -> Option<Setting> {
     }
 }
 
+impl Collector for PGSettingsCollector {
+    fn desc(&self) -> Vec<&Desc> {
+        self.descs.iter().collect()
+    }
+
+    fn collect(&self) -> Vec<MetricFamily> {
+        let mut mfs = Vec::with_capacity(1);
+
+        let Some(data_lock) = self.data.read_or_log("pg settings collect") else {
+            return mfs;
+        };
+
+        self.settings_info.reset();
+
+        for s in data_lock.iter() {
+            let vals = [
+                s.name.as_str(),
+                s.setting.as_str(),
+                s.unit.as_str(),
+                s.vartype.as_str(),
+                "main",
+            ];
+            self.settings_info.with_label_values(&vals).set(s.value);
+        }
+
+        mfs.extend(self.settings_info.collect());
+        mfs
+    }
+}
+
+#[async_trait]
+impl PG for PGSettingsCollector {
+    async fn update(&self) -> Result<(), anyhow::Error> {
+        self.dbi.ensure_ready().await?;
+        let rows = sqlx::query_as::<_, Row>(QUERY)
+            .fetch_all(&self.dbi.db)
+            .await?;
+
+        let settings: Vec<Setting> = rows.into_iter().filter_map(parse_row).collect();
+
+        let mut data_lock = self.data.write_or_bail("pg settings collector")?;
+
+        *data_lock = settings;
+
+        Ok(())
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -367,60 +405,5 @@ mod tests {
     #[test]
     fn parse_row_unknown_vartype_returns_none() {
         assert!(parse_row(row("some_setting", "val", "", "unknown_type")).is_none());
-    }
-}
-
-impl Collector for PGSettingsCollector {
-    fn desc(&self) -> Vec<&Desc> {
-        self.descs.iter().collect()
-    }
-
-    fn collect(&self) -> Vec<MetricFamily> {
-        let mut mfs = Vec::with_capacity(1);
-
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg settings collect: can't acquire read lock: {}", e);
-                return mfs;
-            }
-        };
-
-        self.settings_info.reset();
-
-        for s in data_lock.iter() {
-            let vals = [
-                s.name.as_str(),
-                s.setting.as_str(),
-                s.unit.as_str(),
-                s.vartype.as_str(),
-                "main",
-            ];
-            self.settings_info.with_label_values(&vals).set(s.value);
-        }
-
-        mfs.extend(self.settings_info.collect());
-        mfs
-    }
-}
-
-#[async_trait]
-impl PG for PGSettingsCollector {
-    async fn update(&self) -> Result<(), anyhow::Error> {
-        self.dbi.ensure_ready().await?;
-        let rows = sqlx::query_as::<_, Row>(QUERY)
-            .fetch_all(&self.dbi.db)
-            .await?;
-
-        let settings: Vec<Setting> = rows.into_iter().filter_map(parse_row).collect();
-
-        let mut data_lock = match self.data.write() {
-            Ok(lock) => lock,
-            Err(e) => bail!("pg settings collector: can't acquire write lock. {}", e),
-        };
-
-        *data_lock = settings;
-
-        Ok(())
     }
 }

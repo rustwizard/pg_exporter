@@ -1,10 +1,12 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::{anyhow, bail};
+use anyhow::anyhow;
 use async_trait::async_trait;
 use tracing::error;
 
-use crate::collectors::{PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18};
+use crate::collectors::{
+    PG, POSTGRES_V12, POSTGRES_V13, POSTGRES_V16, POSTGRES_V17, POSTGRES_V18, RwLockExt,
+};
 use crate::instance;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{IntGaugeVec, proto};
@@ -601,24 +603,11 @@ impl PGStatementsCollector {
     }
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatementsCollector> {
-    // Collecting since Postgres 12.
-    if dbi
-        .current_cfg()
+crate::collector_new!(dbi, "pg statements", PGStatementsCollector, {
+    dbi.current_cfg()
         .map(|c| c.pg_version >= POSTGRES_V12 && c.pg_stat_statements)
         .unwrap_or(true)
-    {
-        match PGStatementsCollector::new(dbi) {
-            Ok(result) => Some(result),
-            Err(e) => {
-                error!("error when create pg statements collector: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    }
-}
+});
 
 impl Collector for PGStatementsCollector {
     fn desc(&self) -> Vec<&Desc> {
@@ -636,13 +625,8 @@ impl Collector for PGStatementsCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg statements collect: can't acquire read lock: {}", e);
-                // return empty mfs
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg statements collect") else {
+            return mfs;
         };
 
         for row in data_lock.iter() {
@@ -948,10 +932,7 @@ impl PG for PGStatementsCollector {
             .fetch_all(&self.dbi.db)
             .await?;
 
-        let mut data_lock = match self.data.write() {
-            Ok(data_lock) => data_lock,
-            Err(e) => bail!("pg statements collector: can't acquire write lock. {}", e),
-        };
+        let mut data_lock = self.data.write_or_bail("pg statements collector")?;
 
         data_lock.clear();
 

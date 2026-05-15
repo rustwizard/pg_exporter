@@ -3,14 +3,12 @@ use rust_decimal::prelude::ToPrimitive;
 
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{GaugeVec, IntGaugeVec, proto};
-use tracing::error;
 
-use crate::collectors::PG;
+use crate::collectors::{PG, RwLockExt};
 use crate::instance;
 
 const POSTGRES_USERS_TABLE: &str = "SELECT current_database() AS database, s1.schemaname AS schema, s1.relname AS table,
@@ -133,15 +131,7 @@ pub struct PGTableCollector {
     reltuples: GaugeVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGTableCollector> {
-    match PGTableCollector::new(dbi) {
-        Ok(result) => Some(result),
-        Err(e) => {
-            error!("error when create pg tables collector: {}", e);
-            None
-        }
-    }
-}
+crate::collector_new!(dbi, "pg tables", PGTableCollector);
 
 impl PGTableCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<Self> {
@@ -409,13 +399,8 @@ impl Collector for PGTableCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg tables collect: can't acquire read lock: {}", e);
-                // return empty mfs
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg tables collect") else {
+            return mfs;
         };
 
         for row in data_lock.iter() {
@@ -844,10 +829,7 @@ impl PG for PGTableCollector {
                 .await?
         };
 
-        let mut data_lock = match self.data.write() {
-            Ok(data_lock) => data_lock,
-            Err(e) => bail!("pg tables collector: can't acquire write lock. {}", e),
-        };
+        let mut data_lock = self.data.write_or_bail("pg tables collector")?;
 
         data_lock.clear();
         data_lock.append(&mut pg_tables_stat_rows);

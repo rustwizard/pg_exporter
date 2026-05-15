@@ -1,15 +1,13 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
 use async_trait::async_trait;
 use prometheus::Gauge;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
-use tracing::error;
 
 use crate::instance;
 
-use super::PG;
+use super::{PG, RwLockExt};
 
 const POSTMASTER_QUERY: &str = "SELECT extract(epoch from pg_postmaster_start_time)::FLOAT8 as start_time_seconds from pg_postmaster_start_time()";
 const POSTMASTER_SUBSYSTEM: &str = "postmaster";
@@ -33,15 +31,7 @@ pub struct PGPostmasterCollector {
     start_time_seconds: Gauge,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGPostmasterCollector> {
-    match PGPostmasterCollector::new(dbi) {
-        Ok(result) => Some(result),
-        Err(e) => {
-            error!("error when create pg postmaster collector: {}", e);
-            None
-        }
-    }
-}
+crate::collector_new!(dbi, "pg postmaster", PGPostmasterCollector);
 
 impl PGPostmasterCollector {
     pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGPostmasterCollector> {
@@ -73,13 +63,8 @@ impl Collector for PGPostmasterCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(1);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg postmaster collect: can't acquire read lock: {}", e);
-                // return empty mfs
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg postmaster collect") else {
+            return mfs;
         };
 
         self.start_time_seconds.set(data_lock.start_time_seconds);
@@ -97,10 +82,7 @@ impl PG for PGPostmasterCollector {
             .await?;
 
         if let Some(stats) = maybe_stats {
-            let mut data_lock = match self.data.write() {
-                Ok(data_lock) => data_lock,
-                Err(e) => bail!("pg postmaster collector: can't acquire write lock. {}", e),
-            };
+            let mut data_lock = self.data.write_or_bail("pg postmaster collector")?;
 
             data_lock.start_time_seconds = stats.start_time_seconds;
         }

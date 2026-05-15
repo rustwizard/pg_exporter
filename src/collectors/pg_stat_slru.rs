@@ -1,14 +1,12 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::IntGaugeVec;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
-use tracing::error;
 
-use crate::collectors::{PG, POSTGRES_V13};
+use crate::collectors::{PG, POSTGRES_V13, RwLockExt};
 use crate::instance;
 
 const POSTGRES_STAT_SLRU_QUERY: &str = "SELECT name, COALESCE(blks_zeroed, 0) AS blks_zeroed, COALESCE(blks_hit, 0) AS blks_hit, \
@@ -42,25 +40,12 @@ pub struct PGStatSlruCollector {
     truncates: IntGaugeVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGStatSlruCollector> {
-    // Collecting pg_stat_slru since Postgres 13.
-    if dbi
-        .current_cfg()
+crate::collector_new!(dbi, "pg stat_slru", PGStatSlruCollector, {
+    dbi.current_cfg()
         .map(|c| c.pg_version)
         .unwrap_or(POSTGRES_V13)
         >= POSTGRES_V13
-    {
-        match PGStatSlruCollector::new(dbi) {
-            Ok(result) => Some(result),
-            Err(e) => {
-                error!("error when create pg stat_slru collector: {}", e);
-                None
-            }
-        }
-    } else {
-        None
-    }
-}
+});
 
 impl PGStatSlruCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGStatSlruCollector> {
@@ -168,12 +153,8 @@ impl Collector for PGStatSlruCollector {
     fn collect(&self) -> Vec<MetricFamily> {
         let mut mfs = Vec::with_capacity(7);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg stat_slru collect: can't acquire read lock: {}", e);
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg stat_slru collect") else {
+            return mfs;
         };
 
         for row in data_lock.iter() {
@@ -214,10 +195,7 @@ impl PG for PGStatSlruCollector {
             .fetch_all(&self.dbi.db)
             .await?;
 
-        let mut data_lock = match self.data.write() {
-            Ok(data_lock) => data_lock,
-            Err(e) => bail!("pg stat_slru collector: can't acquire write lock. {}", e),
-        };
+        let mut data_lock = self.data.write_or_bail("pg stat_slru collector")?;
 
         *data_lock = rows;
 
