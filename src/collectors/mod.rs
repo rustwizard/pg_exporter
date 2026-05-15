@@ -45,7 +45,7 @@ impl<T> RwLockExt<T> for RwLock<T> {
 #[macro_export]
 macro_rules! collector_new {
     ($dbi:ident, $name:expr, $collector:ty) => {
-        pub fn new($dbi: ::std::sync::Arc<crate::instance::PostgresDB>) -> Option<$collector> {
+        pub fn new($dbi: ::std::sync::Arc<$crate::instance::PostgresDB>) -> Option<$collector> {
             match <$collector>::new($dbi) {
                 Ok(result) => Some(result),
                 Err(e) => {
@@ -56,7 +56,7 @@ macro_rules! collector_new {
         }
     };
     ($dbi:ident, $name:expr, $collector:ty, $condition:expr) => {
-        pub fn new($dbi: ::std::sync::Arc<crate::instance::PostgresDB>) -> Option<$collector> {
+        pub fn new($dbi: ::std::sync::Arc<$crate::instance::PostgresDB>) -> Option<$collector> {
             if $condition {
                 match <$collector>::new($dbi) {
                     Ok(result) => Some(result),
@@ -71,7 +71,7 @@ macro_rules! collector_new {
         }
     };
     ($dbi:ident, $name:expr, $collector:ty, $condition:expr, $msg:expr) => {
-        pub fn new($dbi: ::std::sync::Arc<crate::instance::PostgresDB>) -> Option<$collector> {
+        pub fn new($dbi: ::std::sync::Arc<$crate::instance::PostgresDB>) -> Option<$collector> {
             if $condition {
                 match <$collector>::new($dbi) {
                     Ok(result) => Some(result),
