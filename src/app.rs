@@ -10,11 +10,16 @@ pub const DEFAULT_SCRAPE_TIMEOUT_MS: u64 = 30_000;
 const SCRAPE_DURATION_BUCKETS: &[f64] = &[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0];
 
 #[derive(Clone)]
+pub struct CollectorEntry {
+    pub name: String,
+    pub instance: String,
+    pub collector: Box<dyn collectors::PG>,
+}
+
+#[derive(Clone)]
 pub struct PGEApp {
     pub instances: Vec<Arc<instance::PostgresDB>>,
-    /// Collectors paired with their short names (e.g. "pg_locks") used as
-    /// labels on the self-monitoring metrics.
-    pub collectors: Vec<(String, Box<dyn collectors::PG>)>,
+    pub collectors: Vec<CollectorEntry>,
     pub registry: Registry,
     pub scrape_timeout_ms: u64,
     /// How long each collector's update() took on the last scrape.
@@ -37,7 +42,7 @@ impl PGEApp {
                 "Duration in seconds of each collector's update() call on the last scrape.",
             )
             .buckets(SCRAPE_DURATION_BUCKETS.to_vec()),
-            &["collector"],
+            &["collector", "instance"],
         )?;
         registry.register(Box::new(scrape_duration.clone()))?;
 
@@ -46,7 +51,7 @@ impl PGEApp {
                 "pg_exporter_scrape_errors_total",
                 "Total number of errors returned by each collector's update() call.",
             ),
-            &["collector"],
+            &["collector", "instance"],
         )?;
         registry.register(Box::new(scrape_errors.clone()))?;
 
@@ -80,12 +85,22 @@ impl PGEApp {
         })
     }
 
-    pub fn add_collector(&mut self, name: impl Into<String>, col: Box<dyn collectors::PG>) {
+    pub fn add_collector(
+        &mut self,
+        name: impl Into<String>,
+        instance: impl Into<String>,
+        col: Box<dyn collectors::PG>,
+    ) {
         let name = name.into();
+        let instance = instance.into();
         // Pre-initialize to zero so both metrics are always visible in /metrics
         // output even before the first scrape or the first error.
-        self.scrape_duration.with_label_values(&[&name]);
-        self.scrape_errors.with_label_values(&[&name]);
-        self.collectors.push((name, col));
+        self.scrape_duration.with_label_values(&[&name, &instance]);
+        self.scrape_errors.with_label_values(&[&name, &instance]);
+        self.collectors.push(CollectorEntry {
+            name,
+            instance,
+            collector: col,
+        });
     }
 }
