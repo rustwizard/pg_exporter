@@ -637,6 +637,320 @@ mod integration_tests {
     }
 
     #[tokio::test]
+    async fn test_pg_postmaster_collector() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+        let registry = Registry::new();
+
+        let collector =
+            collectors::pg_postmaster::new(pgi).expect("pg_postmaster collector should init");
+        registry.register(Box::new(collector.clone()))?;
+
+        collector.update().await?;
+
+        let metrics = registry.gather();
+        let metric_names: Vec<&str> = metrics.iter().map(|mf| mf.name()).collect();
+
+        assert!(metric_names.contains(&"pg_postmaster_start_time_seconds"));
+
+        let start_mf = metrics
+            .iter()
+            .find(|mf| mf.name() == "pg_postmaster_start_time_seconds")
+            .expect("start_time_seconds metric should be present");
+        assert!(
+            start_mf.get_metric()[0].get_gauge().value() > 0.0,
+            "postmaster start time must be a positive Unix timestamp"
+        );
+
+        let mut buffer = Vec::new();
+        let encoder = prometheus::TextEncoder::new();
+        encoder.encode(&metrics, &mut buffer)?;
+        assert!(!String::from_utf8(buffer)?.is_empty());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pg_wal_collector() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+        let registry = Registry::new();
+
+        let collector = collectors::pg_wal::new(pgi).expect("pg_wal collector should init");
+        registry.register(Box::new(collector.clone()))?;
+
+        collector.update().await?;
+
+        let metrics = registry.gather();
+        let metric_names: Vec<&str> = metrics.iter().map(|mf| mf.name()).collect();
+
+        assert!(metric_names.contains(&"pg_recovery_info"));
+        assert!(metric_names.contains(&"pg_wal_records_total"));
+        assert!(metric_names.contains(&"pg_wal_fpi_total"));
+        assert!(metric_names.contains(&"pg_wal_bytes_total"));
+        assert!(metric_names.contains(&"pg_wal_written_bytes_total"));
+        assert!(metric_names.contains(&"pg_wal_buffers_full_total"));
+        assert!(metric_names.contains(&"pg_wal_write_total"));
+        assert!(metric_names.contains(&"pg_wal_sync_total"));
+        assert!(metric_names.contains(&"pg_wal_seconds_all_total"));
+        assert!(metric_names.contains(&"pg_wal_seconds_total"));
+        assert!(metric_names.contains(&"pg_wal_stats_reset_time"));
+
+        // On a primary instance pg_recovery_info must be 0 (not in recovery).
+        let recovery_mf = metrics
+            .iter()
+            .find(|mf| mf.name() == "pg_recovery_info")
+            .expect("recovery_info should be present");
+        assert_eq!(
+            recovery_mf.get_metric()[0].get_gauge().value() as i64,
+            0,
+            "pg_recovery_info must be 0 on a primary"
+        );
+
+        // WAL has been written since cluster init, so wal_written_bytes_total must be > 0.
+        let written_mf = metrics
+            .iter()
+            .find(|mf| mf.name() == "pg_wal_written_bytes_total")
+            .expect("pg_wal_written_bytes_total should be present");
+        assert!(
+            written_mf.get_metric()[0].get_counter().value() > 0.0,
+            "wal_written_bytes_total must be > 0 on a primary that has generated WAL"
+        );
+
+        let mut buffer = Vec::new();
+        let encoder = prometheus::TextEncoder::new();
+        encoder.encode(&metrics, &mut buffer)?;
+        assert!(!String::from_utf8(buffer)?.is_empty());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pg_tables_collector() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+
+        // Create a user table and insert rows so pg_stat_user_tables is populated.
+        sqlx::query("CREATE TABLE integration_test_tbl (id SERIAL PRIMARY KEY, val TEXT NOT NULL)")
+            .execute(&pgi.db)
+            .await?;
+        sqlx::query(
+            "INSERT INTO integration_test_tbl (val) \
+             SELECT md5(i::text) FROM generate_series(1, 100) i",
+        )
+        .execute(&pgi.db)
+        .await?;
+
+        let registry = Registry::new();
+
+        let collector =
+            collectors::pg_tables::new(Arc::clone(&pgi)).expect("pg_tables collector should init");
+        registry.register(Box::new(collector.clone()))?;
+
+        collector.update().await?;
+
+        let metrics = registry.gather();
+        let metric_names: Vec<&str> = metrics.iter().map(|mf| mf.name()).collect();
+
+        assert!(metric_names.contains(&"pg_table_seq_scan_total"));
+        assert!(metric_names.contains(&"pg_table_seq_tup_read_total"));
+        assert!(metric_names.contains(&"pg_table_idx_scan_total"));
+        assert!(metric_names.contains(&"pg_table_idx_tup_fetch_total"));
+        assert!(metric_names.contains(&"pg_table_tuples_inserted_total"));
+        assert!(metric_names.contains(&"pg_table_tuples_updated_total"));
+        assert!(metric_names.contains(&"pg_table_tuples_deleted_total"));
+        assert!(metric_names.contains(&"pg_table_size_bytes"));
+
+        // pg_table_size_bytes is computed via pg_table_size() — immediately accurate.
+        let size_mf = metrics
+            .iter()
+            .find(|mf| mf.name() == "pg_table_size_bytes")
+            .expect("pg_table_size_bytes should be present");
+        let our_table = size_mf.get_metric().iter().find(|m| {
+            m.get_label()
+                .iter()
+                .any(|l| l.name() == "table" && l.value() == "integration_test_tbl")
+        });
+        assert!(
+            our_table.is_some(),
+            "integration_test_tbl must appear in pg_table_size_bytes"
+        );
+        assert!(
+            our_table.unwrap().get_gauge().value() > 0.0,
+            "pg_table_size_bytes for integration_test_tbl must be > 0 after inserting data"
+        );
+
+        let mut buffer = Vec::new();
+        let encoder = prometheus::TextEncoder::new();
+        encoder.encode(&metrics, &mut buffer)?;
+        assert!(!String::from_utf8(buffer)?.is_empty());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pg_indexes_collector() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+
+        // Create a table with an explicit index so pg_stat_user_indexes is populated.
+        sqlx::query(
+            "CREATE TABLE integration_index_tbl (id SERIAL PRIMARY KEY, val TEXT NOT NULL)",
+        )
+        .execute(&pgi.db)
+        .await?;
+        sqlx::query("CREATE INDEX idx_integration_val ON integration_index_tbl(val)")
+            .execute(&pgi.db)
+            .await?;
+        sqlx::query(
+            "INSERT INTO integration_index_tbl (val) \
+             SELECT md5(i::text) FROM generate_series(1, 100) i",
+        )
+        .execute(&pgi.db)
+        .await?;
+
+        let registry = Registry::new();
+
+        let collector = collectors::pg_indexes::new(Arc::clone(&pgi))
+            .expect("pg_indexes collector should init");
+        registry.register(Box::new(collector.clone()))?;
+
+        collector.update().await?;
+
+        let metrics = registry.gather();
+        let metric_names: Vec<&str> = metrics.iter().map(|mf| mf.name()).collect();
+
+        // scans_total and size_bytes are always emitted for every index row.
+        // tuples_total is only emitted when idx_tup_read/fetch > 0 (conditional to avoid spam).
+        // index_io_blocks_total is built from io counters that only appear after actual disk reads.
+        assert!(metric_names.contains(&"pg_index_scans_total"));
+        assert!(metric_names.contains(&"pg_index_size_bytes"));
+
+        // Every reported index must have a positive size.
+        let size_mf = metrics
+            .iter()
+            .find(|mf| mf.name() == "pg_index_size_bytes")
+            .expect("pg_index_size_bytes should be present");
+        assert!(
+            !size_mf.get_metric().is_empty(),
+            "pg_index_size_bytes must have at least one entry after creating an index"
+        );
+        for m in size_mf.get_metric() {
+            assert!(
+                m.get_gauge().value() > 0.0,
+                "all index sizes must be positive"
+            );
+        }
+
+        let mut buffer = Vec::new();
+        let encoder = prometheus::TextEncoder::new();
+        encoder.encode(&metrics, &mut buffer)?;
+        assert!(!String::from_utf8(buffer)?.is_empty());
+
+        Ok(())
+    }
+
+    /// On a standalone primary without streaming replicas, pg_stat_replication
+    /// returns no rows. update() must succeed without error or panic.
+    #[tokio::test]
+    async fn test_pg_replication_collector_no_replicas() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+        let registry = Registry::new();
+
+        // pg_replication requires PostgreSQL >= 9.6; testcontainers satisfies this.
+        let collector =
+            collectors::pg_replication::new(pgi).expect("pg_replication collector should init");
+        registry.register(Box::new(collector.clone()))?;
+
+        // Primary without replicas returns 0 rows — update() must still succeed.
+        collector.update().await?;
+
+        // With 0 active replicas no metric series are emitted, so we only
+        // assert that the text output is valid (not that specific names appear).
+        let mut buffer = Vec::new();
+        let encoder = prometheus::TextEncoder::new();
+        encoder.encode(&registry.gather(), &mut buffer)?;
+        String::from_utf8(buffer)?;
+
+        Ok(())
+    }
+
+    /// Without configured replication slots, pg_replication_slots returns no rows.
+    /// update() must succeed and the collector must be safe to use.
+    #[tokio::test]
+    async fn test_pg_replication_slots_collector_no_slots() -> Result<(), Box<dyn std::error::Error>>
+    {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+        let registry = Registry::new();
+
+        // pg_replication_slots requires PostgreSQL >= 9.6; testcontainers satisfies this.
+        let collector = collectors::pg_replication_slots::new(pgi)
+            .expect("pg_replication_slots collector should init");
+        registry.register(Box::new(collector.clone()))?;
+
+        // No slots configured — update() must succeed with an empty result set.
+        collector.update().await?;
+
+        // With 0 slots no metric series are emitted.
+        let mut buffer = Vec::new();
+        let encoder = prometheus::TextEncoder::new();
+        encoder.encode(&registry.gather(), &mut buffer)?;
+        String::from_utf8(buffer)?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pg_storage_collector() -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance().await?;
+        let registry = Registry::new();
+
+        // pg_storage requires PostgreSQL >= 10; testcontainers "latest" satisfies this.
+        let collector =
+            collectors::pg_storage::new(pgi).expect("pg_storage collector should init on PG10+");
+        registry.register(Box::new(collector.clone()))?;
+
+        collector.update().await?;
+
+        let metrics = registry.gather();
+        let metric_names: Vec<&str> = metrics.iter().map(|mf| mf.name()).collect();
+
+        // WAL directory metrics are always present on any running PostgreSQL instance.
+        assert!(metric_names.contains(&"pg_wal_directory_bytes"));
+        assert!(metric_names.contains(&"pg_wal_directory_files"));
+
+        // The WAL directory must contain at least one file and occupy some space.
+        let wal_files_mf = metrics
+            .iter()
+            .find(|mf| mf.name() == "pg_wal_directory_files")
+            .expect("pg_wal_directory_files should be present");
+        assert!(
+            wal_files_mf
+                .get_metric()
+                .iter()
+                .any(|m| m.get_gauge().value() > 0.0),
+            "WAL directory must contain at least one file"
+        );
+
+        let mut buffer = Vec::new();
+        let encoder = prometheus::TextEncoder::new();
+        encoder.encode(&metrics, &mut buffer)?;
+        assert!(!String::from_utf8(buffer)?.is_empty());
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_pg_settings_collector() -> Result<(), Box<dyn std::error::Error>> {
         common::setup_tracing();
 
