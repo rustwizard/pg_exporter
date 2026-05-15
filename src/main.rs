@@ -34,10 +34,10 @@ fn register_collector<C>(
 where
     C: collectors::PG + Collector + Clone + 'static,
 {
-    if let Some(c) = new_fn(dbi) {
+    if let Some(c) = new_fn(Arc::clone(&dbi)) {
         let boxed: Box<dyn Collector> = Box::new(c.clone());
         app.registry.register(boxed)?;
-        app.add_collector(name, Box::new(c));
+        app.add_collector(name, &dbi.name, Box::new(c));
     }
     Ok(())
 }
@@ -170,12 +170,17 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
         .collectors
         .clone()
         .into_iter()
-        .map(|(name, col)| {
-            let duration = data.scrape_duration.with_label_values(&[name.as_str()]);
-            let errors = data.scrape_errors.with_label_values(&[name.as_str()]);
+        .map(|entry| {
+            let duration = data
+                .scrape_duration
+                .with_label_values(&[entry.name.as_str(), entry.instance.as_str()]);
+            let errors = data
+                .scrape_errors
+                .with_label_values(&[entry.name.as_str(), entry.instance.as_str()]);
+            let name = entry.name.clone();
             actix_web::rt::spawn(async move {
                 let start = std::time::Instant::now();
-                if let Err(err) = col.update().await {
+                if let Err(err) = entry.collector.update().await {
                     errors.inc();
                     error!("collector {name} update failed: {err}");
                 }

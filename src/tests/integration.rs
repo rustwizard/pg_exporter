@@ -1027,14 +1027,14 @@ mod exporter_self_metrics_tests {
 
         let collector = collectors::pg_locks::new(Arc::clone(&pgi)).expect("pg_locks should init");
         app.registry.register(Box::new(collector.clone()))?;
-        app.add_collector("pg_locks", Box::new(collector.clone()));
+        app.add_collector("pg_locks", "test_instance", Box::new(collector.clone()));
 
         // Run update so duration/error metrics are recorded
         if let Err(e) = collector.update().await {
             return Err(e.into());
         }
         app.scrape_duration
-            .with_label_values(&["pg_locks"])
+            .with_label_values(&["pg_locks", "test_instance"])
             .observe(0.01);
 
         let metrics = app.registry.gather();
@@ -1053,6 +1053,10 @@ mod exporter_self_metrics_tests {
         assert!(
             output.contains("collector=\"pg_locks\""),
             "collector label must be set correctly"
+        );
+        assert!(
+            output.contains("instance=\"test_instance\""),
+            "instance label must be set correctly"
         );
 
         Ok(())
@@ -1079,7 +1083,9 @@ mod exporter_self_metrics_tests {
             collectors::pg_locks::new(Arc::clone(&pgi)).expect("collector should be created");
 
         // Simulate what the metrics handler does
-        let errors = app.scrape_errors.with_label_values(&["pg_locks"]);
+        let errors = app
+            .scrape_errors
+            .with_label_values(&["pg_locks", "test_instance"]);
         if collector.update().await.is_err() {
             errors.inc();
         }
