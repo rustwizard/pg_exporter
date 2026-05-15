@@ -16,8 +16,77 @@ pub mod pg_storage;
 pub mod pg_tables;
 pub mod pg_wal;
 
+use std::sync::RwLock;
+
 use async_trait::async_trait;
 use dyn_clone::DynClone;
+
+/// Extension methods on `RwLock<T>` shared by all collectors.
+pub(crate) trait RwLockExt<T> {
+    /// Acquires a read lock; logs an error and returns `None` on poison.
+    fn read_or_log(&self, ctx: &str) -> Option<std::sync::RwLockReadGuard<'_, T>>;
+    /// Acquires a write lock; returns an `anyhow::Error` on poison.
+    fn write_or_bail(&self, ctx: &str) -> anyhow::Result<std::sync::RwLockWriteGuard<'_, T>>;
+}
+
+impl<T> RwLockExt<T> for RwLock<T> {
+    fn read_or_log(&self, ctx: &str) -> Option<std::sync::RwLockReadGuard<'_, T>> {
+        self.read()
+            .map_err(|e| tracing::error!("{ctx}: can't acquire read lock: {e}"))
+            .ok()
+    }
+
+    fn write_or_bail(&self, ctx: &str) -> anyhow::Result<std::sync::RwLockWriteGuard<'_, T>> {
+        self.write()
+            .map_err(|e| anyhow::anyhow!("{ctx}: can't acquire write lock: {e}"))
+    }
+}
+
+#[macro_export]
+macro_rules! collector_new {
+    ($dbi:ident, $name:expr, $collector:ty) => {
+        pub fn new($dbi: ::std::sync::Arc<crate::instance::PostgresDB>) -> Option<$collector> {
+            match <$collector>::new($dbi) {
+                Ok(result) => Some(result),
+                Err(e) => {
+                    ::tracing::error!("error when create {} collector: {}", $name, e);
+                    None
+                }
+            }
+        }
+    };
+    ($dbi:ident, $name:expr, $collector:ty, $condition:expr) => {
+        pub fn new($dbi: ::std::sync::Arc<crate::instance::PostgresDB>) -> Option<$collector> {
+            if $condition {
+                match <$collector>::new($dbi) {
+                    Ok(result) => Some(result),
+                    Err(e) => {
+                        ::tracing::error!("error when create {} collector: {}", $name, e);
+                        None
+                    }
+                }
+            } else {
+                None
+            }
+        }
+    };
+    ($dbi:ident, $name:expr, $collector:ty, $condition:expr, $msg:expr) => {
+        pub fn new($dbi: ::std::sync::Arc<crate::instance::PostgresDB>) -> Option<$collector> {
+            if $condition {
+                match <$collector>::new($dbi) {
+                    Ok(result) => Some(result),
+                    Err(e) => {
+                        ::tracing::error!("error when create {} collector: {}", $name, e);
+                        None
+                    }
+                }
+            } else {
+                ::tracing::info!($msg);
+                None
+            }
+        }
+    };
+}
 
 const NAMESPACE: &str = "pg";
 

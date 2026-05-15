@@ -1,14 +1,12 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{GaugeVec, IntCounterVec};
 use prometheus::{IntGaugeVec, proto};
-use tracing::error;
 
-use crate::collectors::PG;
+use crate::collectors::{PG, RwLockExt};
 use crate::instance;
 
 const USER_INDEXES_QUERY: &str = "SELECT current_database() AS database, schemaname AS schema, relname AS table,
@@ -87,15 +85,7 @@ pub struct PGIndexesCollector {
     sizes: GaugeVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGIndexesCollector> {
-    match PGIndexesCollector::new(dbi) {
-        Ok(result) => Some(result),
-        Err(e) => {
-            error!("error when create pg indexes collector: {}", e);
-            None
-        }
-    }
-}
+crate::collector_new!(dbi, "pg indexes", PGIndexesCollector);
 
 impl PGIndexesCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGIndexesCollector> {
@@ -162,13 +152,8 @@ impl Collector for PGIndexesCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(4);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg indexes collect: can't acquire read lock: {}", e);
-                // return empty mfs
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg indexes collect") else {
+            return mfs;
         };
 
         for row in data_lock.iter() {
@@ -264,10 +249,7 @@ impl PG for PGIndexesCollector {
                 .await?
         };
 
-        let mut data_lock = match self.data.write() {
-            Ok(data_lock) => data_lock,
-            Err(e) => bail!("pg indexes collector: can't acquire write lock. {}", e),
-        };
+        let mut data_lock = self.data.write_or_bail("pg indexes collector")?;
 
         data_lock.clear();
 

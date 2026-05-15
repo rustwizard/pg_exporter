@@ -1,14 +1,12 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::IntCounterVec;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto;
-use tracing::error;
 
-use crate::collectors::{PG, POSTGRES_V16};
+use crate::collectors::{PG, POSTGRES_V16, RwLockExt};
 use crate::instance;
 
 const POSTGRES_DATABASE_CONFLICT15: &str = "SELECT datname AS database,
@@ -43,15 +41,7 @@ pub struct PGConflictCollector {
     conflicts_total: IntCounterVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGConflictCollector> {
-    match PGConflictCollector::new(dbi) {
-        Ok(result) => Some(result),
-        Err(e) => {
-            error!("error when create pg conflicts collector: {}", e);
-            None
-        }
-    }
-}
+crate::collector_new!(dbi, "pg conflicts", PGConflictCollector);
 
 impl PGConflictCollector {
     pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGConflictCollector> {
@@ -82,12 +72,8 @@ impl Collector for PGConflictCollector {
     fn collect(&self) -> Vec<proto::MetricFamily> {
         let mut mfs = Vec::with_capacity(1);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg conflict collect: can't acquire read lock: {}", e);
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg conflict collect") else {
+            return mfs;
         };
 
         let database = data_lock.database.as_str();
@@ -134,10 +120,7 @@ impl PG for PGConflictCollector {
                 return Ok(());
             }
 
-            let mut data_lock = match self.data.write() {
-                Ok(data_lock) => data_lock,
-                Err(e) => bail!("pg conflict: can't acquire write lock. {}", e),
-            };
+            let mut data_lock = self.data.write_or_bail("pg conflict collector")?;
 
             *data_lock = conflict_stats;
         }

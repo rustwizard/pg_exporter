@@ -1,4 +1,3 @@
-use anyhow::bail;
 use async_trait::async_trait;
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::{Gauge, IntGauge};
@@ -10,7 +9,7 @@ use tracing::{error, warn};
 
 use crate::instance;
 
-use super::PG;
+use super::{PG, RwLockExt};
 
 const ACTIVITY_QUERY_95: &str = "SELECT
     COALESCE(usename, 'system') AS user, datname AS database, state, waiting,
@@ -621,10 +620,7 @@ impl PG for PGActivityCollector {
         let pg_activity_rows: Vec<PGActivity> =
             sqlx::query_as(query).fetch_all(&self.dbi.db).await?;
 
-        let mut data_lock = match self.data.write() {
-            Ok(data_lock) => data_lock,
-            Err(e) => bail!("pg activity collector: can't acquire write lock. {}", e),
-        };
+        let mut data_lock = self.data.write_or_bail("pg activity collector")?;
 
         // clear all previous states
         data_lock.active.clear();
@@ -713,15 +709,7 @@ impl PG for PGActivityCollector {
     }
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGActivityCollector> {
-    match PGActivityCollector::new(dbi) {
-        Ok(result) => Some(result),
-        Err(e) => {
-            error!("error when create pg activity collector: {}", e);
-            None
-        }
-    }
-}
+crate::collector_new!(dbi, "pg activity", PGActivityCollector);
 
 impl Collector for PGActivityCollector {
     fn desc(&self) -> Vec<&Desc> {
@@ -732,13 +720,8 @@ impl Collector for PGActivityCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(9);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg activity collect: can't acquire read lock: {}", e);
-                // return empty mfs
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg activity collect") else {
+            return mfs;
         };
 
         let states: HashMap<&str, &HashMap<String, i64>> = HashMap::from([

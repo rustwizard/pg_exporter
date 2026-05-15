@@ -1,14 +1,12 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
 use prometheus::{Counter, CounterVec, IntCounter, IntGauge};
-use tracing::error;
 
-use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V14, POSTGRES_V18};
+use crate::collectors::{PG, POSTGRES_V10, POSTGRES_V14, POSTGRES_V18, RwLockExt};
 use crate::instance;
 
 const POSTGRES_WAL_QUERY96: &str =
@@ -74,15 +72,7 @@ pub struct PGWALCollector {
     stats_reset_time: IntGauge,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGWALCollector> {
-    match PGWALCollector::new(dbi) {
-        Ok(result) => Some(result),
-        Err(e) => {
-            error!("error when create pg wal collector: {}", e);
-            None
-        }
-    }
-}
+crate::collector_new!(dbi, "pg wal", PGWALCollector);
 
 impl PGWALCollector {
     pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGWALCollector> {
@@ -238,13 +228,8 @@ impl Collector for PGWALCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(11);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg wal collect: can't acquire read lock: {}", e);
-                // return empty mfs
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg wal collect") else {
+            return mfs;
         };
 
         self.recovery_info.set(data_lock.recovery as i64);
@@ -305,10 +290,7 @@ impl PG for PGWALCollector {
         };
 
         if let Some(pg_wal_stats) = maybe_pg_wal_stats {
-            let mut data_lock = match self.data.write() {
-                Ok(data_lock) => data_lock,
-                Err(e) => bail!("pg wal collector: can't acquire write lock. {}", e),
-            };
+            let mut data_lock = self.data.write_or_bail("pg wal collector")?;
 
             *data_lock = pg_wal_stats;
         }

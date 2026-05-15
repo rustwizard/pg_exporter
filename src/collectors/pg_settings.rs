@@ -1,6 +1,5 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
 use async_trait::async_trait;
 
 use prometheus::GaugeVec;
@@ -8,7 +7,7 @@ use prometheus::core::{Collector, Desc, Opts};
 use prometheus::proto::MetricFamily;
 use tracing::error;
 
-use crate::collectors::PG;
+use crate::collectors::{PG, RwLockExt};
 use crate::instance;
 
 const QUERY: &str = "SELECT name, COALESCE(setting, '') AS setting, COALESCE(unit, '') AS unit, vartype
@@ -40,15 +39,7 @@ pub struct PGSettingsCollector {
     settings_info: GaugeVec,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGSettingsCollector> {
-    match PGSettingsCollector::new(dbi) {
-        Ok(result) => Some(result),
-        Err(e) => {
-            error!("error when create pg settings collector: {}", e);
-            None
-        }
-    }
-}
+crate::collector_new!(dbi, "pg settings", PGSettingsCollector);
 
 impl PGSettingsCollector {
     fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGSettingsCollector> {
@@ -378,12 +369,8 @@ impl Collector for PGSettingsCollector {
     fn collect(&self) -> Vec<MetricFamily> {
         let mut mfs = Vec::with_capacity(1);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg settings collect: can't acquire read lock: {}", e);
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg settings collect") else {
+            return mfs;
         };
 
         self.settings_info.reset();
@@ -414,10 +401,7 @@ impl PG for PGSettingsCollector {
 
         let settings: Vec<Setting> = rows.into_iter().filter_map(parse_row).collect();
 
-        let mut data_lock = match self.data.write() {
-            Ok(lock) => lock,
-            Err(e) => bail!("pg settings collector: can't acquire write lock. {}", e),
-        };
+        let mut data_lock = self.data.write_or_bail("pg settings collector")?;
 
         *data_lock = settings;
 

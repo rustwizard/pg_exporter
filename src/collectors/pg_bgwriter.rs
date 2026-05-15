@@ -1,17 +1,15 @@
 use std::sync::{Arc, RwLock};
 
-use anyhow::bail;
 use async_trait::async_trait;
 use prometheus::proto;
 use prometheus::{
     Counter, IntCounter, IntCounterVec, Opts,
     core::{Collector, Desc},
 };
-use tracing::error;
 
 use crate::{collectors::POSTGRES_V17, instance};
 
-use super::PG;
+use super::{PG, RwLockExt};
 
 const BGWRITER_QUERY16: &str = "SELECT
 		checkpoints_timed, checkpoints_req, checkpoint_write_time, checkpoint_sync_time,
@@ -96,15 +94,7 @@ pub struct PGBGwriterCollector {
     checkpoint_restartpointsdone: IntCounter,
 }
 
-pub fn new(dbi: Arc<instance::PostgresDB>) -> Option<PGBGwriterCollector> {
-    match PGBGwriterCollector::new(dbi) {
-        Ok(result) => Some(result),
-        Err(e) => {
-            error!("error when create pg bgwriter collector: {}", e);
-            None
-        }
-    }
-}
+crate::collector_new!(dbi, "pg bgwriter", PGBGwriterCollector);
 
 impl PGBGwriterCollector {
     pub fn new(dbi: Arc<instance::PostgresDB>) -> anyhow::Result<PGBGwriterCollector> {
@@ -288,13 +278,8 @@ impl Collector for PGBGwriterCollector {
         // collect MetricFamilies.
         let mut mfs = Vec::with_capacity(13);
 
-        let data_lock = match self.data.read() {
-            Ok(lock) => lock,
-            Err(e) => {
-                error!("pg bgwriter collect: can't acquire read lock: {}", e);
-                // return empty mfs
-                return mfs;
-            }
+        let Some(data_lock) = self.data.read_or_log("pg bgwriter collect") else {
+            return mfs;
         };
 
         self.alloc_bytes.inc_by(data_lock.buffers_alloc as u64);
@@ -379,10 +364,7 @@ impl PG for PGBGwriterCollector {
         };
 
         if let Some(bgwr_stats) = maybe_bgwr_stats {
-            let mut data_lock = match self.data.write() {
-                Ok(data_lock) => data_lock,
-                Err(e) => bail!("pg bgwriter: can't acquire write lock. {}", e),
-            };
+            let mut data_lock = self.data.write_or_bail("pg bgwriter collector")?;
 
             data_lock.bgwr_stats_age_seconds = bgwr_stats.bgwr_stats_age_seconds;
             data_lock.buffers_alloc = bgwr_stats.buffers_alloc;
