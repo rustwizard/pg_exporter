@@ -55,11 +55,14 @@ async fn main() -> std::io::Result<()> {
 
     match args.command {
         Some(Commands::ListCollectors) => {
-            println!("{:<25} {:<15} NOTES", "COLLECTOR", "MIN_PG_VERSION");
+            println!(
+                "{:<25} {:<15} {:<55} NOTES",
+                "COLLECTOR", "MIN_PG_VERSION", "DESCRIPTION"
+            );
             for info in collectors::COLLECTOR_INFO {
                 println!(
-                    "{:<25} {:<15} {}",
-                    info.name, info.min_pg_version, info.notes
+                    "{:<25} {:<15} {:<55} {}",
+                    info.name, info.min_pg_version, info.description, info.notes
                 );
             }
             exit(0);

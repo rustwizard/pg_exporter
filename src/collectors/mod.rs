@@ -107,6 +107,7 @@ pub const POSTGRES_VMIN_NUM: i64 = POSTGRES_V95;
 pub struct CollectorInfo {
     pub name: &'static str,
     pub min_pg_version: &'static str,
+    pub description: &'static str,
     pub notes: &'static str,
 }
 
@@ -114,86 +115,103 @@ pub const COLLECTOR_INFO: &[CollectorInfo] = &[
     CollectorInfo {
         name: "pg_activity",
         min_pg_version: "9.5",
+        description: "Active queries and sessions from pg_stat_activity",
         notes: "",
     },
     CollectorInfo {
         name: "pg_archiver",
         min_pg_version: "9.5",
+        description: "WAL archiving stats from pg_stat_archiver",
         notes: "",
     },
     CollectorInfo {
         name: "pg_bgwriter",
         min_pg_version: "9.5",
+        description: "Background writer and checkpointer stats from pg_stat_bgwriter",
         notes: "",
     },
     CollectorInfo {
         name: "pg_conflict",
         min_pg_version: "9.5",
+        description: "Replication conflict stats from pg_stat_database_conflicts",
         notes: "",
     },
     CollectorInfo {
         name: "pg_database",
         min_pg_version: "9.5",
+        description: "Per-database stats from pg_stat_database",
         notes: "",
     },
     CollectorInfo {
         name: "pg_indexes",
         min_pg_version: "9.5",
+        description: "Top indexes by usage and size from pg_stat_user_indexes",
         notes: "",
     },
     CollectorInfo {
         name: "pg_locks",
         min_pg_version: "9.5",
+        description: "Lock counts by mode from pg_locks",
         notes: "",
     },
     CollectorInfo {
         name: "pg_postmaster",
         min_pg_version: "9.5",
+        description: "Postmaster start time from pg_postmaster_start_time()",
         notes: "",
     },
     CollectorInfo {
         name: "pg_replication",
         min_pg_version: "9.6",
+        description: "Replication lag and state from pg_stat_replication",
         notes: "",
     },
     CollectorInfo {
         name: "pg_replication_slots",
         min_pg_version: "9.6",
+        description: "Replication slot lag and state from pg_replication_slots",
         notes: "",
     },
     CollectorInfo {
         name: "pg_settings",
         min_pg_version: "9.5",
+        description: "Selected GUC settings exposed as metrics from pg_settings",
         notes: "",
     },
     CollectorInfo {
         name: "pg_stat_io",
         min_pg_version: "16",
+        description: "I/O operation counts and timing from pg_stat_io",
         notes: "",
     },
     CollectorInfo {
         name: "pg_stat_slru",
         min_pg_version: "13",
+        description: "SLRU cache hit/miss stats from pg_stat_slru",
         notes: "",
     },
     CollectorInfo {
         name: "pg_statements",
         min_pg_version: "9.5",
+        description: "Top queries by time and calls from pg_stat_statements",
         notes: "requires pg_stat_statements extension",
     },
     CollectorInfo {
         name: "pg_storage",
         min_pg_version: "10",
+        description: "Data directory size and tablespace sizes",
         notes: "",
     },
     CollectorInfo {
         name: "pg_tables",
         min_pg_version: "9.5",
+        description: "Top tables by size and activity from pg_stat_user_tables",
         notes: "",
     },
     CollectorInfo {
         name: "pg_wal",
         min_pg_version: "9.5",
+        description: "WAL generation rate and file counts from pg_stat_wal",
         notes: "",
     },
 ];
