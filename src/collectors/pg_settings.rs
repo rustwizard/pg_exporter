@@ -216,6 +216,7 @@ impl PG for PGSettingsCollector {
     }
 }
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
