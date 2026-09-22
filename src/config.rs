@@ -25,6 +25,12 @@ pub struct PGEConfig {
     /// returns whatever data was collected up to that point and logs a warning.
     /// Default: 30 000 ms (30 s).
     pub scrape_timeout_ms: Option<u64>,
+    /// Minimum interval in milliseconds between two real collector updates.
+    /// Requests that arrive within this window (since the last update) are served
+    /// from the in-memory snapshot without touching the database. Concurrent
+    /// requests are always coalesced into a single update pass.
+    /// Default: 0 (disabled — only in-flight scrapes are coalesced).
+    pub min_scrape_interval_ms: Option<u64>,
     pub log_level: Option<String>,
     pub pool_max_connections: Option<u32>,
     pub pool_acquire_timeout_secs: Option<u64>,
@@ -214,6 +220,24 @@ endpoint: /metrics
         assert_eq!(ec.config.listen_addr.as_deref(), Some("0.0.0.0:8080"));
         assert_eq!(ec.config.endpoint.as_deref(), Some("/metrics"));
         assert!(ec.config.instances.is_none());
+        assert!(ec.config.min_scrape_interval_ms.is_none());
+    }
+
+    #[test]
+    fn load_config_with_min_scrape_interval() {
+        let yaml = r#"
+listen_addr: "0.0.0.0:9090"
+endpoint: /metrics
+min_scrape_interval_ms: 5000
+instances:
+  "pg:5432":
+    dsn: "postgres://u:p@localhost/db"
+    const_labels: {}
+"#;
+        let path = write_tmp_config("pge_test_min_scrape.yml", yaml);
+        let ec = ExporterConfig::load(&path).expect("should load");
+
+        assert_eq!(ec.config.min_scrape_interval_ms, Some(5000));
     }
 
     #[test]

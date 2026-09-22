@@ -29,6 +29,7 @@ GRANT pg_monitor TO postgres_exporter;
 listen_addr: 0.0.0.0:61488   # host:port for the HTTP server
 endpoint: /metrics            # path that Prometheus scrapes
 # scrape_timeout_ms: 30000   # max time per scrape; partial metrics returned on timeout
+# min_scrape_interval_ms: 0  # reuse the last snapshot for this long; 0 = only coalesce concurrent scrapes
 
 # Global pool defaults — applied to all instances unless overridden per-instance
 # pool_max_connections: 10
@@ -61,6 +62,7 @@ instances:
 | `listen_addr` | Host and port for the HTTP server | — |
 | `endpoint` | HTTP path that exposes Prometheus metrics | `/metrics` |
 | `scrape_timeout_ms` | Max time in ms to wait for all collectors on each scrape; partial metrics are returned on timeout | `30000` |
+| `min_scrape_interval_ms` | Minimum interval in ms between two real collector updates. Requests within this window are served from the last in-memory snapshot; concurrent scrapes are always coalesced into a single update pass | `0` |
 | `instances.<name>.dsn` | PostgreSQL connection string | required |
 | `instances.<name>.const_labels` | Labels added to all metrics for this instance | `{}` |
 | `instances.<name>.exclude_db_names` | Databases to skip in per-DB collectors | `[]` |
