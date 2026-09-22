@@ -14,13 +14,13 @@ use std::{io, process::exit};
 use actix_web::{
     App, HttpRequest, HttpResponse, HttpServer, Responder, get, http::header::ContentType, web,
 };
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use prometheus::Encoder;
 use prometheus::core::Collector;
 use tracing::{error, info};
 
-use crate::app::PGEApp;
+use crate::app::{PGEApp, Refresh};
 use crate::config::{ExporterConfig, Overrides};
 use crate::error::MetricsError;
 use pg_exporter::cli::{self, Commands};
@@ -168,45 +168,14 @@ async fn metrics(req: HttpRequest, data: web::Data<PGEApp>) -> Result<HttpRespon
     }
 
     let timeout = Duration::from_millis(data.scrape_timeout_ms);
+    let request_started = Instant::now();
 
-    let tasks: Vec<_> = data
-        .collectors
-        .clone()
-        .into_iter()
-        .map(|entry| {
-            let duration = data
-                .scrape_duration
-                .with_label_values(&[entry.name.as_str(), entry.instance.as_str()]);
-            let errors = data
-                .scrape_errors
-                .with_label_values(&[entry.name.as_str(), entry.instance.as_str()]);
-            let name = entry.name.clone();
-            actix_web::rt::spawn(async move {
-                let start = std::time::Instant::now();
-                if let Err(err) = entry.collector.update().await {
-                    errors.inc();
-                    error!("collector {name} update failed: {err}");
-                }
-                duration.observe(start.elapsed().as_secs_f64());
-            })
-        })
-        .collect();
-
-    match actix_web::rt::time::timeout(timeout, async {
-        for task in tasks {
-            task.await?;
-        }
-        Ok::<(), MetricsError>(())
-    })
-    .await
-    {
-        Ok(result) => result?,
-        Err(_elapsed) => {
-            tracing::warn!(
-                "scrape timeout ({} ms) exceeded, returning partial metrics",
-                data.scrape_timeout_ms
-            );
-        }
+    if data.refresh(request_started, timeout).await == Refresh::Cached {
+        data.scrape_cached.inc();
+        tracing::debug!(
+            "serving /metrics from cached snapshot (min_scrape_interval_ms={})",
+            data.min_scrape_interval_ms
+        );
     }
 
     let process_metrics = prometheus::gather();
@@ -235,6 +204,10 @@ async fn pgexporter(command: Option<Commands>, mut ec: ExporterConfig) -> anyhow
                 .config
                 .scrape_timeout_ms
                 .unwrap_or(app::DEFAULT_SCRAPE_TIMEOUT_MS);
+            app.min_scrape_interval_ms = ec
+                .config
+                .min_scrape_interval_ms
+                .unwrap_or(app::DEFAULT_MIN_SCRAPE_INTERVAL_MS);
 
             for (instance, config) in ec.config.instances.take().unwrap_or_default() {
                 info!("starting connection for instance: {instance}");

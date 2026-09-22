@@ -25,6 +25,7 @@ rust_decimal = "1.38.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["sync"] }
 
 
 [dev-dependencies]
