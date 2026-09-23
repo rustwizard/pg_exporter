@@ -30,6 +30,7 @@ listen_addr: 0.0.0.0:61488   # host:port for the HTTP server
 endpoint: /metrics            # path that Prometheus scrapes
 # scrape_timeout_ms: 30000   # max time per scrape; partial metrics returned on timeout
 # min_scrape_interval_ms: 0  # reuse the last snapshot for this long; 0 = only coalesce concurrent scrapes
+# statement_timeout_ms: 30000 # per-statement timeout; defaults to scrape_timeout_ms, 0 disables
 
 # Global pool defaults — applied to all instances unless overridden per-instance
 # pool_max_connections: 10
@@ -55,6 +56,7 @@ instances:
     #   - pg_statements       # e.g. no pg_stat_statements on replica
     #   - pg_stat_io          # e.g. PG 15, not supported
     # pool_max_connections: 5 # override global default for this instance only
+    # statement_timeout_ms: 30000 # override per-statement timeout for this instance only
 ```
 
 | Field | Description | Default |
@@ -63,6 +65,7 @@ instances:
 | `endpoint` | HTTP path that exposes Prometheus metrics | `/metrics` |
 | `scrape_timeout_ms` | Max time in ms to wait for all collectors on each scrape; partial metrics are returned on timeout | `30000` |
 | `min_scrape_interval_ms` | Minimum interval in ms between two real collector updates. Requests within this window are served from the last in-memory snapshot; concurrent scrapes are always coalesced into a single update pass | `0` |
+| `statement_timeout_ms` | Per-statement timeout in ms applied to every connection (server-side cancel of hung queries). `0` disables it | `scrape_timeout_ms` |
 | `instances.<name>.dsn` | PostgreSQL connection string | required |
 | `instances.<name>.const_labels` | Labels added to all metrics for this instance | `{}` |
 | `instances.<name>.exclude_db_names` | Databases to skip in per-DB collectors | `[]` |
@@ -75,6 +78,7 @@ instances:
 | `instances.<name>.pool_acquire_timeout_secs` | Seconds to wait for a free connection (overrides global) | `5` |
 | `instances.<name>.pool_idle_timeout_secs` | Seconds before idle connection is closed (overrides global) | `300` |
 | `instances.<name>.pool_max_lifetime_secs` | Max lifetime of a connection in seconds (overrides global) | `1800` |
+| `instances.<name>.statement_timeout_ms` | Per-statement timeout in ms (overrides global); `0` disables it | `scrape_timeout_ms` |
 | `pool_max_connections` | Global default max pool connections for all instances | `10` |
 | `pool_acquire_timeout_secs` | Global default acquire timeout in seconds | `5` |
 | `pool_idle_timeout_secs` | Global default idle timeout in seconds | `300` |

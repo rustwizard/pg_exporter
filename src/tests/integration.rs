@@ -1347,3 +1347,58 @@ mod lazy_reconnect_tests {
         Ok(())
     }
 }
+
+/// Per-connection `application_name` and `statement_timeout`, both applied via
+/// `PgPoolOptions::after_connect`.
+mod statement_timeout_tests {
+    use std::time::{Duration, Instant};
+
+    use crate::common;
+
+    async fn setting(
+        pgi: &pg_exporter::instance::PostgresDB,
+        name: &str,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let value: String = sqlx::query_scalar("SELECT setting FROM pg_settings WHERE name = $1")
+            .bind(name)
+            .fetch_one(&pgi.db)
+            .await?;
+        Ok(value)
+    }
+
+    #[tokio::test]
+    async fn test_application_name_and_statement_timeout_applied()
+    -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance_with_statement_timeout(1234).await?;
+
+        assert_eq!(setting(&pgi, "application_name").await?, "pg_exporter");
+        assert_eq!(setting(&pgi, "statement_timeout").await?, "1234");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_hung_query_is_cancelled_by_statement_timeout()
+    -> Result<(), Box<dyn std::error::Error>> {
+        common::setup_tracing();
+
+        let (_container, pgi) = common::create_test_instance_with_statement_timeout(200).await?;
+
+        let started = Instant::now();
+        let result = sqlx::query("SELECT pg_sleep(5)").execute(&pgi.db).await;
+        let elapsed = started.elapsed();
+
+        assert!(
+            result.is_err(),
+            "pg_sleep(5) must be cancelled by the 200 ms statement_timeout"
+        );
+        assert!(
+            elapsed < Duration::from_secs(3),
+            "query must be cancelled quickly, took {elapsed:?}"
+        );
+
+        Ok(())
+    }
+}

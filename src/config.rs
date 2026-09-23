@@ -36,6 +36,9 @@ pub struct PGEConfig {
     pub pool_acquire_timeout_secs: Option<u64>,
     pub pool_idle_timeout_secs: Option<u64>,
     pub pool_max_lifetime_secs: Option<u64>,
+    /// Per-statement timeout in milliseconds, applied to every instance unless overridden.
+    /// Defaults to `scrape_timeout_ms`; `0` disables the timeout.
+    pub statement_timeout_ms: Option<u64>,
     pub instances: Option<HashMap<String, instance::Config>>,
 }
 
@@ -84,6 +87,7 @@ impl PGEConfig {
             .or(self.pool_acquire_timeout_secs);
         cfg.pool_idle_timeout_secs = cfg.pool_idle_timeout_secs.or(self.pool_idle_timeout_secs);
         cfg.pool_max_lifetime_secs = cfg.pool_max_lifetime_secs.or(self.pool_max_lifetime_secs);
+        cfg.statement_timeout_ms = cfg.statement_timeout_ms.or(self.statement_timeout_ms);
         cfg
     }
 
@@ -221,6 +225,7 @@ endpoint: /metrics
         assert_eq!(ec.config.endpoint.as_deref(), Some("/metrics"));
         assert!(ec.config.instances.is_none());
         assert!(ec.config.min_scrape_interval_ms.is_none());
+        assert!(ec.config.statement_timeout_ms.is_none());
     }
 
     #[test]
@@ -238,6 +243,51 @@ instances:
         let ec = ExporterConfig::load(&path).expect("should load");
 
         assert_eq!(ec.config.min_scrape_interval_ms, Some(5000));
+    }
+
+    #[test]
+    fn load_config_with_statement_timeout() {
+        let yaml = r#"
+listen_addr: "0.0.0.0:9090"
+endpoint: /metrics
+statement_timeout_ms: 5000
+instances:
+  "pg:5432":
+    dsn: "postgres://u:p@localhost/db"
+    const_labels: {}
+    statement_timeout_ms: 1000
+"#;
+        let path = write_tmp_config("pge_test_statement_timeout.yml", yaml);
+        let ec = ExporterConfig::load(&path).expect("should load");
+
+        assert_eq!(ec.config.statement_timeout_ms, Some(5000));
+        let inst = ec
+            .config
+            .instances
+            .as_ref()
+            .and_then(|m| m.get("pg:5432"))
+            .expect("instance should exist");
+        assert_eq!(inst.statement_timeout_ms, Some(1000));
+    }
+
+    #[test]
+    fn merge_defaults_cascades_statement_timeout() {
+        let global = PGEConfig {
+            statement_timeout_ms: Some(7000),
+            ..Default::default()
+        };
+
+        // Global default applies when the instance does not set one.
+        let merged = global.merge_pool_defaults(instance::Config::default());
+        assert_eq!(merged.statement_timeout_ms, Some(7000));
+
+        // Per-instance value wins over the global default.
+        let per_instance = instance::Config {
+            statement_timeout_ms: Some(250),
+            ..Default::default()
+        };
+        let merged = global.merge_pool_defaults(per_instance);
+        assert_eq!(merged.statement_timeout_ms, Some(250));
     }
 
     #[test]

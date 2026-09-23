@@ -220,7 +220,15 @@ async fn pgexporter(command: Option<Commands>, mut ec: ExporterConfig) -> anyhow
                     .cloned()
                     .collect();
 
-                let pgi = match instance::new(&ec.config.merge_pool_defaults(config)).await {
+                let mut instance_cfg = ec.config.merge_pool_defaults(config);
+                // A single query must never outlive the scrape that triggered it.
+                instance_cfg.statement_timeout_ms = Some(
+                    instance_cfg
+                        .statement_timeout_ms
+                        .unwrap_or(app.scrape_timeout_ms),
+                );
+
+                let pgi = match instance::new(&instance_cfg).await {
                     Ok(p) => p,
                     Err(e) => {
                         error!("failed to initialize instance {instance}: {e}");
