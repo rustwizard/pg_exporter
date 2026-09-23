@@ -20,7 +20,7 @@
 (конкурентные скрейпы переиспользуют один проход) и TTL-кэшем по `min_scrape_interval_ms`
 (по умолчанию `0` — только coalescing). Добавлена метрика `pg_exporter_scrape_cached_total`.
 
-### 2. Таймаут на отдельный запрос, а не только на скрейп целиком
+### 2. Таймаут на отдельный запрос, а не только на скрейп целиком — ✅ выполнено
 
 `scrape_timeout_ms` ограничивает скрейп в сумме (`src/main.rs:195`), но одиночный зависший запрос
 продолжает жить в пуле: `actix_web::rt::time::timeout` бросает задачи, а не отменяет SQL.
@@ -30,6 +30,12 @@
 `PgPoolOptions`, `src/instance/mod.rs:58`) и/или оборачивать каждый `fetch_all` в
 `tokio::time::timeout`. Заодно стоит задавать `application_name=pg_exporter` — сейчас экспортёр
 не отличим в `pg_stat_activity`, хотя сам же собирает эту вьюху.
+
+Реализовано в ветке `feat/statement-timeout`: `after_connect` на каждом соединении выставляет
+`application_name=pg_exporter` и `statement_timeout`; новый ключ `statement_timeout_ms`
+(глобальный и per-instance, по умолчанию `scrape_timeout_ms`, `0` отключает). Выбран именно
+серверный `statement_timeout`, а не `tokio::time::timeout`: отмена на стороне PostgreSQL
+освобождает соединение, тогда как клиентский таймаут не прерывает выполняющийся SQL.
 
 ### 3. Опрос по расписанию вместо опроса «на запрос»
 

@@ -133,3 +133,22 @@ pub async fn create_test_instance_with_exclusions(
     let pgi = instance::new(&cfg).await?;
     Ok((container, Arc::new(pgi)))
 }
+
+/// Like [`create_test_instance`] but applies an explicit per-statement timeout.
+pub async fn create_test_instance_with_statement_timeout(
+    statement_timeout_ms: u64,
+) -> Result<(ContainerAsync<Postgres>, Arc<instance::PostgresDB>), Box<dyn std::error::Error>> {
+    let container: ContainerAsync<Postgres> = Postgres::default().with_tag("17").start().await?;
+    let host_port = container.get_host_port_ipv4(5432).await?;
+    let dsn = format!(
+        "postgresql://postgres:postgres@localhost:{}/postgres",
+        host_port
+    );
+    let cfg = instance::Config {
+        dsn,
+        statement_timeout_ms: Some(statement_timeout_ms),
+        ..Default::default()
+    };
+    let pgi = instance::new(&cfg).await?;
+    Ok((container, Arc::new(pgi)))
+}

@@ -3,6 +3,7 @@ endpoint: /metrics
 # log_level: info             # trace, debug, info, warn, error (default: info; overridden by RUST_LOG)
 # scrape_timeout_ms: 30000   # max time (ms) to wait for all collectors per scrape; default 30000
 # min_scrape_interval_ms: 0  # reuse the last snapshot for this long (ms); default 0 (coalesce concurrent scrapes only)
+# statement_timeout_ms: 30000 # per-statement timeout (ms) applied to every connection; defaults to scrape_timeout_ms
 
 # Global pool defaults — applied to every instance unless overridden per-instance.
 # pool_max_connections: 10

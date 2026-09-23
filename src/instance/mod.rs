@@ -38,6 +38,10 @@ pub const DEFAULT_POOL_ACQUIRE_TIMEOUT_SECS: u64 = 5;
 pub const DEFAULT_POOL_IDLE_TIMEOUT_SECS: u64 = 300;
 pub const DEFAULT_POOL_MAX_LIFETIME_SECS: u64 = 1800;
 
+/// Value of `application_name` set on every pooled connection, so the exporter is
+/// identifiable in `pg_stat_activity`.
+pub const APPLICATION_NAME: &str = "pg_exporter";
+
 #[derive(Debug, Default, Clone, serde_derive::Deserialize, PartialEq, Eq)]
 pub struct Config {
     pub dsn: String,
@@ -51,11 +55,34 @@ pub struct Config {
     pub pool_acquire_timeout_secs: Option<u64>,
     pub pool_idle_timeout_secs: Option<u64>,
     pub pool_max_lifetime_secs: Option<u64>,
+    /// Per-statement timeout in milliseconds applied to every pooled connection.
+    /// A single hung query is cancelled server-side instead of lingering in the pool.
+    /// `0` (or `None`) disables the timeout and leaves the server default in place.
+    /// The exporter resolves `None` to `scrape_timeout_ms` before calling [`new`].
+    pub statement_timeout_ms: Option<u64>,
     pub disable_collectors: Option<Vec<String>>,
 }
 
 pub async fn new(instance_cfg: &Config) -> anyhow::Result<PostgresDB> {
+    let statement_timeout_ms = instance_cfg.statement_timeout_ms.unwrap_or_default();
+
     let pool = PgPoolOptions::new()
+        .after_connect(move |conn, _meta| {
+            Box::pin(async move {
+                // One round-trip per new connection: label it and bound every
+                // statement so a hung query cannot occupy a pool slot forever.
+                let timeout = format!("{statement_timeout_ms}ms");
+                sqlx::query(
+                    "SELECT set_config('application_name', $1, false),
+                            set_config('statement_timeout', $2, false)",
+                )
+                .bind(APPLICATION_NAME)
+                .bind(timeout.as_str())
+                .execute(conn)
+                .await?;
+                Ok(())
+            })
+        })
         .max_connections(
             instance_cfg
                 .pool_max_connections
